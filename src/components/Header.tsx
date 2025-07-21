@@ -4,22 +4,19 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Bell, LogOut, Settings, User } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-
 export const Header = () => {
-  const { user, signOut } = useAuth();
-
+  const {
+    user,
+    signOut
+  } = useAuth();
   const getInitials = (email: string) => {
     return email.charAt(0).toUpperCase();
   };
-
-  return (
-    <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-6">
+  return <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-6">
       <div className="flex items-center gap-4">
         <SidebarTrigger className="lg:hidden" />
         <div className="hidden lg:block">
-          <h1 className="text-xl font-semibold text-foreground">
-            Beauty Hub
-          </h1>
+          <h1 className="text-xl font-semibold text-foreground">Agendari</h1>
         </div>
       </div>
 
@@ -68,6 +65,5 @@ export const Header = () => {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-    </header>
-  );
+    </header>;
 };
