@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Settings, User, Building, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -27,7 +27,6 @@ type ProfileFormData = z.infer<typeof profileSchema>;
 const Configuracoes = () => {
   const { user, signOut } = useAuth();
   const queryClient = useQueryClient();
-  const [isLoading, setIsLoading] = useState(false);
 
   const { data: profile } = useQuery({
     queryKey: ['user-profile', user?.id],
@@ -81,7 +80,12 @@ const Configuracoes = () => {
         .from('profiles')
         .upsert({
           id: user.id,
-          ...data,
+          user_id: user.id,
+          business_name: data.business_name,
+          full_name: data.full_name,
+          phone: data.phone,
+          address: data.address || null,
+          about: data.about || null,
           updated_at: new Date().toISOString(),
         });
 
