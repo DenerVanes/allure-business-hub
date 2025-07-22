@@ -24,6 +24,23 @@ const profileSchema = z.object({
 
 type ProfileFormData = z.infer<typeof profileSchema>;
 
+// Extend the profile type to include the new fields
+interface ExtendedProfile {
+  id: string;
+  user_id: string;
+  business_name: string;
+  phone?: string;
+  address?: string;
+  full_name?: string;
+  about?: string;
+  instagram?: string;
+  business_hours?: any;
+  slug?: string;
+  agendamento_online_ativo?: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 const Configuracoes = () => {
   const { user, signOut } = useAuth();
   const queryClient = useQueryClient();
@@ -40,7 +57,7 @@ const Configuracoes = () => {
         .single();
       
       if (error && error.code !== 'PGRST116') throw error;
-      return data;
+      return data as ExtendedProfile;
     },
     enabled: !!user?.id
   });

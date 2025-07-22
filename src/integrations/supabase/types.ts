@@ -201,11 +201,13 @@ export type Database = {
       }
       profiles: {
         Row: {
+          about: string | null
           address: string | null
           agendamento_online_ativo: boolean | null
           business_hours: Json | null
           business_name: string
           created_at: string
+          full_name: string | null
           id: string
           instagram: string | null
           phone: string | null
@@ -214,11 +216,13 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          about?: string | null
           address?: string | null
           agendamento_online_ativo?: boolean | null
           business_hours?: Json | null
           business_name: string
           created_at?: string
+          full_name?: string | null
           id?: string
           instagram?: string | null
           phone?: string | null
@@ -227,11 +231,13 @@ export type Database = {
           user_id: string
         }
         Update: {
+          about?: string | null
           address?: string | null
           agendamento_online_ativo?: boolean | null
           business_hours?: Json | null
           business_name?: string
           created_at?: string
+          full_name?: string | null
           id?: string
           instagram?: string | null
           phone?: string | null
