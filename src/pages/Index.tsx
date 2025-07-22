@@ -1,5 +1,11 @@
+
+import { useState } from 'react';
 import { MetricCard } from '@/components/MetricCard';
 import { TodaySchedule } from '@/components/TodaySchedule';
+import { NewAppointmentModal } from '@/components/NewAppointmentModal';
+import { NewServiceModal } from '@/components/NewServiceModal';
+import { NewClientModal } from '@/components/NewClientModal';
+import { FinanceModal } from '@/components/FinanceModal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -14,6 +20,13 @@ import {
 } from 'lucide-react';
 
 const Index = () => {
+  // Estados para controlar os modais
+  const [showNewAppointment, setShowNewAppointment] = useState(false);
+  const [showNewService, setShowNewService] = useState(false);
+  const [showNewClient, setShowNewClient] = useState(false);
+  const [showIncomeModal, setShowIncomeModal] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+
   // Mock data - em produção virá do banco de dados
   const monthlyRevenue = 'R$ 12.450,00';
   const monthlyAppointments = 89;
@@ -33,7 +46,11 @@ const Index = () => {
             Aqui está um resumo do seu negócio hoje
           </p>
         </div>
-        <Button variant="default" className="gap-2">
+        <Button 
+          variant="default" 
+          className="gap-2"
+          onClick={() => setShowNewAppointment(true)}
+        >
           <Plus className="h-4 w-4" />
           Novo Agendamento
         </Button>
@@ -98,22 +115,38 @@ const Index = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button variant="elegant" className="w-full justify-start gap-3">
+            <Button 
+              variant="elegant" 
+              className="w-full justify-start gap-3"
+              onClick={() => setShowNewAppointment(true)}
+            >
               <Calendar className="h-4 w-4" />
               Novo Agendamento
             </Button>
             
-            <Button variant="outline" className="w-full justify-start gap-3">
+            <Button 
+              variant="outline" 
+              className="w-full justify-start gap-3"
+              onClick={() => setShowNewClient(true)}
+            >
               <Users className="h-4 w-4" />
               Cadastrar Cliente
             </Button>
             
-            <Button variant="outline" className="w-full justify-start gap-3">
+            <Button 
+              variant="outline" 
+              className="w-full justify-start gap-3"
+              onClick={() => setShowNewService(true)}
+            >
               <Plus className="h-4 w-4" />
               Adicionar Serviço
             </Button>
             
-            <Button variant="outline" className="w-full justify-start gap-3">
+            <Button 
+              variant="outline" 
+              className="w-full justify-start gap-3"
+              onClick={() => setShowIncomeModal(true)}
+            >
               <DollarSign className="h-4 w-4" />
               Registrar Receita
             </Button>
@@ -187,6 +220,34 @@ const Index = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Modais */}
+      <NewAppointmentModal
+        open={showNewAppointment}
+        onOpenChange={setShowNewAppointment}
+      />
+
+      <NewServiceModal
+        open={showNewService}
+        onOpenChange={setShowNewService}
+      />
+
+      <NewClientModal
+        open={showNewClient}
+        onOpenChange={setShowNewClient}
+      />
+
+      <FinanceModal
+        open={showIncomeModal}
+        onOpenChange={setShowIncomeModal}
+        type="income"
+      />
+
+      <FinanceModal
+        open={showExpenseModal}
+        onOpenChange={setShowExpenseModal}
+        type="expense"
+      />
     </div>
   );
 };
