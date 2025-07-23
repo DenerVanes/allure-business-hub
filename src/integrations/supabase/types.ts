@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      appointment_services: {
+        Row: {
+          appointment_id: string
+          created_at: string
+          id: string
+          service_id: string
+        }
+        Insert: {
+          appointment_id: string
+          created_at?: string
+          id?: string
+          service_id: string
+        }
+        Update: {
+          appointment_id?: string
+          created_at?: string
+          id?: string
+          service_id?: string
+        }
+        Relationships: []
+      }
       appointments: {
         Row: {
           appointment_date: string
@@ -21,11 +42,13 @@ export type Database = {
           client_id: string | null
           client_name: string
           client_phone: string
+          collaborator_id: string | null
           created_at: string
           id: string
           observations: string | null
           service_id: string
           status: string
+          total_amount: number | null
           updated_at: string
           user_id: string
         }
@@ -35,11 +58,13 @@ export type Database = {
           client_id?: string | null
           client_name: string
           client_phone: string
+          collaborator_id?: string | null
           created_at?: string
           id?: string
           observations?: string | null
           service_id: string
           status?: string
+          total_amount?: number | null
           updated_at?: string
           user_id: string
         }
@@ -49,11 +74,13 @@ export type Database = {
           client_id?: string | null
           client_name?: string
           client_phone?: string
+          collaborator_id?: string | null
           created_at?: string
           id?: string
           observations?: string | null
           service_id?: string
           status?: string
+          total_amount?: number | null
           updated_at?: string
           user_id?: string
         }
@@ -113,6 +140,39 @@ export type Database = {
         }
         Relationships: []
       }
+      collaborators: {
+        Row: {
+          active: boolean
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       financial_transactions: {
         Row: {
           amount: number
@@ -163,6 +223,7 @@ export type Database = {
       products: {
         Row: {
           brand: string | null
+          category: string | null
           cost_price: number | null
           created_at: string
           description: string | null
@@ -175,6 +236,7 @@ export type Database = {
         }
         Insert: {
           brand?: string | null
+          category?: string | null
           cost_price?: number | null
           created_at?: string
           description?: string | null
@@ -187,6 +249,7 @@ export type Database = {
         }
         Update: {
           brand?: string | null
+          category?: string | null
           cost_price?: number | null
           created_at?: string
           description?: string | null

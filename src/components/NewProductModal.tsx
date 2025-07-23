@@ -2,10 +2,11 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
@@ -20,6 +21,7 @@ const productSchema = z.object({
   quantity: z.string().min(1, 'Quantidade é obrigatória'),
   min_quantity: z.string().min(1, 'Quantidade mínima é obrigatória'),
   description: z.string().optional(),
+  category: z.string().min(1, 'Categoria é obrigatória'),
 });
 
 type ProductFormData = z.infer<typeof productSchema>;
@@ -29,6 +31,16 @@ interface NewProductModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const productCategories = [
+  'Cabelo',
+  'Unha',
+  'Estética',
+  'Sobrancelha',
+  'Maquiagem',
+  'Depilação',
+  'Geral'
+];
+
 export function NewProductModal({ open, onOpenChange }: NewProductModalProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -37,10 +49,14 @@ export function NewProductModal({ open, onOpenChange }: NewProductModalProps) {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
   });
+
+  const watchedCategory = watch('category');
 
   const createProductMutation = useMutation({
     mutationFn: async (data: ProductFormData) => {
@@ -56,6 +72,7 @@ export function NewProductModal({ open, onOpenChange }: NewProductModalProps) {
           quantity: parseInt(data.quantity),
           min_quantity: parseInt(data.min_quantity),
           description: data.description || null,
+          category: data.category,
         });
 
       if (error) throw error;
@@ -111,6 +128,25 @@ export function NewProductModal({ open, onOpenChange }: NewProductModalProps) {
             />
           </div>
 
+          <div>
+            <Label htmlFor="category">Categoria</Label>
+            <Select onValueChange={(value) => setValue('category', value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione a categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                {productCategories.map((category) => (
+                  <SelectItem key={category} value={category}>
+                    {category}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.category && (
+              <p className="text-sm text-red-500">{errors.category.message}</p>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="quantity">Quantidade</Label>
@@ -140,7 +176,7 @@ export function NewProductModal({ open, onOpenChange }: NewProductModalProps) {
           </div>
 
           <div>
-            <Label htmlFor="cost_price">Preço de Custo</Label>
+            <Label htmlFor="cost_price">Preço de Custo (un)</Label>
             <Input
               id="cost_price"
               type="number"

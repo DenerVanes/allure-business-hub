@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +30,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 
 const financeSchema = z.object({
@@ -47,13 +50,13 @@ interface FinanceModalProps {
 }
 
 const incomeCategories = [
-  'Serviço',
-  'Produto',
+  'Serviços',
+  'Produtos',
   'Outros'
 ];
 
 const expenseCategories = [
-  'Produto',
+  'Produtos',
   'Aluguel',
   'Energia',
   'Água',
@@ -64,7 +67,8 @@ const expenseCategories = [
 ];
 
 export const FinanceModal = ({ open, onOpenChange, type }: FinanceModalProps) => {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const form = useForm<FinanceFormData>({
     resolver: zodResolver(financeSchema),
@@ -76,29 +80,29 @@ export const FinanceModal = ({ open, onOpenChange, type }: FinanceModalProps) =>
     },
   });
 
-  const categories = type === 'income' ? incomeCategories : expenseCategories;
-  const title = type === 'income' ? 'Registrar Receita' : 'Registrar Despesa';
-  const buttonText = type === 'income' ? 'Registrar Receita' : 'Registrar Despesa';
+  const createTransactionMutation = useMutation({
+    mutationFn: async (data: FinanceFormData) => {
+      if (!user?.id) throw new Error('Usuário não encontrado');
 
-  const onSubmit = async (data: FinanceFormData) => {
-    setIsSubmitting(true);
-    try {
-      // Simular registro financeiro (posteriormente integrar com banco)
-      const amount = parseFloat(data.amount.replace(',', '.'));
-      
-      console.log('Registrando:', {
-        type,
-        amount,
-        description: data.description,
-        category: data.category,
-        date: data.date,
-      });
+      const { error } = await supabase
+        .from('financial_transactions')
+        .insert({
+          user_id: user.id,
+          type,
+          amount: parseFloat(data.amount.replace(',', '.')),
+          description: data.description,
+          category: data.category,
+          transaction_date: data.date,
+        });
 
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
       toast({
         title: `${type === 'income' ? 'Receita' : 'Despesa'} registrada!`,
         description: `A ${type === 'income' ? 'receita' : 'despesa'} foi registrada com sucesso.`,
       });
-
       form.reset({
         amount: '',
         description: '',
@@ -106,16 +110,22 @@ export const FinanceModal = ({ open, onOpenChange, type }: FinanceModalProps) =>
         date: new Date().toISOString().split('T')[0],
       });
       onOpenChange(false);
-    } catch (error) {
-      console.error('Erro ao registrar:', error);
+    },
+    onError: () => {
       toast({
         title: 'Erro',
         description: `Não foi possível registrar a ${type === 'income' ? 'receita' : 'despesa'}. Tente novamente.`,
         variant: 'destructive',
       });
-    } finally {
-      setIsSubmitting(false);
     }
+  });
+
+  const categories = type === 'income' ? incomeCategories : expenseCategories;
+  const title = type === 'income' ? 'Registrar Receita' : 'Registrar Despesa';
+  const buttonText = type === 'income' ? 'Registrar Receita' : 'Registrar Despesa';
+
+  const onSubmit = (data: FinanceFormData) => {
+    createTransactionMutation.mutate(data);
   };
 
   return (
@@ -218,16 +228,16 @@ export const FinanceModal = ({ open, onOpenChange, type }: FinanceModalProps) =>
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                disabled={isSubmitting}
+                disabled={createTransactionMutation.isPending}
               >
                 Cancelar
               </Button>
               <Button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={createTransactionMutation.isPending}
                 className="gap-2"
               >
-                {isSubmitting ? (
+                {createTransactionMutation.isPending ? (
                   "Salvando..."
                 ) : (
                   <>

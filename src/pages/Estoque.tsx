@@ -1,13 +1,15 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Package, Plus, Edit, Trash2, AlertTriangle } from 'lucide-react';
+import { Package, Plus, Edit, Trash2, AlertTriangle, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { NewProductModal } from '@/components/NewProductModal';
 import { EditProductModal } from '@/components/EditProductModal';
+import { StockOutModal } from '@/components/StockOutModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
@@ -17,6 +19,8 @@ const Estoque = () => {
   const queryClient = useQueryClient();
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [stockOutProduct, setStockOutProduct] = useState<any>(null);
+  const [activeCategory, setActiveCategory] = useState('all');
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['products', user?.id],
@@ -68,6 +72,21 @@ const Estoque = () => {
     }
     return { status: 'Em estoque', variant: 'default' as const, icon: Package };
   };
+
+  // Agrupar produtos por categoria
+  const groupedProducts = products.reduce((acc, product) => {
+    const category = product.category || 'Geral';
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    acc[category].push(product);
+    return acc;
+  }, {} as Record<string, any[]>);
+
+  const categories = Object.keys(groupedProducts);
+  const filteredProducts = activeCategory === 'all' 
+    ? products 
+    : groupedProducts[activeCategory] || [];
 
   if (isLoading) {
     return (
@@ -143,82 +162,107 @@ const Estoque = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {products.length === 0 ? (
-            <div className="text-center py-8">
-              <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground mb-4">Nenhum produto cadastrado ainda.</p>
-              <Button onClick={() => setShowNewProduct(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Cadastrar Primeiro Produto
-              </Button>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Produto</TableHead>
-                  <TableHead>Marca</TableHead>
-                  <TableHead>Quantidade</TableHead>
-                  <TableHead>Estoque Mín.</TableHead>
-                  <TableHead>Preço Custo</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {products.map((product) => {
-                  const stockInfo = getStockStatus(product.quantity, product.min_quantity);
-                  const StatusIcon = stockInfo.icon;
-                  
-                  return (
-                    <TableRow key={product.id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{product.name}</p>
-                          {product.description && (
-                            <p className="text-sm text-muted-foreground">{product.description}</p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{product.brand || '-'}</TableCell>
-                      <TableCell>
-                        <span className="font-medium">{product.quantity}</span>
-                      </TableCell>
-                      <TableCell>{product.min_quantity}</TableCell>
-                      <TableCell>
-                        {product.cost_price ? `R$ ${product.cost_price}` : '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={stockInfo.variant} className="flex items-center gap-1 w-fit">
-                          <StatusIcon className="h-3 w-3" />
-                          {stockInfo.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setEditingProduct(product)}
-                          >
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => deleteProductMutation.mutate(product.id)}
-                            disabled={deleteProductMutation.isPending}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </TableCell>
+          <Tabs value={activeCategory} onValueChange={setActiveCategory}>
+            <TabsList className="grid w-full grid-cols-auto">
+              <TabsTrigger value="all">Todos</TabsTrigger>
+              {categories.map((category) => (
+                <TabsTrigger key={category} value={category}>
+                  {category} ({groupedProducts[category].length})
+                </TabsTrigger>
+              ))}
+            </TabsList>
+
+            <TabsContent value={activeCategory} className="space-y-4">
+              {filteredProducts.length === 0 ? (
+                <div className="text-center py-8">
+                  <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground mb-4">
+                    {activeCategory === 'all' ? 'Nenhum produto cadastrado ainda.' : `Nenhum produto na categoria ${activeCategory}.`}
+                  </p>
+                  <Button onClick={() => setShowNewProduct(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Cadastrar Produto
+                  </Button>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Produto</TableHead>
+                      <TableHead>Marca</TableHead>
+                      <TableHead>Categoria</TableHead>
+                      <TableHead>Quantidade</TableHead>
+                      <TableHead>Estoque Mín.</TableHead>
+                      <TableHead>Preço Custo</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Ações</TableHead>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
+                  </TableHeader>
+                  <TableBody>
+                    {filteredProducts.map((product) => {
+                      const stockInfo = getStockStatus(product.quantity, product.min_quantity);
+                      const StatusIcon = stockInfo.icon;
+                      
+                      return (
+                        <TableRow key={product.id}>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{product.name}</p>
+                              {product.description && (
+                                <p className="text-sm text-muted-foreground">{product.description}</p>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>{product.brand || '-'}</TableCell>
+                          <TableCell>{product.category}</TableCell>
+                          <TableCell>
+                            <span className="font-medium">{product.quantity}</span>
+                          </TableCell>
+                          <TableCell>{product.min_quantity}</TableCell>
+                          <TableCell>
+                            {product.cost_price ? `R$ ${product.cost_price}` : '-'}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={stockInfo.variant} className="flex items-center gap-1 w-fit">
+                              <StatusIcon className="h-3 w-3" />
+                              {stockInfo.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setEditingProduct(product)}
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setStockOutProduct(product)}
+                                disabled={product.quantity === 0}
+                              >
+                                <Minus className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => deleteProductMutation.mutate(product.id)}
+                                disabled={deleteProductMutation.isPending}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
@@ -232,6 +276,14 @@ const Estoque = () => {
           open={!!editingProduct}
           onOpenChange={(open) => !open && setEditingProduct(null)}
           product={editingProduct}
+        />
+      )}
+
+      {stockOutProduct && (
+        <StockOutModal
+          open={!!stockOutProduct}
+          onOpenChange={(open) => !open && setStockOutProduct(null)}
+          product={stockOutProduct}
         />
       )}
     </div>
