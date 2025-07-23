@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -118,25 +119,21 @@ const Index = () => {
           title="Agendamentos Hoje"
           value={todayAppointments.length}
           icon={Calendar}
-          color="blue"
         />
         <MetricCard
           title="Receitas do Mês"
           value={`R$ ${monthlyIncome.toFixed(2)}`}
           icon={TrendingUp}
-          color="green"
         />
         <MetricCard
           title="Despesas do Mês"
           value={`R$ ${monthlyExpenses.toFixed(2)}`}
           icon={TrendingDown}
-          color="red"
         />
         <MetricCard
           title="Total de Clientes"
           value={clients.length}
           icon={Users}
-          color="purple"
         />
       </div>
 

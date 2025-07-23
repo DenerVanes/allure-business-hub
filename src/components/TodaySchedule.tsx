@@ -27,12 +27,27 @@ export const TodaySchedule = () => {
         .select(`
           *,
           services (name, price, duration),
-          clients (name, phone),
-          collaborators (name)
+          clients (name, phone)
         `)
         .eq('user_id', user.id)
         .order('appointment_date', { ascending: true })
         .order('appointment_time', { ascending: true });
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id
+  });
+
+  const { data: collaborators = [] } = useQuery({
+    queryKey: ['collaborators', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('collaborators')
+        .select('*')
+        .eq('user_id', user.id);
       
       if (error) throw error;
       return data || [];
@@ -106,6 +121,11 @@ export const TodaySchedule = () => {
     }
   };
 
+  const getCollaboratorName = (collaboratorId: string) => {
+    const collaborator = collaborators.find(c => c.id === collaboratorId);
+    return collaborator?.name || 'Não informado';
+  };
+
   const today = new Date().toLocaleDateString('pt-BR', {
     weekday: 'long',
     year: 'numeric',
@@ -168,9 +188,9 @@ export const TodaySchedule = () => {
                       <div className="text-sm text-muted-foreground">
                         {appointment.services?.name}
                       </div>
-                      {appointment.collaborators && (
+                      {appointment.collaborator_id && (
                         <div className="text-sm text-muted-foreground">
-                          Profissional: {appointment.collaborators.name}
+                          Profissional: {getCollaboratorName(appointment.collaborator_id)}
                         </div>
                       )}
                     </div>
