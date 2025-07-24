@@ -1,5 +1,5 @@
 
-import { Calendar, LayoutDashboard, Scissors, Package, DollarSign, Users, Settings, Sparkles } from 'lucide-react';
+import { Calendar, LayoutDashboard, Scissors, Package, DollarSign, Users, Settings, Sparkles, UserCheck } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, useSidebar } from '@/components/ui/sidebar';
 
@@ -33,6 +33,11 @@ const menuItems = [
     title: 'Clientes',
     url: '/clientes',
     icon: Users
+  },
+  {
+    title: 'Colaboradores',
+    url: '/colaboradores',
+    icon: UserCheck
   },
   {
     title: 'Configurações',

@@ -4,16 +4,17 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/hooks/useAuth";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { Layout } from "@/components/Layout";
 import Index from "./pages/Index";
-import Auth from "./pages/Auth";
 import Agendamentos from "./pages/Agendamentos";
 import Servicos from "./pages/Servicos";
 import Estoque from "./pages/Estoque";
 import Financeiro from "./pages/Financeiro";
 import Clientes from "./pages/Clientes";
+import Colaboradores from "./pages/Colaboradores";
 import Configuracoes from "./pages/Configuracoes";
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,22 +24,24 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <AuthProvider>
-        <BrowserRouter>
+      <BrowserRouter>
+        <SidebarProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
-            <Route path="/" element={<Layout><Index /></Layout>} />
-            <Route path="/agendamentos" element={<Layout><Agendamentos /></Layout>} />
-            <Route path="/servicos" element={<Layout><Servicos /></Layout>} />
-            <Route path="/estoque" element={<Layout><Estoque /></Layout>} />
-            <Route path="/financeiro" element={<Layout><Financeiro /></Layout>} />
-            <Route path="/clientes" element={<Layout><Clientes /></Layout>} />
-            <Route path="/configuracoes" element={<Layout><Configuracoes /></Layout>} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="/" element={<Layout />}>
+              <Route index element={<Index />} />
+              <Route path="agendamentos" element={<Agendamentos />} />
+              <Route path="servicos" element={<Servicos />} />
+              <Route path="estoque" element={<Estoque />} />
+              <Route path="financeiro" element={<Financeiro />} />
+              <Route path="clientes" element={<Clientes />} />
+              <Route path="colaboradores" element={<Colaboradores />} />
+              <Route path="configuracoes" element={<Configuracoes />} />
+            </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </BrowserRouter>
-      </AuthProvider>
+        </SidebarProvider>
+      </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );

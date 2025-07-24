@@ -121,10 +121,8 @@ export const NewAppointmentModal = ({ open, onOpenChange }: NewAppointmentModalP
 
     setIsSubmitting(true);
     try {
-      // Converter a data para o formato correto do Brasil
-      const brasiliaOffset = -3; // UTC-3
-      const appointmentDate = new Date(data.appointmentDate);
-      appointmentDate.setHours(appointmentDate.getHours() - brasiliaOffset);
+      // Usar diretamente a data selecionada sem conversão de timezone
+      const appointmentDate = data.appointmentDate;
       
       const { error } = await supabase
         .from('appointments')
@@ -183,11 +181,12 @@ export const NewAppointmentModal = ({ open, onOpenChange }: NewAppointmentModalP
     return value;
   };
 
-  // Função para obter a data atual no fuso horário de Brasília
-  const getBrasiliaToday = () => {
-    const now = new Date();
-    const brasiliaTime = new Date(now.getTime() - (3 * 60 * 60 * 1000)); // UTC-3
-    return brasiliaTime;
+  // Função para obter a data atual no fuso horário local (Brasil)
+  const getTodayInBrazil = () => {
+    const today = new Date();
+    // Garantir que seja sempre considerado o dia atual no Brasil
+    today.setHours(0, 0, 0, 0);
+    return today;
   };
 
   return (
@@ -278,7 +277,10 @@ export const NewAppointmentModal = ({ open, onOpenChange }: NewAppointmentModalP
                             mode="single"
                             selected={field.value}
                             onSelect={field.onChange}
-                            disabled={(date) => date < getBrasiliaToday()}
+                            disabled={(date) => {
+                              const today = getTodayInBrazil();
+                              return date < today;
+                            }}
                             initialFocus
                             className={cn("p-3 pointer-events-auto")}
                           />

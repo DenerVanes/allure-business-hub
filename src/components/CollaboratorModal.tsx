@@ -23,11 +23,13 @@ type CollaboratorFormData = z.infer<typeof collaboratorSchema>;
 interface CollaboratorModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  collaborator?: any;
 }
 
-export function CollaboratorModal({ open, onOpenChange }: CollaboratorModalProps) {
+export function CollaboratorModal({ open, onOpenChange, collaborator }: CollaboratorModalProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const isEditing = !!collaborator;
 
   const {
     register,
@@ -36,28 +38,46 @@ export function CollaboratorModal({ open, onOpenChange }: CollaboratorModalProps
     formState: { errors },
   } = useForm<CollaboratorFormData>({
     resolver: zodResolver(collaboratorSchema),
+    defaultValues: {
+      name: collaborator?.name || '',
+      phone: collaborator?.phone || '',
+      email: collaborator?.email || '',
+    },
   });
 
-  const createCollaboratorMutation = useMutation({
+  const mutation = useMutation({
     mutationFn: async (data: CollaboratorFormData) => {
       if (!user?.id) throw new Error('Usuário não encontrado');
 
-      const { error } = await supabase
-        .from('collaborators')
-        .insert({
-          user_id: user.id,
-          name: data.name,
-          phone: data.phone || null,
-          email: data.email || null,
-        });
+      if (isEditing) {
+        const { error } = await supabase
+          .from('collaborators')
+          .update({
+            name: data.name,
+            phone: data.phone || null,
+            email: data.email || null,
+          })
+          .eq('id', collaborator.id);
 
-      if (error) throw error;
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('collaborators')
+          .insert({
+            user_id: user.id,
+            name: data.name,
+            phone: data.phone || null,
+            email: data.email || null,
+          });
+
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['collaborators'] });
       toast({
-        title: 'Colaborador cadastrado',
-        description: 'Colaborador foi cadastrado com sucesso.',
+        title: isEditing ? 'Colaborador atualizado' : 'Colaborador cadastrado',
+        description: `Colaborador foi ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso.`,
       });
       reset();
       onOpenChange(false);
@@ -65,21 +85,23 @@ export function CollaboratorModal({ open, onOpenChange }: CollaboratorModalProps
     onError: () => {
       toast({
         title: 'Erro',
-        description: 'Não foi possível cadastrar o colaborador.',
+        description: `Não foi possível ${isEditing ? 'atualizar' : 'cadastrar'} o colaborador.`,
         variant: 'destructive',
       });
     }
   });
 
   const onSubmit = (data: CollaboratorFormData) => {
-    createCollaboratorMutation.mutate(data);
+    mutation.mutate(data);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
-          <DialogTitle>Cadastrar Colaborador</DialogTitle>
+          <DialogTitle>
+            {isEditing ? 'Editar Colaborador' : 'Cadastrar Colaborador'}
+          </DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -127,9 +149,9 @@ export function CollaboratorModal({ open, onOpenChange }: CollaboratorModalProps
             </Button>
             <Button
               type="submit"
-              disabled={createCollaboratorMutation.isPending}
+              disabled={mutation.isPending}
             >
-              {createCollaboratorMutation.isPending ? 'Salvando...' : 'Cadastrar'}
+              {mutation.isPending ? 'Salvando...' : (isEditing ? 'Atualizar' : 'Cadastrar')}
             </Button>
           </div>
         </form>
