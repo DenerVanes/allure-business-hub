@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -102,6 +101,70 @@ export const NewAppointmentModal = ({ open, onOpenChange }: NewAppointmentModalP
     enabled: !!user?.id,
   });
 
+  // Buscar bloqueios dos colaboradores
+  const { data: collaboratorBlocks = [] } = useQuery({
+    queryKey: ['collaborator-blocks', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('collaborator_blocks')
+        .select(`
+          *,
+          collaborators!inner(name, user_id)
+        `)
+        .eq('collaborators.user_id', user.id);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id && open,
+  });
+
+  // Verificar se colaborador está bloqueado na data selecionada
+  const checkCollaboratorAvailability = (collaboratorId: string, date: Date) => {
+    const selectedDate = format(date, 'yyyy-MM-dd');
+    const blocks = collaboratorBlocks.filter(block => 
+      block.collaborator_id === collaboratorId &&
+      selectedDate >= block.start_date &&
+      selectedDate <= block.end_date
+    );
+    return blocks;
+  };
+
+  // Filtrar colaboradores com base nos serviços selecionados
+  const getAvailableCollaborators = () => {
+    const validServices = selectedServices.filter(s => s.serviceId);
+    if (validServices.length === 0) return collaborators;
+
+    const serviceCategories = validServices.map(s => s.service.category).filter(Boolean);
+    
+    return collaborators.filter(collaborator => {
+      if (!collaborator.specialty || collaborator.specialty.length === 0) {
+        return true; // Colaborador sem especialidade pode fazer qualquer serviço
+      }
+      
+      return serviceCategories.some(category => 
+        collaborator.specialty.some((spec: string) => 
+          spec.toLowerCase().includes(category.toLowerCase()) ||
+          category.toLowerCase().includes(spec.toLowerCase())
+        )
+      );
+    }).map(collaborator => {
+      const matchingSpecialties = collaborator.specialty?.filter((spec: string) =>
+        serviceCategories.some(category =>
+          spec.toLowerCase().includes(category.toLowerCase()) ||
+          category.toLowerCase().includes(spec.toLowerCase())
+        )
+      ) || [];
+
+      return {
+        ...collaborator,
+        matchingSpecialties
+      };
+    });
+  };
+
   const onSubmit = async (data: AppointmentFormData) => {
     if (!user?.id) return;
 
@@ -114,6 +177,20 @@ export const NewAppointmentModal = ({ open, onOpenChange }: NewAppointmentModalP
         variant: 'destructive',
       });
       return;
+    }
+
+    // Verificar bloqueios do colaborador se selecionado
+    if (data.collaboratorId) {
+      const blocks = checkCollaboratorAvailability(data.collaboratorId, data.appointmentDate);
+      if (blocks.length > 0) {
+        const block = blocks[0];
+        toast({
+          title: 'Colaborador indisponível',
+          description: `O profissional está indisponível de ${format(new Date(block.start_date), 'dd/MM/yyyy')} até ${format(new Date(block.end_date), 'dd/MM/yyyy')} por: ${block.reason}`,
+          variant: 'destructive',
+        });
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -343,11 +420,44 @@ export const NewAppointmentModal = ({ open, onOpenChange }: NewAppointmentModalP
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {collaborators.map((collaborator) => (
-                        <SelectItem key={collaborator.id} value={collaborator.id}>
-                          {collaborator.name}
-                        </SelectItem>
-                      ))}
+                      {getAvailableCollaborators().map((collaborator) => {
+                        const appointmentDate = form.watch('appointmentDate');
+                        const blocks = appointmentDate ? checkCollaboratorAvailability(collaborator.id, appointmentDate) : [];
+                        const isBlocked = blocks.length > 0;
+                        
+                        return (
+                          <SelectItem 
+                            key={collaborator.id} 
+                            value={collaborator.id}
+                            disabled={isBlocked}
+                          >
+                            <div className="flex items-center gap-2">
+                              {collaborator.photo_url ? (
+                                <img
+                                  src={collaborator.photo_url}
+                                  alt={collaborator.name}
+                                  className="w-6 h-6 rounded-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
+                                  <UserCheck className="h-3 w-3" />
+                                </div>
+                              )}
+                              <span>
+                                {collaborator.name}
+                                {collaborator.matchingSpecialties?.length > 0 && (
+                                  <span className="text-sm text-muted-foreground ml-1">
+                                    - {collaborator.matchingSpecialties.join(', ')}
+                                  </span>
+                                )}
+                                {isBlocked && (
+                                  <span className="text-sm text-red-500 ml-1">(Indisponível)</span>
+                                )}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                   <FormMessage />

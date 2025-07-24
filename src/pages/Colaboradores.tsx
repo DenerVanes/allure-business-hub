@@ -93,7 +93,9 @@ export default function Colaboradores() {
 
   const filteredCollaborators = collaborators.filter(collaborator =>
     collaborator.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    collaborator.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    (collaborator.specialty && collaborator.specialty.some((spec: string) => 
+      spec.toLowerCase().includes(searchTerm.toLowerCase())
+    ))
   );
 
   return (
@@ -120,7 +122,7 @@ export default function Colaboradores() {
           <div className="flex items-center space-x-2">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por nome ou email..."
+              placeholder="Buscar por nome ou especialidade..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="max-w-sm"
@@ -141,8 +143,16 @@ export default function Colaboradores() {
                   className="flex items-center justify-between p-4 bg-surface/50 rounded-lg border border-border/30 hover:shadow-soft transition-all duration-200"
                 >
                   <div className="flex items-center gap-4 flex-1">
-                    <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                      <UserCheck className="h-6 w-6 text-primary" />
+                    <div className="w-12 h-12 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center">
+                      {collaborator.photo_url ? (
+                        <img
+                          src={collaborator.photo_url}
+                          alt={collaborator.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <UserCheck className="h-6 w-6 text-primary" />
+                      )}
                     </div>
                     
                     <div className="flex-1 space-y-1">
@@ -155,16 +165,19 @@ export default function Colaboradores() {
                           {collaborator.active ? 'Ativo' : 'Inativo'}
                         </Badge>
                       </div>
+                      {collaborator.specialty && collaborator.specialty.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {collaborator.specialty.map((spec: string, index: number) => (
+                            <Badge key={index} variant="outline" className="text-xs">
+                              {spec}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
                       {collaborator.phone && (
                         <div className="text-sm text-muted-foreground flex items-center gap-1">
                           <Phone className="h-3 w-3" />
                           {collaborator.phone}
-                        </div>
-                      )}
-                      {collaborator.email && (
-                        <div className="text-sm text-muted-foreground flex items-center gap-1">
-                          <Mail className="h-3 w-3" />
-                          {collaborator.email}
                         </div>
                       )}
                     </div>

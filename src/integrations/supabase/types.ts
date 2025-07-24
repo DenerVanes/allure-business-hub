@@ -140,6 +140,44 @@ export type Database = {
         }
         Relationships: []
       }
+      collaborator_blocks: {
+        Row: {
+          collaborator_id: string
+          created_at: string
+          end_date: string
+          id: string
+          reason: string
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          collaborator_id: string
+          created_at?: string
+          end_date: string
+          id?: string
+          reason: string
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          collaborator_id?: string
+          created_at?: string
+          end_date?: string
+          id?: string
+          reason?: string
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collaborator_blocks_collaborator_id_fkey"
+            columns: ["collaborator_id"]
+            isOneToOne: false
+            referencedRelation: "collaborators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       collaborators: {
         Row: {
           active: boolean
@@ -148,6 +186,8 @@ export type Database = {
           id: string
           name: string
           phone: string | null
+          photo_url: string | null
+          specialty: string[] | null
           updated_at: string
           user_id: string
         }
@@ -158,6 +198,8 @@ export type Database = {
           id?: string
           name: string
           phone?: string | null
+          photo_url?: string | null
+          specialty?: string[] | null
           updated_at?: string
           user_id: string
         }
@@ -168,6 +210,8 @@ export type Database = {
           id?: string
           name?: string
           phone?: string | null
+          photo_url?: string | null
+          specialty?: string[] | null
           updated_at?: string
           user_id?: string
         }
