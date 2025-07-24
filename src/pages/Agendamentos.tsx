@@ -11,14 +11,15 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { Calendar, Plus, Search, MoreVertical, Clock, CheckCircle, XCircle, Edit } from 'lucide-react';
+import { Calendar, Plus, Search, MoreVertical, Clock, CheckCircle, XCircle, Edit, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { NewAppointmentModal } from '@/components/NewAppointmentModal';
 import { RescheduleModal } from '@/components/RescheduleModal';
+import { AppointmentDateFilter, DateFilter } from '@/components/AppointmentDateFilter';
 
 export default function Agendamentos() {
   const { user } = useAuth();
@@ -26,6 +27,10 @@ export default function Agendamentos() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showNewModal, setShowNewModal] = useState(false);
   const [rescheduleAppointment, setRescheduleAppointment] = useState<any>(null);
+  const [dateFilter, setDateFilter] = useState<DateFilter>({
+    type: 'all',
+    label: 'Todos'
+  });
 
   const { data: appointments = [] } = useQuery({
     queryKey: ['appointments', user?.id],
@@ -90,6 +95,31 @@ export default function Agendamentos() {
     }
   });
 
+  const deleteAppointmentMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('appointments')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      toast({
+        title: 'Agendamento excluído',
+        description: 'O agendamento foi excluído com sucesso.',
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível excluir o agendamento.',
+        variant: 'destructive',
+      });
+    }
+  });
+
   const getStatusConfig = (status: string) => {
     switch (status) {
       case 'agendado':
@@ -130,7 +160,28 @@ export default function Agendamentos() {
     return collaborator?.name || 'Não informado';
   };
 
-  const filteredAppointments = appointments.filter(appointment =>
+  const handleDeleteAppointment = (id: string) => {
+    if (confirm('Tem certeza que deseja excluir este agendamento?')) {
+      deleteAppointmentMutation.mutate(id);
+    }
+  };
+
+  // Filtrar agendamentos por data
+  const filterAppointmentsByDate = (appointments: any[]) => {
+    if (dateFilter.type === 'all') return appointments;
+    
+    if (!dateFilter.startDate || !dateFilter.endDate) return appointments;
+
+    return appointments.filter(appointment => {
+      const appointmentDate = parseISO(appointment.appointment_date);
+      return isWithinInterval(appointmentDate, {
+        start: dateFilter.startDate!,
+        end: dateFilter.endDate!
+      });
+    });
+  };
+
+  const filteredAppointments = filterAppointmentsByDate(appointments).filter(appointment =>
     appointment.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     appointment.services?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -148,6 +199,14 @@ export default function Agendamentos() {
           <Plus className="h-4 w-4" />
           Novo Agendamento
         </Button>
+      </div>
+
+      {/* Filtro de Datas */}
+      <div className="flex items-center gap-4">
+        <AppointmentDateFilter
+          currentFilter={dateFilter}
+          onFilterChange={setDateFilter}
+        />
       </div>
 
       <Card>
@@ -270,6 +329,14 @@ export default function Agendamentos() {
                               Cancelar
                             </DropdownMenuItem>
                           )}
+
+                          <DropdownMenuItem
+                            onClick={() => handleDeleteAppointment(appointment.id)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Excluir
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
