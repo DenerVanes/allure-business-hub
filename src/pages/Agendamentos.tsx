@@ -1,26 +1,33 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Calendar, Clock, User, Phone, Plus, Check, X, Edit } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { NewAppointmentModal } from '@/components/NewAppointmentModal';
+import { Input } from '@/components/ui/input';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
+import { Calendar, Plus, Search, MoreVertical, Clock, CheckCircle, XCircle, Edit } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
-import { format, isToday, isThisWeek, isThisMonth } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { NewAppointmentModal } from '@/components/NewAppointmentModal';
+import { RescheduleModal } from '@/components/RescheduleModal';
 
-const Agendamentos = () => {
+export default function Agendamentos() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [showNewAppointment, setShowNewAppointment] = useState(false);
-  const [activeTab, setActiveTab] = useState('hoje');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showNewModal, setShowNewModal] = useState(false);
+  const [rescheduleAppointment, setRescheduleAppointment] = useState<any>(null);
 
-  const { data: appointments = [], isLoading } = useQuery({
+  const { data: appointments = [] } = useQuery({
     queryKey: ['appointments', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -33,8 +40,24 @@ const Agendamentos = () => {
           clients (name, phone)
         `)
         .eq('user_id', user.id)
-        .order('appointment_date', { ascending: true })
+        .order('appointment_date', { ascending: false })
         .order('appointment_time', { ascending: true });
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id
+  });
+
+  const { data: collaborators = [] } = useQuery({
+    queryKey: ['collaborators', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('collaborators')
+        .select('*')
+        .eq('user_id', user.id);
       
       if (error) throw error;
       return data || [];
@@ -67,197 +90,209 @@ const Agendamentos = () => {
     }
   });
 
-  const getFilteredAppointments = () => {
-    const now = new Date();
-    return appointments.filter(appointment => {
-      const appointmentDate = new Date(appointment.appointment_date);
-      
-      switch (activeTab) {
-        case 'hoje':
-          return isToday(appointmentDate);
-        case 'semana':
-          return isThisWeek(appointmentDate, { locale: ptBR });
-        case 'mes':
-          return isThisMonth(appointmentDate);
-        default:
-          return true;
-      }
-    });
+  const getStatusConfig = (status: string) => {
+    switch (status) {
+      case 'agendado':
+        return { 
+          color: 'bg-blue-100 text-blue-800 border-blue-200', 
+          icon: Clock, 
+          label: 'Agendado' 
+        };
+      case 'confirmado':
+        return { 
+          color: 'bg-green-100 text-green-800 border-green-200', 
+          icon: CheckCircle, 
+          label: 'Confirmado' 
+        };
+      case 'finalizado':
+        return { 
+          color: 'bg-gray-100 text-gray-800 border-gray-200', 
+          icon: CheckCircle, 
+          label: 'Finalizado' 
+        };
+      case 'cancelado':
+        return { 
+          color: 'bg-red-100 text-red-800 border-red-200', 
+          icon: XCircle, 
+          label: 'Cancelado' 
+        };
+      default:
+        return { 
+          color: 'bg-gray-100 text-gray-800 border-gray-200', 
+          icon: Clock, 
+          label: 'Desconhecido' 
+        };
+    }
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusMap = {
-      agendado: { label: 'Agendado', variant: 'secondary' as const },
-      confirmado: { label: 'Confirmado', variant: 'default' as const },
-      finalizado: { label: 'Finalizado', variant: 'outline' as const },
-      cancelado: { label: 'Cancelado', variant: 'destructive' as const },
-    };
-    
-    const statusInfo = statusMap[status as keyof typeof statusMap] || statusMap.agendado;
-    return (
-      <Badge variant={statusInfo.variant}>
-        {statusInfo.label}
-      </Badge>
-    );
+  const getCollaboratorName = (collaboratorId: string) => {
+    const collaborator = collaborators.find(c => c.id === collaboratorId);
+    return collaborator?.name || 'Não informado';
   };
 
-  const filteredAppointments = getFilteredAppointments();
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>Carregando agendamentos...</p>
-        </div>
-      </div>
-    );
-  }
+  const filteredAppointments = appointments.filter(appointment =>
+    appointment.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    appointment.services?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Agendamentos</h1>
-          <p className="text-muted-foreground">Gerencie todos os seus agendamentos</p>
+          <h1 className="text-3xl font-bold tracking-tight">Agendamentos</h1>
+          <p className="text-muted-foreground">
+            Gerencie todos os seus agendamentos
+          </p>
         </div>
-        <Button onClick={() => setShowNewAppointment(true)} className="gap-2">
+        <Button onClick={() => setShowNewModal(true)} className="gap-2">
           <Plus className="h-4 w-4" />
           Novo Agendamento
         </Button>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="hoje">Hoje</TabsTrigger>
-          <TabsTrigger value="semana">Esta Semana</TabsTrigger>
-          <TabsTrigger value="mes">Este Mês</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={activeTab} className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Agendamentos - {activeTab === 'hoje' ? 'Hoje' : activeTab === 'semana' ? 'Esta Semana' : 'Este Mês'}
-                <Badge variant="outline" className="ml-auto">
-                  {filteredAppointments.length} agendamento(s)
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {filteredAppointments.length === 0 ? (
-                <div className="text-center py-8">
-                  <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">Nenhum agendamento encontrado para este período.</p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Data/Hora</TableHead>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Serviço</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredAppointments.map((appointment) => (
-                      <TableRow key={appointment.id}>
-                        <TableCell>
-                          <div className="flex flex-col">
-                            <span className="font-medium">
-                              {format(new Date(appointment.appointment_date), 'dd/MM/yyyy', { locale: ptBR })}
-                            </span>
-                            <span className="text-sm text-muted-foreground flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {appointment.appointment_time}
-                            </span>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Lista de Agendamentos
+          </CardTitle>
+          <div className="flex items-center space-x-2">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por cliente ou serviço..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="max-w-sm"
+            />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {filteredAppointments.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>Nenhum agendamento encontrado</p>
+              </div>
+            ) : (
+              filteredAppointments.map((appointment) => {
+                const statusConfig = getStatusConfig(appointment.status);
+                const StatusIcon = statusConfig.icon;
+                
+                return (
+                  <div 
+                    key={appointment.id} 
+                    className="flex items-center justify-between p-4 bg-surface/50 rounded-lg border border-border/30 hover:shadow-soft transition-all duration-200"
+                  >
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="text-center min-w-[80px]">
+                        <div className="text-sm font-medium text-muted-foreground">
+                          {format(parseISO(appointment.appointment_date), "dd/MM/yyyy")}
+                        </div>
+                        <div className="text-lg font-semibold text-primary">
+                          {appointment.appointment_time}
+                        </div>
+                      </div>
+                      
+                      <div className="flex-1 space-y-1">
+                        <div className="font-medium text-foreground">
+                          {appointment.clients?.name || appointment.client_name}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {appointment.clients?.phone || appointment.client_phone}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {appointment.services?.name}
+                        </div>
+                        {appointment.collaborator_id && (
+                          <div className="text-sm text-muted-foreground">
+                            Profissional: {getCollaboratorName(appointment.collaborator_id)}
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col">
-                            <span className="font-medium flex items-center gap-1">
-                              <User className="h-3 w-3" />
-                              {appointment.clients?.name || appointment.client_name}
-                            </span>
-                            <span className="text-sm text-muted-foreground flex items-center gap-1">
-                              <Phone className="h-3 w-3" />
-                              {appointment.clients?.phone || appointment.client_phone}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{appointment.services?.name}</span>
-                            <span className="text-sm text-muted-foreground">
-                              R$ {appointment.services?.price} • {appointment.services?.duration}min
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {getStatusBadge(appointment.status)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            {appointment.status === 'agendado' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => updateAppointmentMutation.mutate({ 
-                                  id: appointment.id, 
-                                  status: 'confirmado' 
-                                })}
-                                disabled={updateAppointmentMutation.isPending}
-                              >
-                                <Check className="h-3 w-3" />
-                              </Button>
-                            )}
-                            {appointment.status === 'confirmado' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => updateAppointmentMutation.mutate({ 
-                                  id: appointment.id, 
-                                  status: 'finalizado' 
-                                })}
-                                disabled={updateAppointmentMutation.isPending}
-                              >
-                                <Check className="h-3 w-3" />
-                              </Button>
-                            )}
-                            {appointment.status !== 'cancelado' && appointment.status !== 'finalizado' && (
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => updateAppointmentMutation.mutate({ 
-                                  id: appointment.id, 
-                                  status: 'cancelado' 
-                                })}
-                                disabled={updateAppointmentMutation.isPending}
-                              >
-                                <X className="h-3 w-3" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <Badge 
+                        variant="outline" 
+                        className={`${statusConfig.color} flex items-center gap-1`}
+                      >
+                        <StatusIcon className="h-3 w-3" />
+                        {statusConfig.label}
+                      </Badge>
+                      
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {appointment.status === 'agendado' && (
+                            <DropdownMenuItem
+                              onClick={() => updateAppointmentMutation.mutate({ 
+                                id: appointment.id, 
+                                status: 'confirmado' 
+                              })}
+                            >
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Confirmar
+                            </DropdownMenuItem>
+                          )}
+                          
+                          {appointment.status === 'confirmado' && (
+                            <DropdownMenuItem
+                              onClick={() => updateAppointmentMutation.mutate({ 
+                                id: appointment.id, 
+                                status: 'finalizado' 
+                              })}
+                            >
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Finalizar
+                            </DropdownMenuItem>
+                          )}
+                          
+                          <DropdownMenuItem
+                            onClick={() => setRescheduleAppointment(appointment)}
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Reagendar
+                          </DropdownMenuItem>
+                          
+                          {appointment.status !== 'cancelado' && appointment.status !== 'finalizado' && (
+                            <DropdownMenuItem
+                              onClick={() => updateAppointmentMutation.mutate({ 
+                                id: appointment.id, 
+                                status: 'cancelado' 
+                              })}
+                              className="text-red-600"
+                            >
+                              <XCircle className="h-4 w-4 mr-2" />
+                              Cancelar
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <NewAppointmentModal
-        open={showNewAppointment}
-        onOpenChange={setShowNewAppointment}
+        open={showNewModal}
+        onOpenChange={setShowNewModal}
       />
+
+      {rescheduleAppointment && (
+        <RescheduleModal
+          open={!!rescheduleAppointment}
+          onOpenChange={(open) => !open && setRescheduleAppointment(null)}
+          appointment={rescheduleAppointment}
+        />
+      )}
     </div>
   );
-};
-
-export default Agendamentos;
+}

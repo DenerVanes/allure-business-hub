@@ -52,6 +52,7 @@ const appointmentSchema = z.object({
   }),
   appointmentTime: z.string().min(1, 'Horário é obrigatório'),
   serviceId: z.string().min(1, 'Serviço é obrigatório'),
+  collaboratorId: z.string().optional(),
   observations: z.string().optional(),
 });
 
@@ -96,32 +97,45 @@ export const NewAppointmentModal = ({ open, onOpenChange }: NewAppointmentModalP
     enabled: !!user?.id,
   });
 
-  // Gerar horários disponíveis (8h às 18h, de 30 em 30 minutos)
-  const generateTimeSlots = () => {
-    const slots = [];
-    for (let hour = 8; hour < 18; hour++) {
-      slots.push(`${hour.toString().padStart(2, '0')}:00`);
-      slots.push(`${hour.toString().padStart(2, '0')}:30`);
-    }
-    return slots;
-  };
+  // Buscar colaboradores do usuário
+  const { data: collaborators = [] } = useQuery({
+    queryKey: ['collaborators', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('collaborators')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('active', true)
+        .order('name');
 
-  const timeSlots = generateTimeSlots();
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
 
   const onSubmit = async (data: AppointmentFormData) => {
     if (!user?.id) return;
 
     setIsSubmitting(true);
     try {
+      // Converter a data para o formato correto do Brasil
+      const brasiliaOffset = -3; // UTC-3
+      const appointmentDate = new Date(data.appointmentDate);
+      appointmentDate.setHours(appointmentDate.getHours() - brasiliaOffset);
+      
       const { error } = await supabase
         .from('appointments')
         .insert({
           user_id: user.id,
           client_name: data.clientName,
           client_phone: data.clientPhone,
-          appointment_date: format(data.appointmentDate, 'yyyy-MM-dd'),
+          appointment_date: format(appointmentDate, 'yyyy-MM-dd'),
           appointment_time: data.appointmentTime,
           service_id: data.serviceId,
+          collaborator_id: data.collaboratorId || null,
           observations: data.observations || null,
           status: 'agendado',
         });
@@ -151,6 +165,29 @@ export const NewAppointmentModal = ({ open, onOpenChange }: NewAppointmentModalP
   const handleServiceCreated = () => {
     queryClient.invalidateQueries({ queryKey: ['services', user?.id] });
     setShowNewServiceModal(false);
+  };
+
+  // Função para formatar horário
+  const formatTime = (value: string) => {
+    // Remove caracteres não numéricos
+    const numbers = value.replace(/\D/g, '');
+    
+    // Limita a 4 dígitos
+    if (numbers.length <= 4) {
+      // Adiciona os dois pontos automaticamente
+      if (numbers.length >= 3) {
+        return numbers.slice(0, 2) + ':' + numbers.slice(2);
+      }
+      return numbers;
+    }
+    return value;
+  };
+
+  // Função para obter a data atual no fuso horário de Brasília
+  const getBrasiliaToday = () => {
+    const now = new Date();
+    const brasiliaTime = new Date(now.getTime() - (3 * 60 * 60 * 1000)); // UTC-3
+    return brasiliaTime;
   };
 
   return (
@@ -241,7 +278,7 @@ export const NewAppointmentModal = ({ open, onOpenChange }: NewAppointmentModalP
                             mode="single"
                             selected={field.value}
                             onSelect={field.onChange}
-                            disabled={(date) => date < new Date()}
+                            disabled={(date) => date < getBrasiliaToday()}
                             initialFocus
                             className={cn("p-3 pointer-events-auto")}
                           />
@@ -258,20 +295,17 @@ export const NewAppointmentModal = ({ open, onOpenChange }: NewAppointmentModalP
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Horário</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o horário" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {timeSlots.map((time) => (
-                            <SelectItem key={time} value={time}>
-                              {time}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <Input
+                          placeholder="08:00"
+                          value={field.value}
+                          onChange={(e) => {
+                            const formattedTime = formatTime(e.target.value);
+                            field.onChange(formattedTime);
+                          }}
+                          maxLength={5}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -309,6 +343,31 @@ export const NewAppointmentModal = ({ open, onOpenChange }: NewAppointmentModalP
                         <Plus className="h-4 w-4" />
                       </Button>
                     </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="collaboratorId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Profissional (opcional)</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o profissional" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {collaborators.map((collaborator) => (
+                          <SelectItem key={collaborator.id} value={collaborator.id}>
+                            {collaborator.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
