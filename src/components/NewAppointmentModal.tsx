@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -56,6 +55,21 @@ const appointmentSchema = z.object({
 });
 
 type AppointmentFormData = z.infer<typeof appointmentSchema>;
+
+// Type for collaborator with matching specialties
+type CollaboratorWithSpecialties = {
+  active: boolean;
+  created_at: string;
+  email: string;
+  id: string;
+  name: string;
+  phone: string;
+  photo_url: string;
+  specialty: string[];
+  updated_at: string;
+  user_id: string;
+  matchingSpecialties?: string[];
+};
 
 interface NewAppointmentModalProps {
   open: boolean;
@@ -134,9 +148,14 @@ export const NewAppointmentModal = ({ open, onOpenChange }: NewAppointmentModalP
   };
 
   // Filtrar colaboradores com base nos serviços selecionados
-  const getAvailableCollaborators = () => {
+  const getAvailableCollaborators = (): CollaboratorWithSpecialties[] => {
     const validServices = selectedServices.filter(s => s.serviceId);
-    if (validServices.length === 0) return collaborators;
+    if (validServices.length === 0) {
+      return collaborators.map(collaborator => ({
+        ...collaborator,
+        matchingSpecialties: []
+      }));
+    }
 
     const serviceCategories = validServices.map(s => s.service.category).filter(Boolean);
     
