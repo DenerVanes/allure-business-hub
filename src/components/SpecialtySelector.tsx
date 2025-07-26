@@ -39,7 +39,7 @@ export function SpecialtySelector({ specialties, onSpecialtiesChange }: Specialt
       if (error) throw error;
       
       // Extrair categorias únicas e filtrar valores vazios
-      const uniqueCategories = [...new Set(data?.map(service => service.category).filter(Boolean))] || [];
+      const uniqueCategories = [...new Set(data?.map(service => service.category).filter(Boolean))];
       
       return uniqueCategories.map((category, index) => ({
         id: `category-${index}`,
