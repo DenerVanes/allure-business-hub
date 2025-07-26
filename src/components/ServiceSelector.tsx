@@ -100,7 +100,7 @@ export const ServiceSelector = ({ selectedServices, onServicesChange }: ServiceS
     onServicesChange(
       selectedServices.map(s => 
         s.id === id 
-          ? { ...s, serviceId, service, collaboratorId: '' }
+          ? { ...s, serviceId, service, collaboratorId: undefined }
           : s
       )
     );
@@ -110,7 +110,7 @@ export const ServiceSelector = ({ selectedServices, onServicesChange }: ServiceS
     onServicesChange(
       selectedServices.map(s => 
         s.id === serviceId 
-          ? { ...s, collaboratorId }
+          ? { ...s, collaboratorId: collaboratorId === 'any' ? undefined : collaboratorId }
           : s
       )
     );
@@ -187,14 +187,14 @@ export const ServiceSelector = ({ selectedServices, onServicesChange }: ServiceS
             {selectedService.serviceId && (
               <div className="ml-4">
                 <Select 
-                  value={selectedService.collaboratorId || ''} 
+                  value={selectedService.collaboratorId || 'any'} 
                   onValueChange={(value) => updateCollaborator(selectedService.id, value)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Profissional específico (opcional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Qualquer profissional</SelectItem>
+                    <SelectItem value="any">Qualquer profissional</SelectItem>
                     {getAvailableCollaborators(selectedService.service).map((collaborator) => (
                       <SelectItem key={collaborator.id} value={collaborator.id}>
                         <div className="flex items-center gap-2">
