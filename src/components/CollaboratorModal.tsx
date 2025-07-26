@@ -53,14 +53,25 @@ export function CollaboratorModal({ open, onOpenChange, collaborator }: Collabor
   const uploadPhoto = async (file: File): Promise<string | null> => {
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
+      const fileName = `${Date.now()}-${Math.random()}.${fileExt}`;
       const filePath = `collaborators/${user?.id}/${fileName}`;
 
+      // Primeiro, verificar se o arquivo já existe e removê-lo se necessário
+      const { data: existingFiles } = await supabase.storage
+        .from('photos')
+        .list(`collaborators/${user?.id}/`);
+
+      // Upload do novo arquivo
       const { error: uploadError } = await supabase.storage
         .from('photos')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          upsert: true // Permite substituir arquivos existentes
+        });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Erro no upload:', uploadError);
+        throw uploadError;
+      }
 
       const { data } = supabase.storage
         .from('photos')
@@ -68,7 +79,7 @@ export function CollaboratorModal({ open, onOpenChange, collaborator }: Collabor
 
       return data.publicUrl;
     } catch (error) {
-      console.error('Erro no upload:', error);
+      console.error('Erro detalhado no upload:', error);
       return null;
     }
   };

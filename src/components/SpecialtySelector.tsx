@@ -24,20 +24,27 @@ export function SpecialtySelector({ specialties, onSpecialtiesChange }: Specialt
   const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState('');
 
-  // Buscar categorias de serviços disponíveis
+  // Buscar categorias únicas dos serviços existentes
   const { data: categories = [] } = useQuery({
-    queryKey: ['service-categories', user?.id],
+    queryKey: ['service-categories-from-services', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
       
       const { data, error } = await supabase
-        .from('service_categories')
-        .select('*')
+        .from('services')
+        .select('category')
         .eq('user_id', user.id)
-        .order('name');
+        .eq('active', true);
 
       if (error) throw error;
-      return data || [];
+      
+      // Extrair categorias únicas e filtrar valores vazios
+      const uniqueCategories = [...new Set(data?.map(service => service.category).filter(Boolean))] || [];
+      
+      return uniqueCategories.map((category, index) => ({
+        id: `category-${index}`,
+        name: category
+      }));
     },
     enabled: !!user?.id,
   });
