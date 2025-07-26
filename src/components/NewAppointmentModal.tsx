@@ -1,10 +1,11 @@
+
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -445,7 +446,7 @@ export const NewAppointmentModal = ({ open, onOpenChange }: NewAppointmentModalP
                               )}
                               <span>
                                 {collaborator.name}
-                                {collaborator.matchingSpecialties?.length > 0 && (
+                                {collaborator.matchingSpecialties && collaborator.matchingSpecialties.length > 0 && (
                                   <span className="text-sm text-muted-foreground ml-1">
                                     - {collaborator.matchingSpecialties.join(', ')}
                                   </span>
