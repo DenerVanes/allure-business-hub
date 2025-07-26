@@ -38,7 +38,20 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
   const [time, setTime] = useState(appointment?.appointment_time || '');
   const [clientName, setClientName] = useState(appointment?.client_name || '');
   const [clientPhone, setClientPhone] = useState(appointment?.client_phone || '');
-  const [serviceId, setServiceId] = useState(appointment?.service_id || '');
+  const [selectedServices, setSelectedServices] = useState(
+    appointment ? [{
+      id: '1',
+      serviceId: appointment.service_id,
+      service: { 
+        id: appointment.service_id,
+        name: appointment.service?.name || '',
+        price: appointment.total_amount || 0,
+        duration: appointment.service?.duration || 0,
+        category: appointment.service?.category || '',
+        category_id: appointment.service?.category_id || ''
+      }
+    }] : [{ id: '1', serviceId: '', service: {} as any }]
+  );
   const [notes, setNotes] = useState(appointment?.notes || '');
 
   const { data: services = [] } = useQuery({
@@ -119,14 +132,14 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
     setTime('');
     setClientName('');
     setClientPhone('');
-    setServiceId('');
+    setSelectedServices([{ id: '1', serviceId: '', service: {} as any }]);
     setNotes('');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!date || !time || !clientName || !serviceId) {
+    if (!date || !time || !clientName || selectedServices.length === 0 || !selectedServices[0].serviceId) {
       toast({
         title: 'Campos obrigatórios',
         description: 'Preencha todos os campos obrigatórios.',
@@ -135,16 +148,18 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
       return;
     }
 
-    const selectedService = services.find(s => s.id === serviceId);
+    // Para agendamentos simples, usar apenas o primeiro serviço
+    const firstService = selectedServices[0];
+    const totalAmount = selectedServices.reduce((sum, s) => sum + (s.service?.price || 0), 0);
     
     const appointmentData = {
       appointment_date: format(date, 'yyyy-MM-dd'),
       appointment_time: time,
       client_name: clientName,
       client_phone: clientPhone,
-      service_id: serviceId,
+      service_id: firstService.serviceId,
       notes,
-      total_amount: selectedService?.price || 0
+      total_amount: totalAmount
     };
 
     if (appointment) {
@@ -229,9 +244,8 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
           <div className="space-y-2">
             <Label htmlFor="service">Serviço *</Label>
             <ServiceSelector
-              value={serviceId}
-              onValueChange={setServiceId}
-              services={services}
+              selectedServices={selectedServices}
+              onServicesChange={setSelectedServices}
             />
           </div>
 
