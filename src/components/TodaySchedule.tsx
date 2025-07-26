@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, Clock, Phone, User, CheckCircle, XCircle, AlertCircle, Edit } from 'lucide-react';
 import { RescheduleModal } from './RescheduleModal';
+import { NewAppointmentModal } from './NewAppointmentModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
@@ -16,6 +16,7 @@ export const TodaySchedule = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [rescheduleAppointment, setRescheduleAppointment] = useState<any>(null);
+  const [editAppointment, setEditAppointment] = useState<any>(null);
 
   const { data: appointments = [] } = useQuery({
     queryKey: ['appointments', user?.id],
@@ -209,6 +210,16 @@ export const TodaySchedule = () => {
                       <Button
                         size="sm"
                         variant="outline"
+                        onClick={() => setEditAppointment(appointment)}
+                        className="text-xs"
+                      >
+                        <Edit className="h-3 w-3 mr-1" />
+                        Editar
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => setRescheduleAppointment(appointment)}
                         className="text-xs"
                       >
@@ -278,6 +289,14 @@ export const TodaySchedule = () => {
           open={!!rescheduleAppointment}
           onOpenChange={(open) => !open && setRescheduleAppointment(null)}
           appointment={rescheduleAppointment}
+        />
+      )}
+
+      {editAppointment && (
+        <NewAppointmentModal
+          open={!!editAppointment}
+          onOpenChange={(open) => !open && setEditAppointment(null)}
+          appointment={editAppointment}
         />
       )}
     </>

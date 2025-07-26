@@ -1,554 +1,263 @@
+
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { CalendarIcon, UserCheck } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle 
-} from '@/components/ui/dialog';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarIcon } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
 import { ServiceSelector } from './ServiceSelector';
-
-const appointmentSchema = z.object({
-  clientName: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
-  clientPhone: z.string().min(10, 'Telefone deve ter pelo menos 10 dígitos'),
-  appointmentDate: z.date({
-    required_error: 'Data é obrigatória',
-  }),
-  appointmentTime: z.string().min(1, 'Horário é obrigatório'),
-  collaboratorId: z.string().optional(),
-  observations: z.string().optional(),
-});
-
-type AppointmentFormData = z.infer<typeof appointmentSchema>;
-
-// Type for collaborator with matching specialties
-type CollaboratorWithSpecialties = {
-  active: boolean;
-  created_at: string;
-  email: string;
-  id: string;
-  name: string;
-  phone: string;
-  photo_url: string;
-  specialty: string[];
-  updated_at: string;
-  user_id: string;
-  matchingSpecialties?: string[];
-};
 
 interface NewAppointmentModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  appointment?: any;
 }
 
-export const NewAppointmentModal = ({ open, onOpenChange }: NewAppointmentModalProps) => {
+export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppointmentModalProps) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedServices, setSelectedServices] = useState([
-    {
-      id: '1',
-      serviceId: '',
-      service: {} as any
-    }
-  ]);
+  
+  const [date, setDate] = useState<Date | undefined>(
+    appointment ? new Date(appointment.appointment_date) : undefined
+  );
+  const [time, setTime] = useState(appointment?.appointment_time || '');
+  const [clientName, setClientName] = useState(appointment?.client_name || '');
+  const [clientPhone, setClientPhone] = useState(appointment?.client_phone || '');
+  const [serviceId, setServiceId] = useState(appointment?.service_id || '');
+  const [notes, setNotes] = useState(appointment?.notes || '');
 
-  const form = useForm<AppointmentFormData>({
-    resolver: zodResolver(appointmentSchema),
-    defaultValues: {
-      clientName: '',
-      clientPhone: '',
-      observations: '',
-    },
-  });
-
-  // Buscar colaboradores do usuário
-  const { data: collaborators = [] } = useQuery({
-    queryKey: ['collaborators', user?.id],
+  const { data: services = [] } = useQuery({
+    queryKey: ['services', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
       
       const { data, error } = await supabase
-        .from('collaborators')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('active', true)
-        .order('name');
-
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!user?.id,
-  });
-
-  // Buscar bloqueios dos colaboradores
-  const { data: collaboratorBlocks = [] } = useQuery({
-    queryKey: ['collaborator-blocks', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      
-      const { data, error } = await supabase
-        .from('collaborator_blocks')
-        .select(`
-          *,
-          collaborators!inner(name, user_id)
-        `)
-        .eq('collaborators.user_id', user.id);
-
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!user?.id && open,
-  });
-
-  // Buscar categorias de serviços para melhor correspondência
-  const { data: serviceCategories = [] } = useQuery({
-    queryKey: ['service-categories', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      
-      const { data, error } = await supabase
-        .from('service_categories')
+        .from('services')
         .select('*')
         .eq('user_id', user.id);
-
+      
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id
   });
 
-  // Verificar se colaborador está bloqueado na data selecionada
-  const checkCollaboratorAvailability = (collaboratorId: string, date: Date) => {
-    const selectedDate = format(date, 'yyyy-MM-dd');
-    const blocks = collaboratorBlocks.filter(block => 
-      block.collaborator_id === collaboratorId &&
-      selectedDate >= block.start_date &&
-      selectedDate <= block.end_date
-    );
-    return blocks;
-  };
-
-  // Filtrar colaboradores com base nos serviços selecionados (melhorado)
-  const getAvailableCollaborators = (): CollaboratorWithSpecialties[] => {
-    const validServices = selectedServices.filter(s => s.serviceId);
-    
-    if (validServices.length === 0) {
-      return collaborators.map(collaborator => ({
-        ...collaborator,
-        matchingSpecialties: []
-      }));
-    }
-
-    // Obter categorias dos serviços selecionados
-    const serviceCategories = validServices
-      .map(s => s.service.category)
-      .filter(Boolean);
-    
-    return collaborators.filter(collaborator => {
-      if (!collaborator.specialty || collaborator.specialty.length === 0) {
-        return true; // Colaborador sem especialidade pode fazer qualquer serviço
-      }
+  const createAppointmentMutation = useMutation({
+    mutationFn: async (appointmentData: any) => {
+      const { error } = await supabase
+        .from('appointments')
+        .insert({
+          ...appointmentData,
+          user_id: user?.id,
+          status: 'agendado'
+        });
       
-      // Verificar se alguma especialidade do colaborador corresponde às categorias dos serviços
-      return serviceCategories.some(category => 
-        collaborator.specialty.some((spec: string) => 
-          spec.toLowerCase() === category.toLowerCase()
-        )
-      );
-    }).map(collaborator => {
-      const matchingSpecialties = collaborator.specialty?.filter((spec: string) =>
-        serviceCategories.some(category =>
-          spec.toLowerCase() === category.toLowerCase()
-        )
-      ) || [];
-
-      return {
-        ...collaborator,
-        matchingSpecialties
-      };
-    });
-  };
-
-  const onSubmit = async (data: AppointmentFormData) => {
-    if (!user?.id) return;
-
-    // Validar se pelo menos um serviço foi selecionado
-    const validServices = selectedServices.filter(s => s.serviceId);
-    if (validServices.length === 0) {
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      toast({
+        title: 'Agendamento criado',
+        description: 'O agendamento foi criado com sucesso.',
+      });
+      onOpenChange(false);
+      resetForm();
+    },
+    onError: () => {
       toast({
         title: 'Erro',
-        description: 'Selecione pelo menos um serviço.',
+        description: 'Não foi possível criar o agendamento.',
+        variant: 'destructive',
+      });
+    }
+  });
+
+  const updateAppointmentMutation = useMutation({
+    mutationFn: async (appointmentData: any) => {
+      const { error } = await supabase
+        .from('appointments')
+        .update(appointmentData)
+        .eq('id', appointment.id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      toast({
+        title: 'Agendamento atualizado',
+        description: 'O agendamento foi atualizado com sucesso.',
+      });
+      onOpenChange(false);
+      resetForm();
+    },
+    onError: () => {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível atualizar o agendamento.',
+        variant: 'destructive',
+      });
+    }
+  });
+
+  const resetForm = () => {
+    setDate(undefined);
+    setTime('');
+    setClientName('');
+    setClientPhone('');
+    setServiceId('');
+    setNotes('');
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!date || !time || !clientName || !serviceId) {
+      toast({
+        title: 'Campos obrigatórios',
+        description: 'Preencha todos os campos obrigatórios.',
         variant: 'destructive',
       });
       return;
     }
 
-    // Verificar bloqueios do colaborador se selecionado
-    if (data.collaboratorId) {
-      const blocks = checkCollaboratorAvailability(data.collaboratorId, data.appointmentDate);
-      if (blocks.length > 0) {
-        const block = blocks[0];
-        toast({
-          title: 'Colaborador indisponível',
-          description: `O profissional está indisponível de ${format(new Date(block.start_date), 'dd/MM/yyyy')} até ${format(new Date(block.end_date), 'dd/MM/yyyy')} por: ${block.reason}`,
-          variant: 'destructive',
-        });
-        return;
-      }
-    }
-
-    setIsSubmitting(true);
-    try {
-      const appointmentDate = data.appointmentDate;
-      
-      // Calcular valores totais
-      const totalAmount = validServices.reduce((total, service) => {
-        return total + (service.service.price || 0);
-      }, 0);
-
-      // Criar o agendamento principal
-      const { data: appointmentData, error: appointmentError } = await supabase
-        .from('appointments')
-        .insert({
-          user_id: user.id,
-          client_name: data.clientName,
-          client_phone: data.clientPhone,
-          appointment_date: format(appointmentDate, 'yyyy-MM-dd'),
-          appointment_time: data.appointmentTime,
-          service_id: validServices[0].serviceId, // Primeiro serviço como principal
-          collaborator_id: data.collaboratorId || null,
-          observations: data.observations || null,
-          status: 'agendado',
-          total_amount: totalAmount,
-        })
-        .select()
-        .single();
-
-      if (appointmentError) throw appointmentError;
-
-      // Se há múltiplos serviços, criar registros na tabela de relacionamento
-      if (validServices.length > 1) {
-        const serviceRelations = validServices.map(service => ({
-          appointment_id: appointmentData.id,
-          service_id: service.serviceId,
-        }));
-
-        const { error: relationsError } = await supabase
-          .from('appointment_services')
-          .insert(serviceRelations);
-
-        if (relationsError) throw relationsError;
-      }
-
-      toast({
-        title: 'Agendamento criado!',
-        description: 'O agendamento foi criado com sucesso.',
-      });
-
-      queryClient.invalidateQueries({ queryKey: ['appointments'] });
-      form.reset();
-      setSelectedServices([{ id: '1', serviceId: '', service: {} as any }]);
-      onOpenChange(false);
-    } catch (error) {
-      console.error('Erro ao criar agendamento:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível criar o agendamento. Tente novamente.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Função para formatar horário
-  const formatTime = (value: string) => {
-    const numbers = value.replace(/\D/g, '');
+    const selectedService = services.find(s => s.id === serviceId);
     
-    if (numbers.length <= 4) {
-      if (numbers.length >= 3) {
-        return numbers.slice(0, 2) + ':' + numbers.slice(2);
-      }
-      return numbers;
-    }
-    return value;
-  };
+    const appointmentData = {
+      appointment_date: format(date, 'yyyy-MM-dd'),
+      appointment_time: time,
+      client_name: clientName,
+      client_phone: clientPhone,
+      service_id: serviceId,
+      notes,
+      total_amount: selectedService?.price || 0
+    };
 
-  const getTodayInBrazil = () => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return today;
+    if (appointment) {
+      updateAppointmentMutation.mutate(appointmentData);
+    } else {
+      createAppointmentMutation.mutate(appointmentData);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <CalendarIcon className="h-5 w-5 text-primary" />
-            Novo Agendamento
+          <DialogTitle>
+            {appointment ? 'Editar Agendamento' : 'Novo Agendamento'}
           </DialogTitle>
-          <DialogDescription>
-            Preencha os dados para criar um novo agendamento.
-          </DialogDescription>
         </DialogHeader>
-
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="clientName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nome da Cliente</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Digite o nome da cliente" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="clientPhone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Telefone</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="(11) 99999-9999" 
-                        {...field}
-                        onChange={(e) => {
-                          let value = e.target.value.replace(/\D/g, '');
-                          if (value.length <= 11) {
-                            value = value.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
-                            field.onChange(value);
-                          }
-                        }}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+        
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="date">Data *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !date && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {date ? format(date, "dd/MM/yyyy", { locale: ptBR }) : "Selecione a data"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={setDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="time">Horário *</Label>
+              <Input
+                id="time"
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                required
               />
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="appointmentDate"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Data</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            {field.value ? (
-                              format(field.value, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
-                            ) : (
-                              <span>Selecione a data</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) => {
-                            const today = getTodayInBrazil();
-                            return date < today;
-                          }}
-                          initialFocus
-                          className={cn("p-3 pointer-events-auto")}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="appointmentTime"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Horário</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="08:00"
-                        value={field.value}
-                        onChange={(e) => {
-                          const formattedTime = formatTime(e.target.value);
-                          field.onChange(formattedTime);
-                        }}
-                        maxLength={5}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="client-name">Nome do Cliente *</Label>
+              <Input
+                id="client-name"
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+                placeholder="Digite o nome do cliente"
+                required
               />
             </div>
-
-            <div>
-              <FormLabel>Serviços</FormLabel>
-              <ServiceSelector
-                selectedServices={selectedServices}
-                onServicesChange={setSelectedServices}
+            
+            <div className="space-y-2">
+              <Label htmlFor="client-phone">Telefone</Label>
+              <Input
+                id="client-phone"
+                value={clientPhone}
+                onChange={(e) => setClientPhone(e.target.value)}
+                placeholder="Digite o telefone do cliente"
               />
             </div>
+          </div>
 
-            <FormField
-              control={form.control}
-              name="collaboratorId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Profissional (opcional)</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o profissional" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {getAvailableCollaborators().map((collaborator) => {
-                        const appointmentDate = form.watch('appointmentDate');
-                        const blocks = appointmentDate ? checkCollaboratorAvailability(collaborator.id, appointmentDate) : [];
-                        const isBlocked = blocks.length > 0;
-                        
-                        return (
-                          <SelectItem 
-                            key={collaborator.id} 
-                            value={collaborator.id}
-                            disabled={isBlocked}
-                          >
-                            <div className="flex items-center gap-2">
-                              {collaborator.photo_url ? (
-                                <img
-                                  src={collaborator.photo_url}
-                                  alt={collaborator.name}
-                                  className="w-6 h-6 rounded-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
-                                  <UserCheck className="h-3 w-3" />
-                                </div>
-                              )}
-                              <span>
-                                {collaborator.name}
-                                {collaborator.matchingSpecialties && collaborator.matchingSpecialties.length > 0 && (
-                                  <span className="text-sm text-green-600 ml-1">
-                                    ✓ {collaborator.matchingSpecialties.join(', ')}
-                                  </span>
-                                )}
-                                {isBlocked && (
-                                  <span className="text-sm text-red-500 ml-1">(Indisponível)</span>
-                                )}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+          <div className="space-y-2">
+            <Label htmlFor="service">Serviço *</Label>
+            <ServiceSelector
+              value={serviceId}
+              onValueChange={setServiceId}
+              services={services}
             />
+          </div>
 
-            <FormField
-              control={form.control}
-              name="observations"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Observações (opcional)</FormLabel>
-                  <FormControl>
-                    <textarea
-                      className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      placeholder="Adicione observações sobre o atendimento..."
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+          <div className="space-y-2">
+            <Label htmlFor="notes">Observações</Label>
+            <Textarea
+              id="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Observações adicionais..."
+              rows={3}
             />
+          </div>
 
-            <DialogFooter className="gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={isSubmitting}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="gap-2"
-              >
-                {isSubmitting ? (
-                  "Salvando..."
-                ) : (
-                  <>
-                    <CalendarIcon className="h-4 w-4" />
-                    Criar Agendamento
-                  </>
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+          <div className="flex gap-3">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              type="submit" 
+              disabled={createAppointmentMutation.isPending || updateAppointmentMutation.isPending}
+            >
+              {appointment ? 'Atualizar' : 'Criar'} Agendamento
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );
