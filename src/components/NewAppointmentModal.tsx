@@ -136,6 +136,23 @@ export const NewAppointmentModal = ({ open, onOpenChange }: NewAppointmentModalP
     enabled: !!user?.id && open,
   });
 
+  // Buscar categorias de serviços para melhor correspondência
+  const { data: serviceCategories = [] } = useQuery({
+    queryKey: ['service-categories', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('service_categories')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
   // Verificar se colaborador está bloqueado na data selecionada
   const checkCollaboratorAvailability = (collaboratorId: string, date: Date) => {
     const selectedDate = format(date, 'yyyy-MM-dd');
@@ -147,9 +164,10 @@ export const NewAppointmentModal = ({ open, onOpenChange }: NewAppointmentModalP
     return blocks;
   };
 
-  // Filtrar colaboradores com base nos serviços selecionados
+  // Filtrar colaboradores com base nos serviços selecionados (melhorado)
   const getAvailableCollaborators = (): CollaboratorWithSpecialties[] => {
     const validServices = selectedServices.filter(s => s.serviceId);
+    
     if (validServices.length === 0) {
       return collaborators.map(collaborator => ({
         ...collaborator,
@@ -157,24 +175,26 @@ export const NewAppointmentModal = ({ open, onOpenChange }: NewAppointmentModalP
       }));
     }
 
-    const serviceCategories = validServices.map(s => s.service.category).filter(Boolean);
+    // Obter categorias dos serviços selecionados
+    const serviceCategories = validServices
+      .map(s => s.service.category)
+      .filter(Boolean);
     
     return collaborators.filter(collaborator => {
       if (!collaborator.specialty || collaborator.specialty.length === 0) {
         return true; // Colaborador sem especialidade pode fazer qualquer serviço
       }
       
+      // Verificar se alguma especialidade do colaborador corresponde às categorias dos serviços
       return serviceCategories.some(category => 
         collaborator.specialty.some((spec: string) => 
-          spec.toLowerCase().includes(category.toLowerCase()) ||
-          category.toLowerCase().includes(spec.toLowerCase())
+          spec.toLowerCase() === category.toLowerCase()
         )
       );
     }).map(collaborator => {
       const matchingSpecialties = collaborator.specialty?.filter((spec: string) =>
         serviceCategories.some(category =>
-          spec.toLowerCase().includes(category.toLowerCase()) ||
-          category.toLowerCase().includes(spec.toLowerCase())
+          spec.toLowerCase() === category.toLowerCase()
         )
       ) || [];
 
@@ -466,8 +486,8 @@ export const NewAppointmentModal = ({ open, onOpenChange }: NewAppointmentModalP
                               <span>
                                 {collaborator.name}
                                 {collaborator.matchingSpecialties && collaborator.matchingSpecialties.length > 0 && (
-                                  <span className="text-sm text-muted-foreground ml-1">
-                                    - {collaborator.matchingSpecialties.join(', ')}
+                                  <span className="text-sm text-green-600 ml-1">
+                                    ✓ {collaborator.matchingSpecialties.join(', ')}
                                   </span>
                                 )}
                                 {isBlocked && (

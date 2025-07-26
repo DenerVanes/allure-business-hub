@@ -2,9 +2,18 @@
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 interface SpecialtySelectorProps {
   specialties: string[];
@@ -12,12 +21,34 @@ interface SpecialtySelectorProps {
 }
 
 export function SpecialtySelector({ specialties, onSpecialtiesChange }: SpecialtySelectorProps) {
-  const [newSpecialty, setNewSpecialty] = useState('');
+  const { user } = useAuth();
+  const [selectedCategory, setSelectedCategory] = useState('');
+
+  // Buscar categorias de serviços disponíveis
+  const { data: categories = [] } = useQuery({
+    queryKey: ['service-categories', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('service_categories')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('name');
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
 
   const addSpecialty = () => {
-    if (newSpecialty.trim() && !specialties.includes(newSpecialty.trim())) {
-      onSpecialtiesChange([...specialties, newSpecialty.trim()]);
-      setNewSpecialty('');
+    if (selectedCategory && !specialties.includes(selectedCategory)) {
+      const category = categories.find(c => c.id === selectedCategory);
+      if (category) {
+        onSpecialtiesChange([...specialties, category.name]);
+        setSelectedCategory('');
+      }
     }
   };
 
@@ -25,30 +56,34 @@ export function SpecialtySelector({ specialties, onSpecialtiesChange }: Specialt
     onSpecialtiesChange(specialties.filter(s => s !== specialtyToRemove));
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      addSpecialty();
-    }
-  };
+  // Filtrar categorias já selecionadas
+  const availableCategories = categories.filter(category => 
+    !specialties.includes(category.name)
+  );
 
   return (
     <div className="space-y-3">
       <Label>Especialidades</Label>
       
       <div className="flex gap-2">
-        <Input
-          placeholder="Digite uma especialidade..."
-          value={newSpecialty}
-          onChange={(e) => setNewSpecialty(e.target.value)}
-          onKeyPress={handleKeyPress}
-        />
+        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+          <SelectTrigger className="flex-1">
+            <SelectValue placeholder="Selecione uma categoria de serviço..." />
+          </SelectTrigger>
+          <SelectContent>
+            {availableCategories.map((category) => (
+              <SelectItem key={category.id} value={category.id}>
+                {category.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Button
           type="button"
           variant="outline"
           size="sm"
           onClick={addSpecialty}
-          disabled={!newSpecialty.trim()}
+          disabled={!selectedCategory}
         >
           <Plus className="h-4 w-4" />
         </Button>
