@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -98,7 +97,11 @@ const Index = () => {
   });
 
   // Cálculos das métricas
-  const todayAppointments = appointments.filter(a => isToday(new Date(a.appointment_date)));
+  const todayAppointments = appointments.filter(appointment => {
+    const appointmentDate = new Date(appointment.appointment_date);
+    return isToday(appointmentDate);
+  });
+  
   const monthlyIncome = transactions
     .filter(t => t.type === 'income' && isThisMonth(new Date(t.transaction_date)))
     .reduce((sum, t) => sum + Number(t.amount), 0);

@@ -127,12 +127,9 @@ export const TodaySchedule = () => {
     return collaborator?.name || 'Não informado';
   };
 
-  const today = new Date().toLocaleDateString('pt-BR', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
+  // Formatação da data em português brasileiro com capitalização
+  const today = format(new Date(), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+  const capitalizedToday = today.charAt(0).toUpperCase() + today.slice(1);
 
   return (
     <>
@@ -147,8 +144,8 @@ export const TodaySchedule = () => {
               {todayAppointments.length} agendamentos
             </Badge>
           </div>
-          <p className="text-sm text-muted-foreground capitalize">
-            {today}
+          <p className="text-sm text-muted-foreground">
+            {capitalizedToday}
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
