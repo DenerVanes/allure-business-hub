@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,16 +50,6 @@ interface NewServiceModalProps {
   onServiceCreated?: () => void;
 }
 
-const categories = [
-  'Cabelo',
-  'Unha',
-  'Sobrancelha',
-  'Depilação',
-  'Massagem',
-  'Estética',
-  'Outros'
-];
-
 const durations = [
   { value: '30', label: '30 minutos' },
   { value: '45', label: '45 minutos' },
@@ -71,7 +62,43 @@ const durations = [
 
 export const NewServiceModal = ({ open, onOpenChange, onServiceCreated }: NewServiceModalProps) => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Buscar categorias personalizadas do usuário
+  const { data: customCategories = [] } = useQuery({
+    queryKey: ['service-categories', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('service_categories')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('name');
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id
+  });
+
+  // Categorias padrão
+  const defaultCategories = [
+    'Cabelo',
+    'Unha',
+    'Sobrancelha',
+    'Depilação',
+    'Massagem',
+    'Estética',
+    'Outros'
+  ];
+
+  // Combinar categorias padrão com as personalizadas
+  const allCategories = [
+    ...defaultCategories,
+    ...customCategories.map(cat => cat.name)
+  ];
 
   const form = useForm<ServiceFormData>({
     resolver: zodResolver(serviceSchema),
@@ -84,11 +111,10 @@ export const NewServiceModal = ({ open, onOpenChange, onServiceCreated }: NewSer
     },
   });
 
-  const onSubmit = async (data: ServiceFormData) => {
-    if (!user?.id) return;
+  const createServiceMutation = useMutation({
+    mutationFn: async (data: ServiceFormData) => {
+      if (!user?.id) throw new Error('Usuário não autenticado');
 
-    setIsSubmitting(true);
-    try {
       // Converter preço de string para número
       const price = parseFloat(data.price.replace(',', '.'));
       const duration = parseInt(data.duration);
@@ -106,25 +132,30 @@ export const NewServiceModal = ({ open, onOpenChange, onServiceCreated }: NewSer
         });
 
       if (error) throw error;
-
+    },
+    onSuccess: () => {
+      // Invalidar queries para atualizar a lista
+      queryClient.invalidateQueries({ queryKey: ['services'] });
       toast({
         title: 'Serviço criado!',
         description: 'O serviço foi criado com sucesso.',
       });
-
       form.reset();
       onServiceCreated?.();
       onOpenChange(false);
-    } catch (error) {
+    },
+    onError: (error) => {
       console.error('Erro ao criar serviço:', error);
       toast({
         title: 'Erro',
         description: 'Não foi possível criar o serviço. Tente novamente.',
         variant: 'destructive',
       });
-    } finally {
-      setIsSubmitting(false);
     }
+  });
+
+  const onSubmit = async (data: ServiceFormData) => {
+    createServiceMutation.mutate(data);
   };
 
   return (
@@ -218,7 +249,7 @@ export const NewServiceModal = ({ open, onOpenChange, onServiceCreated }: NewSer
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {categories.map((category) => (
+                      {allCategories.map((category) => (
                         <SelectItem key={category} value={category}>
                           {category}
                         </SelectItem>
@@ -253,16 +284,16 @@ export const NewServiceModal = ({ open, onOpenChange, onServiceCreated }: NewSer
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                disabled={isSubmitting}
+                disabled={createServiceMutation.isPending}
               >
                 Cancelar
               </Button>
               <Button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={createServiceMutation.isPending}
                 className="gap-2"
               >
-                {isSubmitting ? (
+                {createServiceMutation.isPending ? (
                   "Salvando..."
                 ) : (
                   <>

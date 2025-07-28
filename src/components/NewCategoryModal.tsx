@@ -26,7 +26,6 @@ interface NewCategoryModalProps {
 export const NewCategoryModal = ({ open, onOpenChange }: NewCategoryModalProps) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<CategoryForm>({
     resolver: zodResolver(categorySchema),
@@ -49,7 +48,9 @@ export const NewCategoryModal = ({ open, onOpenChange }: NewCategoryModalProps) 
       if (error) throw error;
     },
     onSuccess: () => {
+      // Invalidar queries para atualizar as listas
       queryClient.invalidateQueries({ queryKey: ['service-categories'] });
+      queryClient.invalidateQueries({ queryKey: ['services'] });
       toast({
         title: 'Categoria criada',
         description: 'Nova categoria adicionada com sucesso.',
@@ -58,6 +59,7 @@ export const NewCategoryModal = ({ open, onOpenChange }: NewCategoryModalProps) 
       onOpenChange(false);
     },
     onError: (error) => {
+      console.error('Erro ao criar categoria:', error);
       toast({
         title: 'Erro ao criar categoria',
         description: 'Tente novamente mais tarde.',

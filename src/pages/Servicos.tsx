@@ -82,6 +82,17 @@ const Servicos = () => {
     }
   });
 
+  const handleServiceCreated = () => {
+    // Recarregar dados para atualizar a tela
+    queryClient.invalidateQueries({ queryKey: ['services'] });
+    queryClient.invalidateQueries({ queryKey: ['service-categories'] });
+  };
+
+  const handleCategoryCreated = () => {
+    // Recarregar dados para atualizar a tela
+    queryClient.invalidateQueries({ queryKey: ['service-categories'] });
+  };
+
   const groupedServices = services.reduce((acc, service) => {
     const categoryName = service.service_categories?.name || service.category || 'Sem categoria';
     if (!acc[categoryName]) {
@@ -200,6 +211,7 @@ const Servicos = () => {
       <NewServiceModal
         open={showNewService}
         onOpenChange={setShowNewService}
+        onServiceCreated={handleServiceCreated}
       />
 
       <NewCategoryModal

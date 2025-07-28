@@ -54,6 +54,7 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
     }] : [{ id: '1', serviceId: '', service: {} as any }]
   );
   const [notes, setNotes] = useState(appointment?.notes || '');
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   const { data: services = [] } = useQuery({
     queryKey: ['services', user?.id],
@@ -137,6 +138,11 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
     setNotes('');
   };
 
+  const handleDateSelect = (selectedDate: Date | undefined) => {
+    setDate(selectedDate);
+    setIsCalendarOpen(false);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -172,19 +178,19 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle>
             {appointment ? 'Editar Agendamento' : 'Novo Agendamento'}
           </DialogTitle>
         </DialogHeader>
         
-        <ScrollArea className="max-h-[calc(90vh-120px)] pr-4">
+        <ScrollArea className="max-h-[calc(90vh-120px)] overflow-y-auto pr-4">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="date">Data *</Label>
-                <Popover>
+                <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
@@ -201,7 +207,7 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
                     <Calendar
                       mode="single"
                       selected={date}
-                      onSelect={setDate}
+                      onSelect={handleDateSelect}
                       initialFocus
                     />
                   </PopoverContent>

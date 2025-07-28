@@ -45,6 +45,7 @@ export type Database = {
           collaborator_id: string | null
           created_at: string
           id: string
+          notes: string | null
           observations: string | null
           service_id: string
           status: string
@@ -61,6 +62,7 @@ export type Database = {
           collaborator_id?: string | null
           created_at?: string
           id?: string
+          notes?: string | null
           observations?: string | null
           service_id: string
           status?: string
@@ -77,6 +79,7 @@ export type Database = {
           collaborator_id?: string | null
           created_at?: string
           id?: string
+          notes?: string | null
           observations?: string | null
           service_id?: string
           status?: string
