@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -34,9 +34,35 @@ export const NewCategoryModal = ({ open, onOpenChange }: NewCategoryModalProps) 
     },
   });
 
+  // Buscar categorias existentes para validar duplicatas
+  const { data: existingCategories = [] } = useQuery({
+    queryKey: ['service-categories', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('service_categories')
+        .select('name')
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id && open,
+  });
+
   const createCategoryMutation = useMutation({
     mutationFn: async (data: CategoryForm) => {
       if (!user?.id) throw new Error('Usuário não autenticado');
+
+      // Verificar se já existe uma categoria com este nome
+      const categoryExists = existingCategories.some(
+        category => category.name.toLowerCase() === data.name.toLowerCase()
+      );
+
+      if (categoryExists) {
+        throw new Error('Já existe uma categoria com este nome');
+      }
 
       const { error } = await supabase
         .from('service_categories')
@@ -48,7 +74,6 @@ export const NewCategoryModal = ({ open, onOpenChange }: NewCategoryModalProps) 
       if (error) throw error;
     },
     onSuccess: () => {
-      // Invalidar queries para atualizar as listas
       queryClient.invalidateQueries({ queryKey: ['service-categories'] });
       queryClient.invalidateQueries({ queryKey: ['services'] });
       toast({
@@ -62,7 +87,7 @@ export const NewCategoryModal = ({ open, onOpenChange }: NewCategoryModalProps) 
       console.error('Erro ao criar categoria:', error);
       toast({
         title: 'Erro ao criar categoria',
-        description: 'Tente novamente mais tarde.',
+        description: error.message || 'Tente novamente mais tarde.',
         variant: 'destructive',
       });
     },

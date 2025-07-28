@@ -14,14 +14,20 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar as CalendarIcon, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
-import { ServiceSelector } from './ServiceSelector';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface NewAppointmentModalProps {
   open: boolean;
@@ -39,22 +45,10 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
   const [time, setTime] = useState(appointment?.appointment_time || '');
   const [clientName, setClientName] = useState(appointment?.client_name || '');
   const [clientPhone, setClientPhone] = useState(appointment?.client_phone || '');
-  const [selectedServices, setSelectedServices] = useState(
-    appointment ? [{
-      id: '1',
-      serviceId: appointment.service_id,
-      service: { 
-        id: appointment.service_id,
-        name: appointment.service?.name || '',
-        price: appointment.total_amount || 0,
-        duration: appointment.service?.duration || 0,
-        category: appointment.service?.category || '',
-        category_id: appointment.service?.category_id || ''
-      }
-    }] : [{ id: '1', serviceId: '', service: {} as any }]
-  );
+  const [selectedServiceId, setSelectedServiceId] = useState(appointment?.service_id || '');
   const [notes, setNotes] = useState(appointment?.notes || '');
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [serviceSearch, setServiceSearch] = useState('');
 
   const { data: services = [] } = useQuery({
     queryKey: ['services', user?.id],
@@ -64,13 +58,20 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
       const { data, error } = await supabase
         .from('services')
         .select('*')
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .eq('active', true);
       
       if (error) throw error;
       return data || [];
     },
     enabled: !!user?.id
   });
+
+  // Filtrar serviços baseado na pesquisa
+  const filteredServices = services.filter(service =>
+    service.name.toLowerCase().includes(serviceSearch.toLowerCase()) ||
+    service.category.toLowerCase().includes(serviceSearch.toLowerCase())
+  );
 
   const createAppointmentMutation = useMutation({
     mutationFn: async (appointmentData: any) => {
@@ -86,6 +87,7 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['today-appointments'] });
       toast({
         title: 'Agendamento criado',
         description: 'O agendamento foi criado com sucesso.',
@@ -113,6 +115,7 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['today-appointments'] });
       toast({
         title: 'Agendamento atualizado',
         description: 'O agendamento foi atualizado com sucesso.',
@@ -134,8 +137,9 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
     setTime('');
     setClientName('');
     setClientPhone('');
-    setSelectedServices([{ id: '1', serviceId: '', service: {} as any }]);
+    setSelectedServiceId('');
     setNotes('');
+    setServiceSearch('');
   };
 
   const handleDateSelect = (selectedDate: Date | undefined) => {
@@ -146,7 +150,7 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!date || !time || !clientName || selectedServices.length === 0 || !selectedServices[0].serviceId) {
+    if (!date || !time || !clientName || !selectedServiceId) {
       toast({
         title: 'Campos obrigatórios',
         description: 'Preencha todos os campos obrigatórios.',
@@ -155,16 +159,15 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
       return;
     }
 
-    // Para agendamentos simples, usar apenas o primeiro serviço
-    const firstService = selectedServices[0];
-    const totalAmount = selectedServices.reduce((sum, s) => sum + (s.service?.price || 0), 0);
+    const selectedService = services.find(s => s.id === selectedServiceId);
+    const totalAmount = selectedService?.price || 0;
     
     const appointmentData = {
       appointment_date: format(date, 'yyyy-MM-dd'),
       appointment_time: time,
       client_name: clientName,
       client_phone: clientPhone,
-      service_id: firstService.serviceId,
+      service_id: selectedServiceId,
       notes,
       total_amount: totalAmount
     };
@@ -251,10 +254,34 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
 
             <div className="space-y-2">
               <Label htmlFor="service">Serviço *</Label>
-              <ServiceSelector
-                selectedServices={selectedServices}
-                onServicesChange={setSelectedServices}
-              />
+              <div className="space-y-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Pesquisar serviço..."
+                    value={serviceSearch}
+                    onChange={(e) => setServiceSearch(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Select value={selectedServiceId} onValueChange={setSelectedServiceId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um serviço..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredServices.map((service) => (
+                      <SelectItem key={service.id} value={service.id}>
+                        <div className="flex justify-between items-center w-full">
+                          <span>{service.name}</span>
+                          <span className="text-sm text-muted-foreground ml-2">
+                            R$ {service.price} - {service.duration}min
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-2">
