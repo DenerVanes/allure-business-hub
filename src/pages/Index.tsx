@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -140,117 +141,117 @@ const Index = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <TodaySchedule />
         
-        <Card className="shadow-soft border-border/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <DollarSign className="h-5 w-5 text-green-600" />
-              Ações Rápidas
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Button 
-              onClick={() => openFinanceModal('income')}
-              className="w-full bg-green-600 hover:bg-green-700"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Registrar Receita
-            </Button>
-            
-            <Button 
-              onClick={() => openFinanceModal('expense')}
-              variant="destructive"
-              className="w-full"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Registrar Despesa
-            </Button>
-            
-            <Button 
-              onClick={() => setShowNewClientModal(true)}
-              variant="outline"
-              className="w-full"
-            >
-              <Users className="h-4 w-4 mr-2" />
-              Novo Cliente
-            </Button>
-            
-            <Button 
-              onClick={() => setShowCollaboratorModal(true)}
-              variant="outline"
-              className="w-full"
-            >
-              <Users className="h-4 w-4 mr-2" />
-              Novo Colaborador
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="shadow-soft border-border/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Package className="h-5 w-5 text-yellow-600" />
-              Alertas de Estoque
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Produtos com estoque baixo</p>
-                  <p className="text-sm text-muted-foreground">
-                    {lowStockProducts.length} produtos precisam de atenção
-                  </p>
-                </div>
-                <Badge variant={lowStockProducts.length > 0 ? "destructive" : "default"}>
-                  {lowStockProducts.length}
-                </Badge>
-              </div>
+        <div className="space-y-6">
+          <Card className="shadow-soft border-border/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <DollarSign className="h-5 w-5 text-green-600" />
+                Ações Rápidas
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button 
+                onClick={() => openFinanceModal('income')}
+                className="w-full bg-green-600 hover:bg-green-700"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Registrar Receita
+              </Button>
               
               <Button 
-                onClick={() => setShowStockAlertModal(true)}
-                variant="outline" 
+                onClick={() => openFinanceModal('expense')}
+                variant="destructive"
                 className="w-full"
               >
-                <Eye className="h-4 w-4 mr-2" />
-                Ver Produtos
+                <Plus className="h-4 w-4 mr-2" />
+                Registrar Despesa
               </Button>
-            </div>
-          </CardContent>
-        </Card>
+              
+              <Button 
+                onClick={() => setShowNewClientModal(true)}
+                variant="outline"
+                className="w-full"
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Novo Cliente
+              </Button>
+              
+              <Button 
+                onClick={() => setShowCollaboratorModal(true)}
+                variant="outline"
+                className="w-full"
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Novo Colaborador
+              </Button>
+            </CardContent>
+          </Card>
 
-        <Card className="shadow-soft border-border/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <TrendingUp className="h-5 w-5 text-blue-600" />
-              Resumo Financeiro
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Receitas do Mês</span>
-                <span className="text-green-600 font-semibold">R$ {monthlyIncome.toFixed(2)}</span>
+          <Card className="shadow-soft border-border/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Package className="h-5 w-5 text-yellow-600" />
+                Alertas de Estoque
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Produtos com estoque baixo</p>
+                    <p className="text-sm text-muted-foreground">
+                      {lowStockProducts.length} produtos precisam de atenção
+                    </p>
+                  </div>
+                  <Badge variant={lowStockProducts.length > 0 ? "destructive" : "default"}>
+                    {lowStockProducts.length}
+                  </Badge>
+                </div>
+                
+                <Button 
+                  onClick={() => setShowStockAlertModal(true)}
+                  variant="outline" 
+                  className="w-full"
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  Ver Produtos
+                </Button>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Despesas do Mês</span>
-                <span className="text-red-600 font-semibold">R$ {monthlyExpenses.toFixed(2)}</span>
-              </div>
-              <div className="border-t pt-3">
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-soft border-border/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <TrendingUp className="h-5 w-5 text-blue-600" />
+                Resumo Financeiro
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="font-medium">Saldo do Mês</span>
-                  <span className={`font-bold ${monthlyIncome - monthlyExpenses >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    R$ {(monthlyIncome - monthlyExpenses).toFixed(2)}
-                  </span>
+                  <span className="text-sm font-medium">Receitas do Mês</span>
+                  <span className="text-green-600 font-semibold">R$ {monthlyIncome.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Despesas do Mês</span>
+                  <span className="text-red-600 font-semibold">R$ {monthlyExpenses.toFixed(2)}</span>
+                </div>
+                <div className="border-t pt-3">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">Saldo do Mês</span>
+                    <span className={`font-bold ${monthlyIncome - monthlyExpenses >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      R$ {(monthlyIncome - monthlyExpenses).toFixed(2)}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <FinanceModal

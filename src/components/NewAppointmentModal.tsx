@@ -14,20 +14,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarIcon, Search } from 'lucide-react';
+import { Calendar as CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { ServiceCombobox } from './ServiceCombobox';
 
 interface NewAppointmentModalProps {
   open: boolean;
@@ -48,7 +42,6 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
   const [selectedServiceId, setSelectedServiceId] = useState(appointment?.service_id || '');
   const [notes, setNotes] = useState(appointment?.notes || '');
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [serviceSearch, setServiceSearch] = useState('');
 
   const { data: services = [] } = useQuery({
     queryKey: ['services', user?.id],
@@ -67,12 +60,6 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
     enabled: !!user?.id
   });
 
-  // Filtrar serviços baseado na pesquisa
-  const filteredServices = services.filter(service =>
-    service.name.toLowerCase().includes(serviceSearch.toLowerCase()) ||
-    service.category.toLowerCase().includes(serviceSearch.toLowerCase())
-  );
-
   const createAppointmentMutation = useMutation({
     mutationFn: async (appointmentData: any) => {
       const { error } = await supabase
@@ -88,6 +75,7 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       queryClient.invalidateQueries({ queryKey: ['today-appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['today-appointments-full'] });
       toast({
         title: 'Agendamento criado',
         description: 'O agendamento foi criado com sucesso.',
@@ -116,6 +104,7 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       queryClient.invalidateQueries({ queryKey: ['today-appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['today-appointments-full'] });
       toast({
         title: 'Agendamento atualizado',
         description: 'O agendamento foi atualizado com sucesso.',
@@ -139,7 +128,6 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
     setClientPhone('');
     setSelectedServiceId('');
     setNotes('');
-    setServiceSearch('');
   };
 
   const handleDateSelect = (selectedDate: Date | undefined) => {
@@ -254,34 +242,12 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
 
             <div className="space-y-2">
               <Label htmlFor="service">Serviço *</Label>
-              <div className="space-y-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Pesquisar serviço..."
-                    value={serviceSearch}
-                    onChange={(e) => setServiceSearch(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <Select value={selectedServiceId} onValueChange={setSelectedServiceId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um serviço..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredServices.map((service) => (
-                      <SelectItem key={service.id} value={service.id}>
-                        <div className="flex justify-between items-center w-full">
-                          <span>{service.name}</span>
-                          <span className="text-sm text-muted-foreground ml-2">
-                            R$ {service.price} - {service.duration}min
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <ServiceCombobox
+                services={services}
+                value={selectedServiceId}
+                onChange={setSelectedServiceId}
+                placeholder="Selecione um serviço..."
+              />
             </div>
 
             <div className="space-y-2">
