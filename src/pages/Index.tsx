@@ -141,77 +141,74 @@ const Index = () => {
         />
       </div>
 
-      {/* Main content row with Today Schedule and side cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Today Schedule - takes 2 columns */}
-        <div className="lg:col-span-2">
-          <TodaySchedule />
-        </div>
-        
-        {/* Right side cards - takes 1 column */}
-        <div className="space-y-6">
-          <Card className="shadow-soft border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Package className="h-5 w-5 text-yellow-600" />
-                Alertas de Estoque
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Produtos com estoque baixo</p>
-                    <p className="text-sm text-muted-foreground">
-                      {lowStockProducts.length} produtos precisam de atenção
-                    </p>
-                  </div>
-                  <Badge variant={lowStockProducts.length > 0 ? "destructive" : "default"}>
-                    {lowStockProducts.length}
-                  </Badge>
+      {/* Today Schedule - full width row */}
+      <div className="w-full">
+        <TodaySchedule />
+      </div>
+      
+      {/* Bottom cards row - Stock Alerts and Financial Summary */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="shadow-soft border-border/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Package className="h-5 w-5 text-yellow-600" />
+              Alertas de Estoque
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Produtos com estoque baixo</p>
+                  <p className="text-sm text-muted-foreground">
+                    {lowStockProducts.length} produtos precisam de atenção
+                  </p>
                 </div>
-                
-                <Button 
-                  onClick={() => setShowStockAlertModal(true)}
-                  variant="outline" 
-                  className="w-full"
-                >
-                  <Eye className="h-4 w-4 mr-2" />
-                  Ver Produtos
-                </Button>
+                <Badge variant={lowStockProducts.length > 0 ? "destructive" : "default"}>
+                  {lowStockProducts.length}
+                </Badge>
               </div>
-            </CardContent>
-          </Card>
+              
+              <Button 
+                onClick={() => setShowStockAlertModal(true)}
+                variant="outline" 
+                className="w-full"
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                Ver Produtos
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-          <Card className="shadow-soft border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <TrendingUp className="h-5 w-5 text-blue-600" />
-                Resumo Financeiro
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
+        <Card className="shadow-soft border-border/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <TrendingUp className="h-5 w-5 text-blue-600" />
+              Resumo Financeiro
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium">Receitas do Mês</span>
+                <span className="text-green-600 font-semibold">R$ {monthlyIncome.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium">Despesas do Mês</span>
+                <span className="text-red-600 font-semibold">R$ {monthlyExpenses.toFixed(2)}</span>
+              </div>
+              <div className="border-t pt-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">Receitas do Mês</span>
-                  <span className="text-green-600 font-semibold">R$ {monthlyIncome.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">Despesas do Mês</span>
-                  <span className="text-red-600 font-semibold">R$ {monthlyExpenses.toFixed(2)}</span>
-                </div>
-                <div className="border-t pt-3">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium">Saldo do Mês</span>
-                    <span className={`font-bold ${monthlyIncome - monthlyExpenses >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      R$ {(monthlyIncome - monthlyExpenses).toFixed(2)}
-                    </span>
-                  </div>
+                  <span className="font-medium">Saldo do Mês</span>
+                  <span className={`font-bold ${monthlyIncome - monthlyExpenses >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    R$ {(monthlyIncome - monthlyExpenses).toFixed(2)}
+                  </span>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <FinanceModal
