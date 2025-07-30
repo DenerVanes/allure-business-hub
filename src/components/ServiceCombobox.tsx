@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Check, ChevronDown, Search } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,11 +32,22 @@ interface ServiceComboboxProps {
   placeholder?: string;
 }
 
-export const ServiceCombobox = ({ services, value, onChange, placeholder = "Selecione um serviço..." }: ServiceComboboxProps) => {
+export const ServiceCombobox = ({ 
+  services, 
+  value, 
+  onChange, 
+  placeholder = "Selecione um serviço..." 
+}: ServiceComboboxProps) => {
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
 
   const selectedService = services.find(service => service.id === value);
+
+  // Filtrar serviços por busca
+  const filteredServices = services.filter(service =>
+    service.name.toLowerCase().includes(searchValue.toLowerCase()) ||
+    service.category.toLowerCase().includes(searchValue.toLowerCase())
+  );
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -60,7 +71,7 @@ export const ServiceCombobox = ({ services, value, onChange, placeholder = "Sele
           <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0">
+      <PopoverContent className="w-full p-0" align="start">
         <Command>
           <CommandInput
             placeholder="Pesquisar serviço..."
@@ -70,38 +81,35 @@ export const ServiceCombobox = ({ services, value, onChange, placeholder = "Sele
           <CommandList>
             <CommandEmpty>Nenhum serviço encontrado.</CommandEmpty>
             <CommandGroup>
-              {services
-                .filter(service => 
-                  service.name.toLowerCase().includes(searchValue.toLowerCase()) ||
-                  service.category.toLowerCase().includes(searchValue.toLowerCase())
-                )
-                .map((service) => (
-                  <CommandItem
-                    key={service.id}
-                    value={service.id}
-                    onSelect={() => {
-                      onChange(service.id);
-                      setOpen(false);
-                      setSearchValue('');
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        value === service.id ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    <div className="flex justify-between items-center w-full">
-                      <div className="flex flex-col">
-                        <span>{service.name}</span>
-                        <span className="text-xs text-muted-foreground">Categoria: {service.category}</span>
-                      </div>
-                      <span className="text-sm text-muted-foreground ml-2">
-                        R$ {service.price} - {service.duration}min
+              {filteredServices.map((service) => (
+                <CommandItem
+                  key={service.id}
+                  value={service.id}
+                  onSelect={() => {
+                    onChange(service.id);
+                    setOpen(false);
+                    setSearchValue('');
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === service.id ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  <div className="flex justify-between items-center w-full">
+                    <div className="flex flex-col">
+                      <span>{service.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        Categoria: {service.category}
                       </span>
                     </div>
-                  </CommandItem>
-                ))}
+                    <span className="text-sm text-muted-foreground ml-2">
+                      R$ {service.price} - {service.duration}min
+                    </span>
+                  </div>
+                </CommandItem>
+              ))}
             </CommandGroup>
           </CommandList>
         </Command>

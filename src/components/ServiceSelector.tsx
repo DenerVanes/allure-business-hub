@@ -12,6 +12,8 @@ import { Plus, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { ServiceCombobox } from './ServiceCombobox';
+import { CollaboratorSelector } from './CollaboratorSelector';
 
 interface Service {
   id: string;
@@ -26,7 +28,7 @@ interface SelectedService {
   id: string;
   serviceId: string;
   service: Service;
-  collaboratorId?: string;
+  collaboratorIds?: string[];
 }
 
 interface ServiceSelectorProps {
@@ -61,30 +63,12 @@ export const ServiceSelector = ({ selectedServices, onServicesChange }: ServiceS
     enabled: !!user?.id,
   });
 
-  // Buscar colaboradores disponíveis
-  const { data: collaborators = [] } = useQuery({
-    queryKey: ['collaborators', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      
-      const { data, error } = await supabase
-        .from('collaborators')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('active', true)
-        .order('name');
-
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!user?.id,
-  });
-
   const addServiceSlot = () => {
     const newService: SelectedService = {
       id: Math.random().toString(36).substr(2, 9),
       serviceId: '',
-      service: {} as Service
+      service: {} as Service,
+      collaboratorIds: []
     };
     onServicesChange([...selectedServices, newService]);
   };
@@ -100,35 +84,20 @@ export const ServiceSelector = ({ selectedServices, onServicesChange }: ServiceS
     onServicesChange(
       selectedServices.map(s => 
         s.id === id 
-          ? { ...s, serviceId, service, collaboratorId: undefined }
+          ? { ...s, serviceId, service, collaboratorIds: [] }
           : s
       )
     );
   };
 
-  const updateCollaborator = (serviceId: string, collaboratorId: string) => {
+  const updateCollaborators = (serviceId: string, collaboratorIds: string[]) => {
     onServicesChange(
       selectedServices.map(s => 
         s.id === serviceId 
-          ? { ...s, collaboratorId: collaboratorId === 'any' ? undefined : collaboratorId }
+          ? { ...s, collaboratorIds }
           : s
       )
     );
-  };
-
-  // Filtrar colaboradores que têm especialidade compatível com o serviço
-  const getAvailableCollaborators = (service: Service) => {
-    if (!service.category) return collaborators;
-    
-    return collaborators.filter(collaborator => {
-      if (!collaborator.specialty || collaborator.specialty.length === 0) {
-        return true; // Colaborador sem especialidade pode fazer qualquer serviço
-      }
-      
-      return collaborator.specialty.some((spec: string) => 
-        spec.toLowerCase() === service.category.toLowerCase()
-      );
-    });
   };
 
   const getTotalAmount = () => {
@@ -145,30 +114,20 @@ export const ServiceSelector = ({ selectedServices, onServicesChange }: ServiceS
 
   return (
     <div className="space-y-4">
-      <div className="space-y-3">
+      <div className="space-y-4">
         {selectedServices.map((selectedService, index) => (
-          <div key={selectedService.id} className="space-y-2 p-3 border rounded-lg">
+          <div key={selectedService.id} className="space-y-3 p-4 border rounded-lg bg-muted/30">
             <div className="flex gap-2 items-center">
-              <Select 
-                value={selectedService.serviceId} 
-                onValueChange={(value) => updateService(selectedService.id, value)}
-              >
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder={`Selecione o ${index === 0 ? 'primeiro' : `${index + 1}º`} serviço`} />
-                </SelectTrigger>
-                <SelectContent>
-                  {services
-                    .filter(service => !selectedServices.some(s => s.serviceId === service.id && s.id !== selectedService.id))
-                    .map((service) => (
-                      <SelectItem key={service.id} value={service.id}>
-                        <div className="flex flex-col">
-                          <span>{service.name} - R$ {service.price} ({service.duration}min)</span>
-                          <span className="text-xs text-muted-foreground">Categoria: {service.category}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+              <div className="flex-1">
+                <ServiceCombobox
+                  services={services.filter(service => 
+                    !selectedServices.some(s => s.serviceId === service.id && s.id !== selectedService.id)
+                  )}
+                  value={selectedService.serviceId}
+                  onChange={(value) => updateService(selectedService.id, value)}
+                  placeholder={`Selecione o ${index === 0 ? 'primeiro' : `${index + 1}º`} serviço`}
+                />
+              </div>
               
               {selectedServices.length > 1 && (
                 <Button
@@ -183,39 +142,17 @@ export const ServiceSelector = ({ selectedServices, onServicesChange }: ServiceS
               )}
             </div>
 
-            {/* Seletor de profissional para o serviço específico */}
+            {/* Seletor de profissionais para o serviço específico */}
             {selectedService.serviceId && (
-              <div className="ml-4">
-                <Select 
-                  value={selectedService.collaboratorId || 'any'} 
-                  onValueChange={(value) => updateCollaborator(selectedService.id, value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Profissional específico (opcional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="any">Qualquer profissional</SelectItem>
-                    {getAvailableCollaborators(selectedService.service).map((collaborator) => (
-                      <SelectItem key={collaborator.id} value={collaborator.id}>
-                        <div className="flex items-center gap-2">
-                          {collaborator.photo_url ? (
-                            <img
-                              src={collaborator.photo_url}
-                              alt={collaborator.name}
-                              className="w-5 h-5 rounded-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-5 h-5 rounded-full bg-gray-200" />
-                          )}
-                          <span>{collaborator.name}</span>
-                          {collaborator.specialty?.includes(selectedService.service.category) && (
-                            <span className="text-xs text-green-600">✓</span>
-                          )}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Profissional</label>
+                <CollaboratorSelector
+                  serviceCategory={selectedService.service.category}
+                  selectedCollaboratorIds={selectedService.collaboratorIds || []}
+                  onCollaboratorsChange={(collaboratorIds) => 
+                    updateCollaborators(selectedService.id, collaboratorIds)
+                  }
+                />
               </div>
             )}
           </div>

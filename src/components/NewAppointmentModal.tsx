@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
-import { ServiceCombobox } from './ServiceCombobox';
+import { ServiceSelector } from './ServiceSelector';
 
 interface NewAppointmentModalProps {
   open: boolean;
@@ -39,38 +39,40 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
   const [time, setTime] = useState(appointment?.appointment_time || '');
   const [clientName, setClientName] = useState(appointment?.client_name || '');
   const [clientPhone, setClientPhone] = useState(appointment?.client_phone || '');
-  const [selectedServiceId, setSelectedServiceId] = useState(appointment?.service_id || '');
+  const [selectedServices, setSelectedServices] = useState<any[]>(
+    appointment ? [{ 
+      id: '1', 
+      serviceId: appointment.service_id, 
+      service: { id: appointment.service_id, name: '', price: 0, duration: 0, category: '' },
+      collaboratorId: appointment.collaborator_id 
+    }] : [{ 
+      id: '1', 
+      serviceId: '', 
+      service: { id: '', name: '', price: 0, duration: 0, category: '' } 
+    }]
+  );
   const [notes, setNotes] = useState(appointment?.notes || '');
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
-  const { data: services = [] } = useQuery({
-    queryKey: ['services', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      
-      const { data, error } = await supabase
-        .from('services')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('active', true);
-      
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!user?.id
-  });
-
   const createAppointmentMutation = useMutation({
     mutationFn: async (appointmentData: any) => {
-      const { error } = await supabase
-        .from('appointments')
-        .insert({
-          ...appointmentData,
-          user_id: user?.id,
-          status: 'agendado'
-        });
-      
-      if (error) throw error;
+      // Para múltiplos serviços, criar um agendamento para cada serviço
+      const appointments = selectedServices.map(selectedService => ({
+        ...appointmentData,
+        service_id: selectedService.serviceId,
+        collaborator_id: selectedService.collaboratorId,
+        total_amount: selectedService.service.price,
+        user_id: user?.id,
+        status: 'agendado'
+      }));
+
+      for (const apt of appointments) {
+        const { error } = await supabase
+          .from('appointments')
+          .insert(apt);
+        
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
@@ -96,7 +98,12 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
     mutationFn: async (appointmentData: any) => {
       const { error } = await supabase
         .from('appointments')
-        .update(appointmentData)
+        .update({
+          ...appointmentData,
+          service_id: selectedServices[0]?.serviceId,
+          collaborator_id: selectedServices[0]?.collaboratorId,
+          total_amount: selectedServices[0]?.service?.price
+        })
         .eq('id', appointment.id);
       
       if (error) throw error;
@@ -126,7 +133,11 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
     setTime('');
     setClientName('');
     setClientPhone('');
-    setSelectedServiceId('');
+    setSelectedServices([{ 
+      id: '1', 
+      serviceId: '', 
+      service: { id: '', name: '', price: 0, duration: 0, category: '' } 
+    }]);
     setNotes('');
   };
 
@@ -138,7 +149,7 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!date || !time || !clientName || !selectedServiceId) {
+    if (!date || !time || !clientName || !selectedServices[0]?.serviceId) {
       toast({
         title: 'Campos obrigatórios',
         description: 'Preencha todos os campos obrigatórios.',
@@ -147,17 +158,12 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
       return;
     }
 
-    const selectedService = services.find(s => s.id === selectedServiceId);
-    const totalAmount = selectedService?.price || 0;
-    
     const appointmentData = {
       appointment_date: format(date, 'yyyy-MM-dd'),
       appointment_time: time,
       client_name: clientName,
       client_phone: clientPhone,
-      service_id: selectedServiceId,
-      notes,
-      total_amount: totalAmount
+      notes
     };
 
     if (appointment) {
@@ -167,9 +173,21 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
     }
   };
 
+  // Converter tempo para formato 24h brasileiro
+  const convertTo24Hour = (timeValue: string) => {
+    if (!timeValue) return '';
+    
+    // Se já está no formato 24h, retorna como está
+    if (timeValue.includes(':') && !timeValue.includes(' ')) {
+      return timeValue;
+    }
+    
+    return timeValue;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-hidden">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle>
             {appointment ? 'Editar Agendamento' : 'Novo Agendamento'}
@@ -210,9 +228,10 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
                 <Input
                   id="time"
                   type="time"
-                  value={time}
+                  value={convertTo24Hour(time)}
                   onChange={(e) => setTime(e.target.value)}
                   required
+                  step="300"
                 />
               </div>
             </div>
@@ -241,12 +260,10 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="service">Serviço *</Label>
-              <ServiceCombobox
-                services={services}
-                value={selectedServiceId}
-                onChange={setSelectedServiceId}
-                placeholder="Selecione um serviço..."
+              <Label>Serviços *</Label>
+              <ServiceSelector
+                selectedServices={selectedServices}
+                onServicesChange={setSelectedServices}
               />
             </div>
 
