@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -118,6 +117,7 @@ const Index = () => {
 
   return (
     <div className="space-y-6">
+      {/* Top metrics row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <MetricCard
           title="Agendamentos Hoje"
@@ -141,55 +141,15 @@ const Index = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <TodaySchedule />
+      {/* Main content row with Today Schedule and side cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Today Schedule - takes 2 columns */}
+        <div className="lg:col-span-2">
+          <TodaySchedule />
+        </div>
         
+        {/* Right side cards - takes 1 column */}
         <div className="space-y-6">
-          <Card className="shadow-soft border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <DollarSign className="h-5 w-5 text-green-600" />
-                Ações Rápidas
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button 
-                onClick={() => openFinanceModal('income')}
-                className="w-full bg-green-600 hover:bg-green-700"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Registrar Receita
-              </Button>
-              
-              <Button 
-                onClick={() => openFinanceModal('expense')}
-                variant="destructive"
-                className="w-full"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Registrar Despesa
-              </Button>
-              
-              <Button 
-                onClick={() => setShowNewClientModal(true)}
-                variant="outline"
-                className="w-full"
-              >
-                <Users className="h-4 w-4 mr-2" />
-                Novo Cliente
-              </Button>
-              
-              <Button 
-                onClick={() => setShowCollaboratorModal(true)}
-                variant="outline"
-                className="w-full"
-              >
-                <Users className="h-4 w-4 mr-2" />
-                Novo Colaborador
-              </Button>
-            </CardContent>
-          </Card>
-
           <Card className="shadow-soft border-border/50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">

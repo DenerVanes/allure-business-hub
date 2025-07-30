@@ -1,12 +1,22 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Clock, User, Check, Eye, CheckCircle, X, Calendar, Trash2 } from 'lucide-react';
+import { Clock, User, Check, Eye, CheckCircle, X, Calendar, Trash2, MoreVertical } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { 
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
@@ -19,6 +29,7 @@ export const TodaySchedule = () => {
   const [showFullAgenda, setShowFullAgenda] = useState(false);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+  const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
   const today = new Date();
 
   const { data: appointments = [], isLoading } = useQuery({
@@ -131,6 +142,18 @@ export const TodaySchedule = () => {
     setShowRescheduleModal(true);
   };
 
+  const handleAction = (appointmentId: string, action: string, appointment?: any) => {
+    setOpenPopoverId(null);
+    
+    if (action === 'reschedule') {
+      handleReschedule(appointment);
+    } else if (action === 'delete') {
+      deleteAppointmentMutation.mutate(appointmentId);
+    } else {
+      updateAppointmentMutation.mutate({ appointmentId, status: action });
+    }
+  };
+
   if (isLoading) {
     return (
       <Card className="w-full">
@@ -181,63 +204,80 @@ export const TodaySchedule = () => {
                         <User className="h-4 w-4 text-muted-foreground" />
                         <span className="font-medium">{appointment.client_name}</span>
                       </div>
-                      <div className="text-sm text-muted-foreground mb-2">
+                      <div className="text-sm text-muted-foreground mb-3">
                         {appointment.services?.name || 'Serviço'} - R$ {appointment.total_amount || 0}
                       </div>
+                    </div>
+                    
+                    {/* Actions */}
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => updateAppointmentMutation.mutate({ appointmentId: appointment.id, status: 'finalizado' })}
+                        disabled={updateAppointmentMutation.isPending}
+                      >
+                        <Check className="h-3 w-3 mr-1" />
+                        Finalizar
+                      </Button>
                       
-                      {/* Botões de ação */}
-                      <div className="flex gap-2 flex-wrap">
-                        {appointment.status === 'agendado' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => updateAppointmentMutation.mutate({ appointmentId: appointment.id, status: 'confirmado' })}
-                            disabled={updateAppointmentMutation.isPending}
-                          >
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Confirmar
+                      <Popover 
+                        open={openPopoverId === appointment.id} 
+                        onOpenChange={(open) => setOpenPopoverId(open ? appointment.id : null)}
+                      >
+                        <PopoverTrigger asChild>
+                          <Button size="sm" variant="outline">
+                            <MoreVertical className="h-3 w-3" />
                           </Button>
-                        )}
-                        
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleReschedule(appointment)}
-                        >
-                          <Calendar className="h-3 w-3 mr-1" />
-                          Reagendar
-                        </Button>
-                        
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => updateAppointmentMutation.mutate({ appointmentId: appointment.id, status: 'cancelado' })}
-                          disabled={updateAppointmentMutation.isPending}
-                        >
-                          <X className="h-3 w-3 mr-1" />
-                          Cancelar
-                        </Button>
-                        
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => deleteAppointmentMutation.mutate(appointment.id)}
-                          disabled={deleteAppointmentMutation.isPending}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="h-3 w-3 mr-1" />
-                          Excluir
-                        </Button>
-                        
-                        <Button
-                          size="sm"
-                          onClick={() => updateAppointmentMutation.mutate({ appointmentId: appointment.id, status: 'finalizado' })}
-                          disabled={updateAppointmentMutation.isPending}
-                        >
-                          <Check className="h-3 w-3 mr-1" />
-                          Finalizar
-                        </Button>
-                      </div>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-1">
+                          <div className="space-y-1">
+                            {appointment.status === 'agendado' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-full justify-start"
+                                onClick={() => handleAction(appointment.id, 'confirmado')}
+                                disabled={updateAppointmentMutation.isPending}
+                              >
+                                <CheckCircle className="h-3 w-3 mr-2" />
+                                Confirmar
+                              </Button>
+                            )}
+                            
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start"
+                              onClick={() => handleAction(appointment.id, 'reschedule', appointment)}
+                            >
+                              <Calendar className="h-3 w-3 mr-2" />
+                              Reagendar
+                            </Button>
+                            
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start"
+                              onClick={() => handleAction(appointment.id, 'cancelado')}
+                              disabled={updateAppointmentMutation.isPending}
+                            >
+                              <X className="h-3 w-3 mr-2" />
+                              Cancelar
+                            </Button>
+                            
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start text-red-600 hover:text-red-700"
+                              onClick={() => handleAction(appointment.id, 'delete')}
+                              disabled={deleteAppointmentMutation.isPending}
+                            >
+                              <Trash2 className="h-3 w-3 mr-2" />
+                              Excluir
+                            </Button>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   </div>
                 </div>
