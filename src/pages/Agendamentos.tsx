@@ -19,6 +19,7 @@ import { format, parseISO, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { NewAppointmentModal } from '@/components/NewAppointmentModal';
 import { RescheduleModal } from '@/components/RescheduleModal';
+import { FinalizeAppointmentModal } from '@/components/FinalizeAppointmentModal';
 import { AppointmentDateFilter, DateFilter } from '@/components/AppointmentDateFilter';
 
 export default function Agendamentos() {
@@ -27,6 +28,7 @@ export default function Agendamentos() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showNewModal, setShowNewModal] = useState(false);
   const [rescheduleAppointment, setRescheduleAppointment] = useState<any>(null);
+  const [finalizeAppointment, setFinalizeAppointment] = useState<any>(null);
   const [dateFilter, setDateFilter] = useState<DateFilter>({
     type: 'all',
     label: 'Todos'
@@ -42,7 +44,8 @@ export default function Agendamentos() {
         .select(`
           *,
           services (name, price, duration),
-          clients (name, phone)
+          clients (name, phone),
+          collaborators (name)
         `)
         .eq('user_id', user.id)
         .order('appointment_date', { ascending: false })
@@ -300,10 +303,7 @@ export default function Agendamentos() {
                           
                           {appointment.status === 'confirmado' && (
                             <DropdownMenuItem
-                              onClick={() => updateAppointmentMutation.mutate({ 
-                                id: appointment.id, 
-                                status: 'finalizado' 
-                              })}
+                              onClick={() => setFinalizeAppointment(appointment)}
                             >
                               <CheckCircle className="h-4 w-4 mr-2" />
                               Finalizar
@@ -358,6 +358,14 @@ export default function Agendamentos() {
           open={!!rescheduleAppointment}
           onOpenChange={(open) => !open && setRescheduleAppointment(null)}
           appointment={rescheduleAppointment}
+        />
+      )}
+
+      {finalizeAppointment && (
+        <FinalizeAppointmentModal
+          open={!!finalizeAppointment}
+          onOpenChange={(open) => !open && setFinalizeAppointment(null)}
+          appointment={finalizeAppointment}
         />
       )}
     </div>

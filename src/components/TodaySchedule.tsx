@@ -22,12 +22,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 import { TodayAgendaModal } from './TodayAgendaModal';
 import { RescheduleModal } from './RescheduleModal';
+import { FinalizeAppointmentModal } from './FinalizeAppointmentModal';
 
 export const TodaySchedule = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [showFullAgenda, setShowFullAgenda] = useState(false);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
   const today = new Date();
@@ -41,7 +43,8 @@ export const TodaySchedule = () => {
         .from('appointments')
         .select(`
           *,
-          services (name, price, duration)
+          services (name, price, duration),
+          collaborators (name)
         `)
         .eq('user_id', user.id)
         .eq('appointment_date', format(today, 'yyyy-MM-dd'))
@@ -142,6 +145,11 @@ export const TodaySchedule = () => {
     setShowRescheduleModal(true);
   };
 
+  const handleFinalize = (appointment: any) => {
+    setSelectedAppointment(appointment);
+    setShowFinalizeModal(true);
+  };
+
   const handleAction = (appointmentId: string, action: string, appointment?: any) => {
     setOpenPopoverId(null);
     
@@ -204,21 +212,37 @@ export const TodaySchedule = () => {
                         <User className="h-4 w-4 text-muted-foreground" />
                         <span className="font-medium">{appointment.client_name}</span>
                       </div>
-                      <div className="text-sm text-muted-foreground mb-3">
+                      <div className="text-sm text-muted-foreground mb-1">
                         {appointment.services?.name || 'Serviço'} - R$ {appointment.total_amount || 0}
                       </div>
+                      {appointment.collaborators?.name && (
+                        <div className="text-sm text-muted-foreground mb-3">
+                          Profissional: {appointment.collaborators.name}
+                        </div>
+                      )}
                     </div>
                     
                     {/* Actions */}
                     <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => updateAppointmentMutation.mutate({ appointmentId: appointment.id, status: 'finalizado' })}
-                        disabled={updateAppointmentMutation.isPending}
-                      >
-                        <Check className="h-3 w-3 mr-1" />
-                        Finalizar
-                      </Button>
+                      {appointment.status === 'agendado' ? (
+                        <Button
+                          size="sm"
+                          onClick={() => updateAppointmentMutation.mutate({ appointmentId: appointment.id, status: 'confirmado' })}
+                          disabled={updateAppointmentMutation.isPending}
+                        >
+                          <Check className="h-3 w-3 mr-1" />
+                          Confirmar
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={() => handleFinalize(appointment)}
+                          disabled={updateAppointmentMutation.isPending}
+                        >
+                          <Check className="h-3 w-3 mr-1" />
+                          Finalizar
+                        </Button>
+                      )}
                       
                       <Popover 
                         open={openPopoverId === appointment.id} 
@@ -306,6 +330,12 @@ export const TodaySchedule = () => {
       <RescheduleModal
         open={showRescheduleModal}
         onOpenChange={setShowRescheduleModal}
+        appointment={selectedAppointment}
+      />
+
+      <FinalizeAppointmentModal
+        open={showFinalizeModal}
+        onOpenChange={setShowFinalizeModal}
         appointment={selectedAppointment}
       />
     </>
