@@ -24,6 +24,8 @@ import { TodayAgendaModal } from './TodayAgendaModal';
 import { RescheduleModal } from './RescheduleModal';
 import { FinalizeAppointmentModal } from './FinalizeAppointmentModal';
 
+type AppointmentWithCollaborator = any & { collaborator_name?: string };
+
 export const TodaySchedule = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -34,7 +36,7 @@ export const TodaySchedule = () => {
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
   const today = new Date();
 
-  const { data: appointments = [], isLoading } = useQuery({
+  const { data: appointments = [], isLoading } = useQuery<AppointmentWithCollaborator[]>({
     queryKey: ['today-appointments', user?.id, format(today, 'yyyy-MM-dd')],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -43,8 +45,7 @@ export const TodaySchedule = () => {
         .from('appointments')
         .select(`
           *,
-          services (name, price, duration),
-          collaborators (name)
+          services (name, price, duration)
         `)
         .eq('user_id', user.id)
         .eq('appointment_date', format(today, 'yyyy-MM-dd'))
@@ -52,7 +53,28 @@ export const TodaySchedule = () => {
         .order('appointment_time');
       
       if (error) throw error;
-      return data || [];
+      
+      // Buscar dados dos colaboradores separadamente
+      if (data && data.length > 0) {
+        const collaboratorIds = data
+          .map(apt => apt.collaborator_id)
+          .filter(Boolean);
+        
+        if (collaboratorIds.length > 0) {
+          const { data: collaboratorsData } = await supabase
+            .from('collaborators')
+            .select('id, name')
+            .in('id', collaboratorIds);
+          
+          // Adicionar nome do colaborador aos agendamentos
+          return data.map(apt => ({
+            ...apt,
+            collaborator_name: collaboratorsData?.find(c => c.id === apt.collaborator_id)?.name
+          })) as AppointmentWithCollaborator[];
+        }
+      }
+      
+      return (data || []) as AppointmentWithCollaborator[];
     },
     enabled: !!user?.id
   });
@@ -215,9 +237,9 @@ export const TodaySchedule = () => {
                       <div className="text-sm text-muted-foreground mb-1">
                         {appointment.services?.name || 'Serviço'} - R$ {appointment.total_amount || 0}
                       </div>
-                      {appointment.collaborators?.name && (
+                      {appointment.collaborator_name && (
                         <div className="text-sm text-muted-foreground mb-3">
-                          Profissional: {appointment.collaborators.name}
+                          Profissional: {appointment.collaborator_name}
                         </div>
                       )}
                     </div>
