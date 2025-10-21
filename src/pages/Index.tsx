@@ -22,7 +22,8 @@ import { CollaboratorModal } from '@/components/CollaboratorModal';
 import { StockAlertModal } from '@/components/StockAlertModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { isToday, isThisMonth } from 'date-fns';
+import { isThisMonth } from 'date-fns';
+import { getBrazilianDate, convertToSupabaseDate } from '@/utils/timezone';
 
 const Index = () => {
   const { user } = useAuth();
@@ -97,9 +98,12 @@ const Index = () => {
   });
 
   // Cálculos das métricas
+  // Obter data de hoje no formato YYYY-MM-DD usando timezone brasileiro
+  const todayString = convertToSupabaseDate(getBrazilianDate());
+  
   const todayAppointments = appointments.filter(appointment => {
-    const appointmentDate = new Date(appointment.appointment_date);
-    return isToday(appointmentDate);
+    // Comparar apenas a string da data, ignorando timezone
+    return appointment.appointment_date === todayString;
   });
   
   // Agendamentos por status do dia atual
