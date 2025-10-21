@@ -13,6 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subWeeks, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { formatTransactionDate, getBrazilianDate } from '@/utils/timezone';
 
 const Financeiro = () => {
   const { user } = useAuth();
@@ -22,7 +23,7 @@ const Financeiro = () => {
   const [dateFilter, setDateFilter] = useState('today');
 
   const getDateRange = (filter: string) => {
-    const now = new Date();
+    const now = getBrazilianDate(); // Usar data brasileira
     switch (filter) {
       case 'today':
         return { start: format(now, 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd') };
@@ -208,7 +209,7 @@ const Financeiro = () => {
                 {transactions.map((transaction) => (
                   <TableRow key={transaction.id}>
                     <TableCell>
-                      {format(new Date(transaction.transaction_date), 'dd/MM/yyyy', { locale: ptBR })}
+                      {formatTransactionDate(transaction.transaction_date)}
                     </TableCell>
                     <TableCell>
                       <Badge variant={transaction.type === 'income' ? 'default' : 'destructive'}>
