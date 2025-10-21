@@ -102,6 +102,11 @@ const Index = () => {
     return isToday(appointmentDate);
   });
   
+  // Agendamentos por status do dia atual
+  const todayPendingAppointments = todayAppointments.filter(apt => apt.status === 'agendado');
+  const todayConfirmedAppointments = todayAppointments.filter(apt => apt.status === 'confirmado');
+  const todayFinalizedAppointments = todayAppointments.filter(apt => apt.status === 'finalizado');
+  
   const monthlyIncome = transactions
     .filter(t => t.type === 'income' && isThisMonth(new Date(t.transaction_date)))
     .reduce((sum, t) => sum + Number(t.amount), 0);
@@ -123,21 +128,25 @@ const Index = () => {
           title="Agendamentos Hoje"
           value={todayAppointments.length}
           icon={Calendar}
+          description="Total de agendamentos do dia"
         />
         <MetricCard
-          title="Receitas do Mês"
-          value={`R$ ${monthlyIncome.toFixed(2)}`}
-          icon={TrendingUp}
+          title="A Confirmar"
+          value={todayPendingAppointments.length}
+          icon={AlertTriangle}
+          description="Aguardando confirmação"
         />
         <MetricCard
-          title="Despesas do Mês"
-          value={`R$ ${monthlyExpenses.toFixed(2)}`}
-          icon={TrendingDown}
-        />
-        <MetricCard
-          title="Total de Clientes"
-          value={clients.length}
+          title="Confirmados"
+          value={todayConfirmedAppointments.length}
           icon={Users}
+          description="Clientes confirmados"
+        />
+        <MetricCard
+          title="Finalizados"
+          value={todayFinalizedAppointments.length}
+          icon={TrendingUp}
+          description="Atendimentos concluídos"
         />
       </div>
 
