@@ -12,7 +12,9 @@ import {
   TrendingDown, 
   AlertTriangle,
   Plus,
-  Eye
+  Eye,
+  XCircle,
+  CheckCircle
 } from 'lucide-react';
 import { TodaySchedule } from '@/components/TodaySchedule';
 import { MetricCard } from '@/components/MetricCard';
@@ -20,6 +22,7 @@ import { FinanceModal } from '@/components/FinanceModal';
 import { NewClientModal } from '@/components/NewClientModal';
 import { CollaboratorModal } from '@/components/CollaboratorModal';
 import { StockAlertModal } from '@/components/StockAlertModal';
+import { AppointmentsStatusModal } from '@/components/AppointmentsStatusModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { isThisMonth } from 'date-fns';
@@ -32,6 +35,11 @@ const Index = () => {
   const [showNewClientModal, setShowNewClientModal] = useState(false);
   const [showCollaboratorModal, setShowCollaboratorModal] = useState(false);
   const [showStockAlertModal, setShowStockAlertModal] = useState(false);
+  const [showAllAppointmentsModal, setShowAllAppointmentsModal] = useState(false);
+  const [showPendingModal, setShowPendingModal] = useState(false);
+  const [showConfirmedModal, setShowConfirmedModal] = useState(false);
+  const [showFinalizedModal, setShowFinalizedModal] = useState(false);
+  const [showCanceledModal, setShowCanceledModal] = useState(false);
 
   const { data: appointments = [] } = useQuery({
     queryKey: ['appointments', user?.id],
@@ -110,6 +118,7 @@ const Index = () => {
   const todayPendingAppointments = todayAppointments.filter(apt => apt.status === 'agendado');
   const todayConfirmedAppointments = todayAppointments.filter(apt => apt.status === 'confirmado');
   const todayFinalizedAppointments = todayAppointments.filter(apt => apt.status === 'finalizado');
+  const todayCanceledAppointments = todayAppointments.filter(apt => apt.status === 'cancelado');
   
   const monthlyIncome = transactions
     .filter(t => t.type === 'income' && isThisMonth(new Date(t.transaction_date)))
@@ -127,30 +136,91 @@ const Index = () => {
   return (
     <div className="space-y-6">
       {/* Top metrics row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <MetricCard
           title="Agendamentos Hoje"
           value={todayAppointments.length}
           icon={Calendar}
           description="Total de agendamentos do dia"
+          action={
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full"
+              onClick={() => setShowAllAppointmentsModal(true)}
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Ver Tudo
+            </Button>
+          }
         />
         <MetricCard
           title="A Confirmar"
           value={todayPendingAppointments.length}
           icon={AlertTriangle}
           description="Aguardando confirmação"
+          action={
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full"
+              onClick={() => setShowPendingModal(true)}
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Ver Tudo
+            </Button>
+          }
         />
         <MetricCard
           title="Confirmados"
           value={todayConfirmedAppointments.length}
-          icon={Users}
+          icon={CheckCircle}
           description="Clientes confirmados"
+          action={
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full"
+              onClick={() => setShowConfirmedModal(true)}
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Ver Tudo
+            </Button>
+          }
         />
         <MetricCard
           title="Finalizados"
           value={todayFinalizedAppointments.length}
           icon={TrendingUp}
           description="Atendimentos concluídos"
+          action={
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full"
+              onClick={() => setShowFinalizedModal(true)}
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Ver Tudo
+            </Button>
+          }
+        />
+        <MetricCard
+          title="Cancelados"
+          value={todayCanceledAppointments.length}
+          icon={XCircle}
+          description="Agendamentos cancelados"
+          action={
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full"
+              onClick={() => setShowCanceledModal(true)}
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Ver Tudo
+            </Button>
+          }
         />
       </div>
 
@@ -243,6 +313,41 @@ const Index = () => {
       <StockAlertModal
         open={showStockAlertModal}
         onOpenChange={setShowStockAlertModal}
+      />
+
+      <AppointmentsStatusModal
+        open={showAllAppointmentsModal}
+        onOpenChange={setShowAllAppointmentsModal}
+        status="all"
+        title="Todos os Agendamentos de Hoje"
+      />
+
+      <AppointmentsStatusModal
+        open={showPendingModal}
+        onOpenChange={setShowPendingModal}
+        status="agendado"
+        title="Agendamentos a Confirmar"
+      />
+
+      <AppointmentsStatusModal
+        open={showConfirmedModal}
+        onOpenChange={setShowConfirmedModal}
+        status="confirmado"
+        title="Agendamentos Confirmados"
+      />
+
+      <AppointmentsStatusModal
+        open={showFinalizedModal}
+        onOpenChange={setShowFinalizedModal}
+        status="finalizado"
+        title="Agendamentos Finalizados"
+      />
+
+      <AppointmentsStatusModal
+        open={showCanceledModal}
+        onOpenChange={setShowCanceledModal}
+        status="cancelado"
+        title="Agendamentos Cancelados"
       />
     </div>
   );

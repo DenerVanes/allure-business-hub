@@ -48,8 +48,9 @@ export default function Agendamentos() {
           collaborators (name)
         `)
         .eq('user_id', user.id)
-        .order('appointment_date', { ascending: false })
-        .order('appointment_time', { ascending: true });
+        .order('appointment_date', { ascending: true })
+        .order('appointment_time', { ascending: true })
+        .order('created_at', { ascending: false });
       
       if (error) throw error;
       return data || [];
