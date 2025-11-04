@@ -78,6 +78,7 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       queryClient.invalidateQueries({ queryKey: ['today-appointments'] });
       queryClient.invalidateQueries({ queryKey: ['today-appointments-full'] });
+      queryClient.invalidateQueries({ queryKey: ['appointments-status'] });
       toast({
         title: 'Agendamento criado',
         description: 'O agendamento foi criado com sucesso.',
@@ -112,6 +113,7 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       queryClient.invalidateQueries({ queryKey: ['today-appointments'] });
       queryClient.invalidateQueries({ queryKey: ['today-appointments-full'] });
+      queryClient.invalidateQueries({ queryKey: ['appointments-status'] });
       toast({
         title: 'Agendamento atualizado',
         description: 'O agendamento foi atualizado com sucesso.',

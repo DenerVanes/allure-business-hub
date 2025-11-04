@@ -48,8 +48,6 @@ export default function Agendamentos() {
           collaborators (name)
         `)
         .eq('user_id', user.id)
-        .order('appointment_date', { ascending: true })
-        .order('appointment_time', { ascending: true })
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -85,6 +83,9 @@ export default function Agendamentos() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['today-appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['today-appointments-full'] });
+      queryClient.invalidateQueries({ queryKey: ['appointments-status'] });
       toast({
         title: 'Agendamento atualizado',
         description: 'Status alterado com sucesso.',
@@ -110,6 +111,9 @@ export default function Agendamentos() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['today-appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['today-appointments-full'] });
+      queryClient.invalidateQueries({ queryKey: ['appointments-status'] });
       toast({
         title: 'Agendamento excluído',
         description: 'O agendamento foi excluído com sucesso.',
