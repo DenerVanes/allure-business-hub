@@ -19,23 +19,28 @@ interface AppointmentsStatusModalProps {
   onOpenChange: (open: boolean) => void;
   status: 'all' | 'agendado' | 'confirmado' | 'finalizado' | 'cancelado';
   title: string;
+  // Lista opcional já filtrada a partir do Dashboard
+  appointmentsOverride?: any[];
 }
 
 export function AppointmentsStatusModal({ 
   open, 
   onOpenChange, 
   status,
-  title 
+  title,
+  appointmentsOverride
 }: AppointmentsStatusModalProps) {
   const { user } = useAuth();
   const todayString = convertToSupabaseDate(getBrazilianDate());
 
+  const usingOverride = Array.isArray(appointmentsOverride);
+
   const { data: appointments = [], isLoading } = useQuery({
-    queryKey: ['appointments-status', user?.id, status, todayString],
+    queryKey: ['appointments-status', user?.id, status, todayString, open],
     queryFn: async () => {
       if (!user?.id) return [];
       
-      let query = supabase
+      const { data, error } = await supabase
         .from('appointments')
         .select(`
           *,
@@ -44,22 +49,26 @@ export function AppointmentsStatusModal({
           collaborators (name)
         `)
         .eq('user_id', user.id)
-        .eq('appointment_date', todayString);
+        .eq('appointment_date', todayString)
+        .order('appointment_time', { ascending: true });
 
-      // Filtrar por status se não for 'all'
-      if (status !== 'all') {
-        query = query.eq('status', status);
-      }
-
-      query = query.order('appointment_time', { ascending: true });
-      
-      const { data, error } = await query;
-      
       if (error) throw error;
-      return data || [];
+
+      let filtered = data || [];
+      if (status !== 'all') {
+        filtered = filtered.filter(apt => apt.status === status);
+      }
+      return filtered;
     },
-    enabled: !!user?.id && open
+    enabled: !!user?.id && open && !usingOverride
   });
+
+  const finalAppointments = usingOverride
+    ? [...(appointmentsOverride as any[])]
+        .filter(apt => apt.appointment_date === todayString)
+        .filter(apt => (status === 'all' ? true : apt.status === status))
+        .sort((a, b) => String(a.appointment_time).localeCompare(String(b.appointment_time)))
+    : appointments;
 
   const getStatusConfig = (appointmentStatus: string) => {
     switch (appointmentStatus) {
@@ -108,14 +117,14 @@ export function AppointmentsStatusModal({
             <div className="flex items-center justify-center py-8">
               <div className="text-muted-foreground">Carregando...</div>
             </div>
-          ) : appointments.length === 0 ? (
+          ) : finalAppointments.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
               <Clock className="h-12 w-12 mb-3 opacity-50" />
               <p>Nenhum agendamento encontrado</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {appointments.map((appointment) => {
+              {finalAppointments.map((appointment) => {
                 const statusConfig = getStatusConfig(appointment.status);
                 const StatusIcon = statusConfig.icon;
                 

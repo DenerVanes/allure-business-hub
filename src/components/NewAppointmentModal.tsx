@@ -56,6 +56,44 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
 
   const createAppointmentMutation = useMutation({
     mutationFn: async (appointmentData: any) => {
+      if (!user?.id) throw new Error('Usuário não autenticado');
+
+      // Garantir cliente criado/associado (dedupe por telefone para o usuário)
+      const normalizedPhone = String(clientPhone || '').replace(/\D/g, '');
+
+      let clientId: string | null = null;
+      if (normalizedPhone) {
+        const { data: existing, error: findErr } = await supabase
+          .from('clients')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('phone', normalizedPhone)
+          .limit(1)
+          .maybeSingle();
+
+        if (findErr && findErr.code !== 'PGRST116') throw findErr; // ignore no rows
+
+        if (existing?.id) {
+          clientId = existing.id;
+        } else {
+          const { data: inserted, error: insertErr } = await supabase
+            .from('clients')
+            .insert({
+              user_id: user.id,
+              name: clientName,
+              phone: normalizedPhone,
+            })
+            .select('id')
+            .single();
+
+          if (insertErr) throw insertErr;
+          clientId = inserted.id;
+
+          // Atualizar lista de clientes para a aba Clientes
+          queryClient.invalidateQueries({ queryKey: ['clients'] });
+        }
+      }
+
       // Para múltiplos serviços, criar um agendamento para cada serviço
       const appointments = selectedServices.map(selectedService => ({
         ...appointmentData,
@@ -63,7 +101,9 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
         collaborator_id: selectedService.collaboratorId,
         total_amount: selectedService.service.price,
         user_id: user?.id,
-        status: 'agendado'
+        status: 'agendado',
+        client_id: clientId,
+        client_phone: normalizedPhone || appointmentData.client_phone,
       }));
 
       for (const apt of appointments) {
@@ -79,6 +119,7 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
       queryClient.invalidateQueries({ queryKey: ['today-appointments'] });
       queryClient.invalidateQueries({ queryKey: ['today-appointments-full'] });
       queryClient.invalidateQueries({ queryKey: ['appointments-status'] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
       toast({
         title: 'Agendamento criado',
         description: 'O agendamento foi criado com sucesso.',

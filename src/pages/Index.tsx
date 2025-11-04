@@ -320,6 +320,7 @@ const Index = () => {
         onOpenChange={setShowAllAppointmentsModal}
         status="all"
         title="Todos os Agendamentos de Hoje"
+        appointmentsOverride={todayAppointments}
       />
 
       <AppointmentsStatusModal
@@ -327,6 +328,7 @@ const Index = () => {
         onOpenChange={setShowPendingModal}
         status="agendado"
         title="Agendamentos a Confirmar"
+        appointmentsOverride={todayPendingAppointments}
       />
 
       <AppointmentsStatusModal
@@ -334,6 +336,7 @@ const Index = () => {
         onOpenChange={setShowConfirmedModal}
         status="confirmado"
         title="Agendamentos Confirmados"
+        appointmentsOverride={todayConfirmedAppointments}
       />
 
       <AppointmentsStatusModal
@@ -341,6 +344,7 @@ const Index = () => {
         onOpenChange={setShowFinalizedModal}
         status="finalizado"
         title="Agendamentos Finalizados"
+        appointmentsOverride={todayFinalizedAppointments}
       />
 
       <AppointmentsStatusModal
@@ -348,6 +352,7 @@ const Index = () => {
         onOpenChange={setShowCanceledModal}
         status="cancelado"
         title="Agendamentos Cancelados"
+        appointmentsOverride={todayCanceledAppointments}
       />
     </div>
   );

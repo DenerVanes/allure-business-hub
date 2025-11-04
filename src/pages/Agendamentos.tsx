@@ -48,6 +48,8 @@ export default function Agendamentos() {
           collaborators (name)
         `)
         .eq('user_id', user.id)
+        .order('appointment_date', { ascending: false })
+        .order('appointment_time', { ascending: false })
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -189,10 +191,19 @@ export default function Agendamentos() {
     });
   };
 
-  const filteredAppointments = filterAppointmentsByDate(appointments).filter(appointment =>
-    appointment.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    appointment.services?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredAppointments = filterAppointmentsByDate(appointments).filter(appointment => {
+    const clientName = (appointment.clients?.name || appointment.client_name || '').toLowerCase();
+    const serviceName = (appointment.services?.name || '').toLowerCase();
+    const term = searchTerm.toLowerCase();
+    return clientName.includes(term) || serviceName.includes(term);
+  });
+
+  // Ordenar por data e hora do agendamento (mais recentes primeiro)
+  const sortedAppointments = [...filteredAppointments].sort((a, b) => {
+    const aDate = new Date(`${a.appointment_date}T${a.appointment_time || '00:00'}`);
+    const bDate = new Date(`${b.appointment_date}T${b.appointment_time || '00:00'}`);
+    return bDate.getTime() - aDate.getTime();
+  });
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -241,7 +252,7 @@ export default function Agendamentos() {
                 <p>Nenhum agendamento encontrado</p>
               </div>
             ) : (
-              filteredAppointments.map((appointment) => {
+              sortedAppointments.map((appointment) => {
                 const statusConfig = getStatusConfig(appointment.status);
                 const StatusIcon = statusConfig.icon;
                 
