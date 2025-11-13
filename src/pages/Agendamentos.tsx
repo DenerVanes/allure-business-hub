@@ -265,10 +265,10 @@ export default function Agendamentos() {
                       
                       <div className="flex-1 space-y-1">
                         <div className="font-medium text-foreground">
-                          {appointment.clients?.name || appointment.client_name}
+                          {appointment.client_name || appointment.clients?.name}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {appointment.clients?.phone || appointment.client_phone}
+                          {appointment.client_phone || appointment.clients?.phone}
                         </div>
                         <div className="text-sm text-muted-foreground">
                           {appointment.services?.name}
