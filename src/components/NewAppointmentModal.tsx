@@ -120,6 +120,7 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
       queryClient.invalidateQueries({ queryKey: ['today-appointments-full'] });
       queryClient.invalidateQueries({ queryKey: ['appointments-status'] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.refetchQueries({ queryKey: ['appointments'] });
       toast({
         title: 'Agendamento criado',
         description: 'O agendamento foi criado com sucesso.',
