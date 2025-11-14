@@ -111,12 +111,13 @@ export default function AgendamentoPublico() {
     queryFn: async () => {
       if (!selectedCollaborator || !selectedDate) return [];
       
+      const formattedDate = format(selectedDate, 'yyyy-MM-dd');
       const { data, error } = await supabase
         .from('collaborator_blocks')
         .select('*')
         .eq('collaborator_id', selectedCollaborator)
-        .lte('start_date', format(selectedDate, 'yyyy-MM-dd'))
-        .gte('end_date', format(selectedDate, 'yyyy-MM-dd'));
+        .lte('start_date', formattedDate)
+        .gte('end_date', formattedDate);
       
       if (error) throw error;
       return data || [];
@@ -368,28 +369,46 @@ export default function AgendamentoPublico() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ScrollArea className="h-[200px]">
-                      {availableTimeSlots.length === 0 ? (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <p>Nenhum horário disponível para esta data</p>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-3 gap-2">
-                          {availableTimeSlots.map(time => (
-                            <Button
-                              key={time}
-                              type="button"
-                              variant={selectedTime === time ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setSelectedTime(time)}
-                              className="w-full"
-                            >
-                              {time}
-                            </Button>
-                          ))}
-                        </div>
-                      )}
-                    </ScrollArea>
+                    {selectedCollaborator && collaboratorBlocks.length > 0 ? (
+                      <div className="text-center py-8">
+                        <AlertCircle className="h-12 w-12 mx-auto mb-3 text-destructive" />
+                        <p className="font-semibold text-foreground mb-2">
+                          Profissional Indisponível
+                        </p>
+                        <p className="text-sm text-muted-foreground mb-1">
+                          Este profissional está com a agenda bloqueada no período selecionado.
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Motivo: {collaboratorBlocks[0].reason}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          De {format(parseISO(collaboratorBlocks[0].start_date), 'dd/MM/yyyy')} até {format(parseISO(collaboratorBlocks[0].end_date), 'dd/MM/yyyy')}
+                        </p>
+                      </div>
+                    ) : (
+                      <ScrollArea className="h-[200px]">
+                        {availableTimeSlots.length === 0 ? (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <p>Nenhum horário disponível para esta data</p>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-3 gap-2">
+                            {availableTimeSlots.map(time => (
+                              <Button
+                                key={time}
+                                type="button"
+                                variant={selectedTime === time ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setSelectedTime(time)}
+                                className="w-full"
+                              >
+                                {time}
+                              </Button>
+                            ))}
+                          </div>
+                        )}
+                      </ScrollArea>
+                    )}
                   </CardContent>
                 </Card>
               )}

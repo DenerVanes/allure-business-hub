@@ -171,7 +171,13 @@ export function CollaboratorBlockModal({
                   <Calendar
                     mode="single"
                     selected={startDate}
-                    onSelect={(date) => setValue('startDate', date as Date)}
+                    onSelect={(date) => {
+                      if (date) {
+                        // Garantir que a data seja no timezone local às 12:00
+                        const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0);
+                        setValue('startDate', localDate);
+                      }
+                    }}
                     disabled={(date) => date < getTodayInBrazil()}
                     initialFocus
                   />
@@ -205,7 +211,13 @@ export function CollaboratorBlockModal({
                   <Calendar
                     mode="single"
                     selected={endDate}
-                    onSelect={(date) => setValue('endDate', date as Date)}
+                    onSelect={(date) => {
+                      if (date) {
+                        // Garantir que a data seja no timezone local às 12:00
+                        const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0);
+                        setValue('endDate', localDate);
+                      }
+                    }}
                     disabled={(date) => date < (startDate || getTodayInBrazil())}
                     initialFocus
                   />
