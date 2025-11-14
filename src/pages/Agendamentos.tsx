@@ -11,7 +11,7 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { Calendar, Plus, Search, MoreVertical, Clock, CheckCircle, XCircle, Edit, Trash2 } from 'lucide-react';
+import { Calendar, Plus, Search, MoreVertical, Clock, CheckCircle, XCircle, Edit, Trash2, CalendarDays } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
@@ -21,12 +21,14 @@ import { NewAppointmentModal } from '@/components/NewAppointmentModal';
 import { RescheduleModal } from '@/components/RescheduleModal';
 import { FinalizeAppointmentModal } from '@/components/FinalizeAppointmentModal';
 import { AppointmentDateFilter, DateFilter } from '@/components/AppointmentDateFilter';
+import { CalendarViewModal } from '@/components/CalendarViewModal';
 
 export default function Agendamentos() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [showNewModal, setShowNewModal] = useState(false);
+  const [showCalendarView, setShowCalendarView] = useState(false);
   const [rescheduleAppointment, setRescheduleAppointment] = useState<any>(null);
   const [finalizeAppointment, setFinalizeAppointment] = useState<any>(null);
   const [dateFilter, setDateFilter] = useState<DateFilter>({
@@ -206,10 +208,16 @@ export default function Agendamentos() {
             Gerencie todos os seus agendamentos
           </p>
         </div>
-        <Button onClick={() => setShowNewModal(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Novo Agendamento
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setShowCalendarView(true)} variant="outline" className="gap-2">
+            <CalendarDays className="h-4 w-4" />
+            Agenda
+          </Button>
+          <Button onClick={() => setShowNewModal(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Novo Agendamento
+          </Button>
+        </div>
       </div>
 
       {/* Filtro de Datas */}
@@ -359,6 +367,11 @@ export default function Agendamentos() {
       <NewAppointmentModal
         open={showNewModal}
         onOpenChange={setShowNewModal}
+      />
+
+      <CalendarViewModal
+        open={showCalendarView}
+        onOpenChange={setShowCalendarView}
       />
 
       {rescheduleAppointment && (

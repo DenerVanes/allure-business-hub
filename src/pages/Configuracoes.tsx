@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Settings, User, Building, Save } from 'lucide-react';
+import { Settings, User, Building, Save, Share2, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -44,6 +44,7 @@ interface ExtendedProfile {
 const Configuracoes = () => {
   const { user, signOut } = useAuth();
   const queryClient = useQueryClient();
+  const [copiedLink, setCopiedLink] = useState(false);
 
   const { data: profile } = useQuery({
     queryKey: ['user-profile', user?.id],
@@ -229,6 +230,62 @@ const Configuracoes = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Link de Agendamento Público */}
+      {profile?.slug && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Share2 className="h-5 w-5" />
+              Link de Agendamento Público
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Compartilhe este link com seus clientes para que eles possam agendar diretamente online.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                value={`${window.location.origin}/agendar/${profile.slug}`}
+                readOnly
+                className="flex-1"
+              />
+              <Button
+                variant={copiedLink ? "default" : "outline"}
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/agendar/${profile.slug}`);
+                  setCopiedLink(true);
+                  setTimeout(() => setCopiedLink(false), 2000);
+                  toast({
+                    title: 'Link copiado!',
+                    description: 'O link foi copiado para a área de transferência.',
+                  });
+                }}
+              >
+                {copiedLink ? (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    Copiado
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copiar
+                  </>
+                )}
+              </Button>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Status:</span>
+              {profile.agendamento_online_ativo ? (
+                <span className="text-green-600 font-medium">Ativo</span>
+              ) : (
+                <span className="text-red-600 font-medium">Desativado</span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex justify-between">
         <Button

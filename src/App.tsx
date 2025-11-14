@@ -16,6 +16,7 @@ import Clientes from "./pages/Clientes";
 import Colaboradores from "./pages/Colaboradores";
 import Configuracoes from "./pages/Configuracoes";
 import Auth from "./pages/Auth";
+import AgendamentoPublico from "./pages/AgendamentoPublico";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
           <SidebarProvider>
             <Routes>
               <Route path="/auth" element={<Auth />} />
+              <Route path="/agendar/:slug" element={<AgendamentoPublico />} />
               <Route path="/" element={<AppLayout />}>
                 <Route index element={<Index />} />
                 <Route path="agendamentos" element={<Agendamentos />} />
