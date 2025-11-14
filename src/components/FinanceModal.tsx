@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -33,6 +33,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
+import type { Database } from '@/integrations/supabase/types';
 
 const financeSchema = z.object({
   amount: z.string().min(1, 'Valor é obrigatório'),
@@ -47,6 +48,8 @@ interface FinanceModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   type: 'income' | 'expense';
+  mode?: 'create' | 'edit';
+  transaction?: Database['public']['Tables']['financial_transactions']['Row'] | null;
 }
 
 const incomeCategories = [
@@ -66,7 +69,7 @@ const expenseCategories = [
   'Outros'
 ];
 
-export const FinanceModal = ({ open, onOpenChange, type }: FinanceModalProps) => {
+export const FinanceModal = ({ open, onOpenChange, type, mode = 'create', transaction }: FinanceModalProps) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -79,6 +82,26 @@ export const FinanceModal = ({ open, onOpenChange, type }: FinanceModalProps) =>
       date: new Date().toISOString().split('T')[0],
     },
   });
+
+  useEffect(() => {
+    if (!open) return;
+
+    if (mode === 'edit' && transaction) {
+      form.reset({
+        amount: Number(transaction.amount ?? 0).toFixed(2).replace('.', ','),
+        description: transaction.description ?? '',
+        category: transaction.category ?? '',
+        date: transaction.transaction_date?.split('T')[0] ?? new Date().toISOString().split('T')[0],
+      });
+    } else {
+      form.reset({
+        amount: '',
+        description: '',
+        category: '',
+        date: new Date().toISOString().split('T')[0],
+      });
+    }
+  }, [open, mode, transaction, form]);
 
   const createTransactionMutation = useMutation({
     mutationFn: async (data: FinanceFormData) => {
@@ -120,12 +143,58 @@ export const FinanceModal = ({ open, onOpenChange, type }: FinanceModalProps) =>
     }
   });
 
+  const updateTransactionMutation = useMutation({
+    mutationFn: async (data: FinanceFormData) => {
+      if (!user?.id || !transaction?.id) throw new Error('Transação não encontrada');
+
+      const { error } = await supabase
+        .from('financial_transactions')
+        .update({
+          amount: parseFloat(data.amount.replace(',', '.')),
+          description: data.description,
+          category: data.category,
+          transaction_date: data.date,
+          type,
+        })
+        .eq('id', transaction.id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+      toast({
+        title: 'Transação atualizada',
+        description: 'Os dados da transação foram atualizados com sucesso.',
+      });
+      onOpenChange(false);
+    },
+    onError: () => {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível atualizar a transação. Tente novamente.',
+        variant: 'destructive',
+      });
+    }
+  });
+
   const categories = type === 'income' ? incomeCategories : expenseCategories;
-  const title = type === 'income' ? 'Registrar Receita' : 'Registrar Despesa';
-  const buttonText = type === 'income' ? 'Registrar Receita' : 'Registrar Despesa';
+  const isEditMode = mode === 'edit';
+  const title = isEditMode
+    ? type === 'income' ? 'Editar Receita' : 'Editar Despesa'
+    : type === 'income' ? 'Registrar Receita' : 'Registrar Despesa';
+  const buttonText = isEditMode
+    ? 'Salvar alterações'
+    : type === 'income' ? 'Registrar Receita' : 'Registrar Despesa';
+
+  const isSubmitting = isEditMode ? updateTransactionMutation.isPending : createTransactionMutation.isPending;
 
   const onSubmit = (data: FinanceFormData) => {
-    createTransactionMutation.mutate(data);
+    if (isEditMode) {
+      updateTransactionMutation.mutate(data);
+    } else {
+      createTransactionMutation.mutate(data);
+    }
   };
 
   return (
@@ -159,6 +228,7 @@ export const FinanceModal = ({ open, onOpenChange, type }: FinanceModalProps) =>
                           let value = e.target.value.replace(/[^\d,]/g, '');
                           field.onChange(value);
                         }}
+                        value={field.value}
                       />
                     </FormControl>
                     <FormMessage />
@@ -204,7 +274,7 @@ export const FinanceModal = ({ open, onOpenChange, type }: FinanceModalProps) =>
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Categoria</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione a categoria" />
@@ -228,16 +298,16 @@ export const FinanceModal = ({ open, onOpenChange, type }: FinanceModalProps) =>
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                disabled={createTransactionMutation.isPending}
+                disabled={isSubmitting}
               >
                 Cancelar
               </Button>
               <Button
                 type="submit"
-                disabled={createTransactionMutation.isPending}
+                disabled={isSubmitting}
                 className="gap-2"
               >
-                {createTransactionMutation.isPending ? (
+                {isSubmitting ? (
                   "Salvando..."
                 ) : (
                   <>

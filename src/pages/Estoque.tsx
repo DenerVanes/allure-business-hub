@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { NewProductModal } from '@/components/NewProductModal';
 import { EditProductModal } from '@/components/EditProductModal';
 import { StockOutModal } from '@/components/StockOutModal';
+import { StockInModal } from '@/components/StockInModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
@@ -20,6 +21,7 @@ const Estoque = () => {
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [stockOutProduct, setStockOutProduct] = useState<any>(null);
+  const [stockInProduct, setStockInProduct] = useState<any>(null);
   const [activeCategory, setActiveCategory] = useState('all');
 
   const { data: products = [], isLoading } = useQuery({
@@ -240,6 +242,14 @@ const Estoque = () => {
                               <Button
                                 size="sm"
                                 variant="outline"
+                                onClick={() => setStockInProduct(product)}
+                                className="bg-green-50 hover:bg-green-100 text-green-700 border-green-300"
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
                                 onClick={() => setStockOutProduct(product)}
                                 disabled={product.quantity === 0}
                               >
@@ -284,6 +294,14 @@ const Estoque = () => {
           open={!!stockOutProduct}
           onOpenChange={(open) => !open && setStockOutProduct(null)}
           product={stockOutProduct}
+        />
+      )}
+
+      {stockInProduct && (
+        <StockInModal
+          open={!!stockInProduct}
+          onOpenChange={(open) => !open && setStockInProduct(null)}
+          product={stockInProduct}
         />
       )}
     </div>

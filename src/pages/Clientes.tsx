@@ -1,7 +1,7 @@
 
-import { useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Users, Plus, Edit, Trash2, Phone, Mail, MapPin } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Phone, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -12,14 +12,21 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { formatPhone, normalizePhone } from '@/utils/phone';
+import type { Database } from '@/integrations/supabase/types';
+import { formatDateForDisplay } from '@/utils/date';
+
+type ClientRow = Database['public']['Tables']['clients']['Row'];
 
 const Clientes = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [showNewClient, setShowNewClient] = useState(false);
+  const [clientModalOpen, setClientModalOpen] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<ClientRow | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeLetter, setActiveLetter] = useState<string | null>(null);
 
-  const { data: clients = [], isLoading } = useQuery({
+  const { data: clients = [], isLoading } = useQuery<ClientRow[]>({
     queryKey: ['clients', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -46,7 +53,11 @@ const Clientes = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      if (user?.id) {
+        queryClient.invalidateQueries({ queryKey: ['clients', user.id] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['clients'] });
+      }
       toast({
         title: 'Cliente removido',
         description: 'Cliente foi removido com sucesso.',
@@ -61,11 +72,71 @@ const Clientes = () => {
     }
   });
 
-  const filteredClients = clients.filter(client =>
-    client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.phone.includes(searchTerm) ||
-    (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const normalizedQuery = searchTerm.trim().toLowerCase();
+  const digitsQuery = normalizePhone(searchTerm);
+
+  const sortedClients = useMemo(() => {
+    return [...clients].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+  }, [clients]);
+
+  const normalizeLetter = useCallback((value: string) => {
+    return value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .charAt(0)
+      .toUpperCase();
+  }, []);
+
+  const alphabet = useMemo(() => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''), []);
+
+  const filteredClients = useMemo(() => {
+    return sortedClients.filter((client) => {
+      const name = client.name?.trim() || '';
+      const phoneDigits = normalizePhone(client.phone);
+
+      const matchesSearch =
+        (!normalizedQuery && !digitsQuery) ||
+        name.toLowerCase().includes(normalizedQuery) ||
+        phoneDigits.includes(digitsQuery);
+
+      if (!matchesSearch) return false;
+
+      if (!activeLetter) return true;
+
+      const firstLetter = normalizeLetter(name);
+      return firstLetter === activeLetter;
+    });
+  }, [sortedClients, normalizedQuery, digitsQuery, activeLetter, normalizeLetter]);
+
+  const availableLetters = useMemo(() => {
+    const letters = new Set<string>();
+    sortedClients.forEach((client) => {
+      const name = client.name?.trim() || '';
+      if (!name) return;
+      const normalizedLetter = normalizeLetter(name);
+      if (normalizedLetter && alphabet.includes(normalizedLetter)) {
+        letters.add(normalizedLetter);
+      }
+    });
+    return letters;
+  }, [sortedClients, normalizeLetter, alphabet]);
+
+  const handleOpenNewClient = () => {
+    setSelectedClient(null);
+    setClientModalOpen(true);
+  };
+
+  const handleOpenEditClient = (clientData: ClientRow) => {
+    setSelectedClient(clientData);
+    setClientModalOpen(true);
+  };
+
+  const handleModalChange = (open: boolean) => {
+    if (!open) {
+      setSelectedClient(null);
+    }
+    setClientModalOpen(open);
+  };
 
   if (isLoading) {
     return (
@@ -85,7 +156,7 @@ const Clientes = () => {
           <h1 className="text-3xl font-bold">Clientes</h1>
           <p className="text-muted-foreground">Gerencie seus clientes</p>
         </div>
-        <Button onClick={() => setShowNewClient(true)}>
+        <Button onClick={handleOpenNewClient}>
           <Plus className="h-4 w-4 mr-2" />
           Novo Cliente
         </Button>
@@ -94,11 +165,35 @@ const Clientes = () => {
       <div className="flex items-center gap-4 mb-6">
         <div className="flex-1 max-w-md">
           <Input
-            placeholder="Buscar por nome, telefone ou email..."
+            placeholder="Buscar por nome ou telefone..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <Button
+          size="sm"
+          variant={activeLetter === null ? 'default' : 'outline'}
+          onClick={() => setActiveLetter(null)}
+        >
+          Todos
+        </Button>
+        {alphabet.map((letter) => {
+          const hasClients = availableLetters.has(letter);
+          return (
+            <Button
+              key={letter}
+              size="sm"
+              variant={activeLetter === letter ? 'default' : 'ghost'}
+              disabled={!hasClients}
+              onClick={() => setActiveLetter(activeLetter === letter ? null : letter)}
+            >
+              {letter}
+            </Button>
+          );
+        })}
       </div>
 
       <Card>
@@ -115,7 +210,7 @@ const Clientes = () => {
               <p className="text-muted-foreground mb-4">
                 {searchTerm ? 'Nenhum cliente encontrado com os critérios de busca.' : 'Nenhum cliente cadastrado ainda.'}
               </p>
-              <Button onClick={() => setShowNewClient(true)}>
+              <Button onClick={handleOpenNewClient}>
                 <Plus className="h-4 w-4 mr-2" />
                 Cadastrar Primeiro Cliente
               </Button>
@@ -146,7 +241,7 @@ const Clientes = () => {
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Phone className="h-3 w-3" />
-                        {client.phone}
+                        {formatPhone(client.phone)}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -159,17 +254,19 @@ const Clientes = () => {
                         '-'
                       )}
                     </TableCell>
-                    <TableCell>
-                      {client.birth_date
-                        ? format(new Date(client.birth_date), 'dd/MM/yyyy', { locale: ptBR })
-                        : '-'
-                      }
-                    </TableCell>
+                    <TableCell>{formatDateForDisplay(client.birth_date)}</TableCell>
                     <TableCell>
                       {format(new Date(client.created_at), 'dd/MM/yyyy', { locale: ptBR })}
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleOpenEditClient(client)}
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
                         <Button
                           size="sm"
                           variant="destructive"
@@ -189,8 +286,9 @@ const Clientes = () => {
       </Card>
 
       <NewClientModal
-        open={showNewClient}
-        onOpenChange={setShowNewClient}
+        open={clientModalOpen}
+        onOpenChange={handleModalChange}
+        client={selectedClient}
       />
     </div>
   );

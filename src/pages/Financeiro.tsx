@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { DollarSign, Plus, TrendingUp, TrendingDown, Calendar, Filter } from 'lucide-react';
+import { DollarSign, Plus, TrendingUp, TrendingDown, Filter, MoreHorizontal, Pencil, Trash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -12,8 +12,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subWeeks, subMonths } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { formatTransactionDate, getBrazilianDate } from '@/utils/timezone';
+import type { Database } from '@/integrations/supabase/types';
+
+type TransactionRow = Database['public']['Tables']['financial_transactions']['Row'];
 
 const Financeiro = () => {
   const { user } = useAuth();
@@ -21,6 +24,8 @@ const Financeiro = () => {
   const [showFinanceModal, setShowFinanceModal] = useState(false);
   const [financeModalType, setFinanceModalType] = useState<'income' | 'expense'>('income');
   const [dateFilter, setDateFilter] = useState('today');
+  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
+  const [selectedTransaction, setSelectedTransaction] = useState<TransactionRow | null>(null);
 
   const getDateRange = (filter: string) => {
     const now = getBrazilianDate(); // Usar data brasileira
@@ -45,7 +50,7 @@ const Financeiro = () => {
     }
   };
 
-  const { data: transactions = [], isLoading } = useQuery({
+  const { data: transactions = [], isLoading } = useQuery<TransactionRow[]>({
     queryKey: ['financial-transactions', user?.id, dateFilter],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -76,9 +81,58 @@ const Financeiro = () => {
 
   const balance = totalIncome - totalExpense;
 
-  const openModal = (type: 'income' | 'expense') => {
+  const handleOpenModal = (type: 'income' | 'expense') => {
+    setModalMode('create');
+    setSelectedTransaction(null);
     setFinanceModalType(type);
     setShowFinanceModal(true);
+  };
+
+  const handleEditTransaction = (transaction: TransactionRow) => {
+    setModalMode('edit');
+    setSelectedTransaction(transaction);
+    setFinanceModalType(transaction.type as 'income' | 'expense');
+    setShowFinanceModal(true);
+  };
+
+  const handleModalChange = (open: boolean) => {
+    setShowFinanceModal(open);
+    if (!open) {
+      setSelectedTransaction(null);
+      setModalMode('create');
+    }
+  };
+
+  const deleteTransactionMutation = useMutation({
+    mutationFn: async (transactionId: string) => {
+      const { error } = await supabase
+        .from('financial_transactions')
+        .delete()
+        .eq('id', transactionId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+      toast({
+        title: 'Transação removida',
+        description: 'A transação foi excluída com sucesso.',
+      });
+    },
+    onError: (error: any) => {
+      console.error('Erro ao remover transação', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível excluir a transação. Tente novamente.',
+        variant: 'destructive',
+      });
+    }
+  });
+
+  const handleDeleteTransaction = (transaction: TransactionRow) => {
+    const confirmed = window.confirm('Deseja realmente excluir esta transação?');
+    if (!confirmed) return;
+    deleteTransactionMutation.mutate(transaction.id);
   };
 
   if (isLoading) {
@@ -100,11 +154,11 @@ const Financeiro = () => {
           <p className="text-muted-foreground">Gerencie suas receitas e despesas</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => openModal('income')} className="bg-green-600 hover:bg-green-700">
+          <Button onClick={() => handleOpenModal('income')} className="bg-green-600 hover:bg-green-700">
             <Plus className="h-4 w-4 mr-2" />
             Nova Receita
           </Button>
-          <Button onClick={() => openModal('expense')} variant="destructive">
+          <Button onClick={() => handleOpenModal('expense')} variant="destructive">
             <Plus className="h-4 w-4 mr-2" />
             Nova Despesa
           </Button>
@@ -184,11 +238,11 @@ const Financeiro = () => {
               <DollarSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground mb-4">Nenhuma transação encontrada para o período selecionado.</p>
               <div className="flex gap-2 justify-center">
-                <Button onClick={() => openModal('income')} className="bg-green-600 hover:bg-green-700">
+                <Button onClick={() => handleOpenModal('income')} className="bg-green-600 hover:bg-green-700">
                   <Plus className="h-4 w-4 mr-2" />
                   Nova Receita
                 </Button>
-                <Button onClick={() => openModal('expense')} variant="destructive">
+                <Button onClick={() => handleOpenModal('expense')} variant="destructive">
                   <Plus className="h-4 w-4 mr-2" />
                   Nova Despesa
                 </Button>
@@ -203,6 +257,7 @@ const Financeiro = () => {
                   <TableHead>Descrição</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Valor</TableHead>
+                  <TableHead className="w-12 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -221,6 +276,28 @@ const Financeiro = () => {
                     <TableCell className={transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}>
                       {transaction.type === 'income' ? '+' : '-'} R$ {Number(transaction.amount).toFixed(2)}
                     </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEditTransaction(transaction)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-red-600 focus:text-red-600"
+                            onClick={() => handleDeleteTransaction(transaction)}
+                          >
+                            <Trash className="mr-2 h-4 w-4" />
+                            Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -231,8 +308,10 @@ const Financeiro = () => {
 
       <FinanceModal
         open={showFinanceModal}
-        onOpenChange={setShowFinanceModal}
+        onOpenChange={handleModalChange}
         type={financeModalType}
+        mode={modalMode}
+        transaction={selectedTransaction}
       />
     </div>
   );

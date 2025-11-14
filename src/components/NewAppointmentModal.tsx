@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
@@ -22,6 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 import { ServiceSelector } from './ServiceSelector';
+import { formatPhone, normalizePhone } from '@/utils/phone';
 
 interface NewAppointmentModalProps {
   open: boolean;
@@ -38,7 +39,7 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
   );
   const [time, setTime] = useState(appointment?.appointment_time || '');
   const [clientName, setClientName] = useState(appointment?.client_name || '');
-  const [clientPhone, setClientPhone] = useState(appointment?.client_phone || '');
+  const [clientPhone, setClientPhone] = useState(formatPhone(appointment?.client_phone || ''));
   const [selectedServices, setSelectedServices] = useState<any[]>(
     appointment ? [{ 
       id: '1', 
@@ -54,18 +55,34 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
   const [notes, setNotes] = useState(appointment?.notes || '');
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
+  useEffect(() => {
+    if (!appointment) {
+      setClientName('');
+      setClientPhone('');
+      return;
+    }
+
+    setClientName(appointment.client_name || '');
+    setClientPhone(formatPhone(appointment.client_phone || ''));
+  }, [appointment]);
+
+  const handlePhoneChange = (value: string) => {
+    const digits = normalizePhone(value).slice(0, 11);
+    setClientPhone(formatPhone(digits));
+  };
+
   const createAppointmentMutation = useMutation({
     mutationFn: async (appointmentData: any) => {
       if (!user?.id) throw new Error('Usuário não autenticado');
 
-      // Garantir cliente criado/associado (dedupe por telefone para o usuário)
-      const normalizedPhone = String(clientPhone || '').replace(/\D/g, '');
+      const normalizedPhone = normalizePhone(appointmentData.client_phone);
+      const trimmedClientName = clientName.trim();
 
       let clientId: string | null = null;
       if (normalizedPhone) {
         const { data: existing, error: findErr } = await supabase
           .from('clients')
-          .select('id')
+          .select('id, name')
           .eq('user_id', user.id)
           .eq('phone', normalizedPhone)
           .limit(1)
@@ -75,13 +92,32 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
 
         if (existing?.id) {
           clientId = existing.id;
+
+          if (trimmedClientName && trimmedClientName !== existing.name) {
+            const { error: updateErr } = await supabase
+              .from('clients')
+              .update({
+                name: trimmedClientName,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', existing.id)
+              .eq('user_id', user.id);
+
+            if (updateErr) throw updateErr;
+          }
+
+          if (user?.id) {
+            queryClient.invalidateQueries({ queryKey: ['clients', user.id] });
+          }
         } else {
           const { data: inserted, error: insertErr } = await supabase
             .from('clients')
             .insert({
               user_id: user.id,
-              name: clientName,
+              name: trimmedClientName,
               phone: normalizedPhone,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
             })
             .select('id')
             .single();
@@ -90,7 +126,9 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
           clientId = inserted.id;
 
           // Atualizar lista de clientes para a aba Clientes
-          queryClient.invalidateQueries({ queryKey: ['clients'] });
+          if (user?.id) {
+            queryClient.invalidateQueries({ queryKey: ['clients', user.id] });
+          }
         }
       }
 
@@ -103,7 +141,7 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
         user_id: user?.id,
         status: 'agendado',
         client_id: clientId,
-        client_phone: normalizedPhone || appointmentData.client_phone,
+        client_phone: normalizedPhone,
       }));
 
       for (const apt of appointments) {
@@ -119,7 +157,9 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
       queryClient.invalidateQueries({ queryKey: ['today-appointments'] });
       queryClient.invalidateQueries({ queryKey: ['today-appointments-full'] });
       queryClient.invalidateQueries({ queryKey: ['appointments-status'] });
-      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      if (user?.id) {
+        queryClient.invalidateQueries({ queryKey: ['clients', user.id] });
+      }
       queryClient.refetchQueries({ queryKey: ['appointments'] });
       toast({
         title: 'Agendamento criado',
@@ -139,13 +179,93 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
 
   const updateAppointmentMutation = useMutation({
     mutationFn: async (appointmentData: any) => {
+      if (!user?.id) throw new Error('Usuário não autenticado');
+
+      const normalizedPhone = normalizePhone(appointmentData.client_phone);
+      const trimmedClientName = clientName.trim();
+
+      if (!normalizedPhone) {
+        throw new Error('Telefone do cliente é obrigatório.');
+      }
+
+      let targetClientId = appointment?.client_id ?? null;
+
+      const { data: existing, error: findErr } = await supabase
+        .from('clients')
+        .select('id, name')
+        .eq('user_id', user.id)
+        .eq('phone', normalizedPhone)
+        .limit(1)
+        .maybeSingle();
+
+      if (findErr && findErr.code !== 'PGRST116') throw findErr;
+
+      if (existing?.id) {
+        targetClientId = existing.id;
+
+        if (trimmedClientName && trimmedClientName !== existing.name) {
+          const { error: updateErr } = await supabase
+            .from('clients')
+            .update({
+              name: trimmedClientName,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existing.id)
+            .eq('user_id', user.id);
+
+          if (updateErr) throw updateErr;
+        }
+
+        if (user?.id) {
+          queryClient.invalidateQueries({ queryKey: ['clients', user.id] });
+        }
+      } else if (targetClientId) {
+        const { error: updateErr } = await supabase
+          .from('clients')
+          .update({
+            name: trimmedClientName,
+            phone: normalizedPhone,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', targetClientId)
+          .eq('user_id', user.id);
+
+        if (updateErr) throw updateErr;
+
+        if (user?.id) {
+          queryClient.invalidateQueries({ queryKey: ['clients', user.id] });
+        }
+      } else {
+        const { data: inserted, error: insertErr } = await supabase
+          .from('clients')
+          .insert({
+            user_id: user.id,
+            name: trimmedClientName,
+            phone: normalizedPhone,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .select('id')
+          .single();
+
+        if (insertErr) throw insertErr;
+        targetClientId = inserted.id;
+
+        if (user?.id) {
+          queryClient.invalidateQueries({ queryKey: ['clients', user.id] });
+        }
+      }
+
       const { error } = await supabase
         .from('appointments')
         .update({
           ...appointmentData,
           service_id: selectedServices[0]?.serviceId,
           collaborator_id: selectedServices[0]?.collaboratorId,
-          total_amount: selectedServices[0]?.service?.price
+          total_amount: selectedServices[0]?.service?.price,
+          client_id: targetClientId,
+          client_phone: normalizedPhone,
+          client_name: trimmedClientName,
         })
         .eq('id', appointment.id);
       
@@ -156,6 +276,9 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
       queryClient.invalidateQueries({ queryKey: ['today-appointments'] });
       queryClient.invalidateQueries({ queryKey: ['today-appointments-full'] });
       queryClient.invalidateQueries({ queryKey: ['appointments-status'] });
+      if (user?.id) {
+        queryClient.invalidateQueries({ queryKey: ['clients', user.id] });
+      }
       toast({
         title: 'Agendamento atualizado',
         description: 'O agendamento foi atualizado com sucesso.',
@@ -202,11 +325,32 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
       return;
     }
 
+    const trimmedClientName = clientName.trim();
+    const normalizedPhone = normalizePhone(clientPhone);
+
+    if (!trimmedClientName) {
+      toast({
+        title: 'Nome obrigatório',
+        description: 'Informe o nome do cliente.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!normalizedPhone || normalizedPhone.length < 10) {
+      toast({
+        title: 'Telefone inválido',
+        description: 'Informe um telefone válido com DDD.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const appointmentData = {
       appointment_date: format(date, 'yyyy-MM-dd'),
       appointment_time: time,
-      client_name: clientName,
-      client_phone: clientPhone,
+      client_name: trimmedClientName,
+      client_phone: normalizedPhone,
       notes
     };
 
@@ -297,8 +441,9 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
                 <Input
                   id="client-phone"
                   value={clientPhone}
-                  onChange={(e) => setClientPhone(e.target.value)}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
                   placeholder="Digite o telefone do cliente"
+                  required
                 />
               </div>
             </div>
