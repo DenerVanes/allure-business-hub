@@ -14,9 +14,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarIcon } from 'lucide-react';
-import { format } from 'date-fns';
+import { Calendar as CalendarIcon, AlertCircle } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -55,6 +56,30 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
   const [notes, setNotes] = useState(appointment?.notes || '');
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
+  // Buscar bloqueios do colaborador selecionado
+  const selectedCollaboratorId = selectedServices[0]?.collaboratorId;
+  
+  const { data: collaboratorBlocks = [] } = useQuery({
+    queryKey: ['collaborator-blocks-modal', selectedCollaboratorId, date],
+    queryFn: async () => {
+      if (!selectedCollaboratorId || !date) return [];
+      
+      const formattedDate = format(date, 'yyyy-MM-dd');
+      const { data, error } = await supabase
+        .from('collaborator_blocks')
+        .select('*')
+        .eq('collaborator_id', selectedCollaboratorId)
+        .lte('start_date', formattedDate)
+        .gte('end_date', formattedDate);
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedCollaboratorId && !!date
+  });
+
+  const isCollaboratorBlocked = collaboratorBlocks.length > 0;
+
   useEffect(() => {
     if (!appointment) {
       setClientName('');
@@ -74,6 +99,21 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
   const createAppointmentMutation = useMutation({
     mutationFn: async (appointmentData: any) => {
       if (!user?.id) throw new Error('Usuário não autenticado');
+
+      // VALIDAÇÃO: Verificar se colaborador está bloqueado
+      if (selectedCollaboratorId && date) {
+        const formattedDate = format(date, 'yyyy-MM-dd');
+        const { data: blocks } = await supabase
+          .from('collaborator_blocks')
+          .select('*')
+          .eq('collaborator_id', selectedCollaboratorId)
+          .lte('start_date', formattedDate)
+          .gte('end_date', formattedDate);
+
+        if (blocks && blocks.length > 0) {
+          throw new Error('Profissional está com a agenda bloqueada nesta data');
+        }
+      }
 
       const normalizedPhone = normalizePhone(appointmentData.client_phone);
       const trimmedClientName = clientName.trim();
@@ -456,6 +496,22 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
               />
             </div>
 
+            {isCollaboratorBlocked && collaboratorBlocks[0] && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <p className="font-semibold mb-1">Profissional Indisponível</p>
+                  <p className="text-sm">Este profissional está com a agenda bloqueada no período selecionado.</p>
+                  <p className="text-sm mt-1">
+                    <strong>Motivo:</strong> {collaboratorBlocks[0].reason}
+                  </p>
+                  <p className="text-xs mt-1">
+                    De {format(parseISO(collaboratorBlocks[0].start_date), 'dd/MM/yyyy')} até {format(parseISO(collaboratorBlocks[0].end_date), 'dd/MM/yyyy')}
+                  </p>
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="notes">Observações</Label>
               <Textarea
@@ -473,7 +529,11 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
               </Button>
               <Button 
                 type="submit" 
-                disabled={createAppointmentMutation.isPending || updateAppointmentMutation.isPending}
+                disabled={
+                  createAppointmentMutation.isPending || 
+                  updateAppointmentMutation.isPending || 
+                  isCollaboratorBlocked
+                }
               >
                 {appointment ? 'Atualizar' : 'Criar'} Agendamento
               </Button>
