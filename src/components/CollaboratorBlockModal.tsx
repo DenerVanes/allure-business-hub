@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CalendarIcon, Plus, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -262,8 +262,8 @@ export function CollaboratorBlockModal({
                 >
                   <div>
                     <p className="font-medium">
-                      {format(new Date(block.start_date), 'dd/MM/yyyy')} até{' '}
-                      {format(new Date(block.end_date), 'dd/MM/yyyy')}
+                      {format(parseISO(block.start_date), 'dd/MM/yyyy')} até{' '}
+                      {format(parseISO(block.end_date), 'dd/MM/yyyy')}
                     </p>
                     <p className="text-sm text-muted-foreground">{block.reason}</p>
                   </div>
