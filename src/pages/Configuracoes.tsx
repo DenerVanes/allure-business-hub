@@ -54,7 +54,7 @@ const Configuracoes = () => {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', user.id)
+        .eq('user_id', user.id)
         .single();
       
       if (error && error.code !== 'PGRST116') throw error;
@@ -94,32 +94,62 @@ const Configuracoes = () => {
     mutationFn: async (data: ProfileFormData) => {
       if (!user?.id) throw new Error('Usuário não encontrado');
 
-      const { error } = await supabase
+      // Primeiro, verificar se o perfil já existe
+      const { data: existingProfile } = await supabase
         .from('profiles')
-        .upsert({
-          id: user.id,
-          user_id: user.id,
-          business_name: data.business_name,
-          full_name: data.full_name,
-          phone: data.phone,
-          address: data.address || null,
-          about: data.about || null,
-          updated_at: new Date().toISOString(),
-        });
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
 
-      if (error) throw error;
+      if (existingProfile) {
+        // Atualizar perfil existente
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            business_name: data.business_name,
+            full_name: data.full_name,
+            phone: data.phone,
+            address: data.address || null,
+            about: data.about || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('Erro ao atualizar perfil:', error);
+          throw error;
+        }
+      } else {
+        // Criar novo perfil se não existir
+        const { error } = await supabase
+          .from('profiles')
+          .insert({
+            user_id: user.id,
+            business_name: data.business_name,
+            full_name: data.full_name,
+            phone: data.phone,
+            address: data.address || null,
+            about: data.about || null,
+          });
+
+        if (error) {
+          console.error('Erro ao criar perfil:', error);
+          throw error;
+        }
+      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['user-profile', user?.id] });
       toast({
         title: 'Perfil atualizado',
         description: 'Suas informações foram salvas com sucesso.',
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error('Erro detalhado:', error);
       toast({
         title: 'Erro',
-        description: 'Não foi possível atualizar o perfil.',
+        description: error?.message || 'Não foi possível atualizar o perfil.',
         variant: 'destructive',
       });
     }

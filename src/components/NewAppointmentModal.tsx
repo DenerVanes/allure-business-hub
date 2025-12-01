@@ -46,39 +46,71 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
       id: '1', 
       serviceId: appointment.service_id, 
       service: { id: appointment.service_id, name: '', price: 0, duration: 0, category: '' },
-      collaboratorId: appointment.collaborator_id 
+      collaboratorId: appointment.collaborator_id,
+      collaboratorIds: appointment.collaborator_id ? [appointment.collaborator_id] : []
     }] : [{ 
       id: '1', 
       serviceId: '', 
-      service: { id: '', name: '', price: 0, duration: 0, category: '' } 
+      service: { id: '', name: '', price: 0, duration: 0, category: '' },
+      collaboratorIds: []
     }]
   );
   const [notes, setNotes] = useState(appointment?.notes || '');
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
-  // Buscar bloqueios do colaborador selecionado
-  const selectedCollaboratorId = selectedServices[0]?.collaboratorId;
+  // Obter o primeiro colaborador selecionado do primeiro serviço
+  const selectedCollaboratorIds = selectedServices[0]?.collaboratorIds || [];
+  const selectedCollaboratorId = selectedCollaboratorIds.length > 0 ? selectedCollaboratorIds[0] : selectedServices[0]?.collaboratorId;
   
-  const { data: collaboratorBlocks = [] } = useQuery({
-    queryKey: ['collaborator-blocks-modal', selectedCollaboratorId, date],
+  // Buscar TODOS os bloqueios do colaborador selecionado (não apenas da data)
+  const { data: allCollaboratorBlocks = [] } = useQuery({
+    queryKey: ['collaborator-blocks-all', selectedCollaboratorId],
     queryFn: async () => {
-      if (!selectedCollaboratorId || !date) return [];
+      if (!selectedCollaboratorId) return [];
       
-      const formattedDate = format(date, 'yyyy-MM-dd');
       const { data, error } = await supabase
         .from('collaborator_blocks')
         .select('*')
         .eq('collaborator_id', selectedCollaboratorId)
-        .lte('start_date', formattedDate)
-        .gte('end_date', formattedDate);
+        .order('start_date');
       
       if (error) throw error;
       return data || [];
     },
-    enabled: !!selectedCollaboratorId && !!date
+    enabled: !!selectedCollaboratorId
   });
 
-  const isCollaboratorBlocked = collaboratorBlocks.length > 0;
+  // Verificar se a data selecionada está dentro de algum bloqueio
+  const isDateBlocked = date && allCollaboratorBlocks.some(block => {
+    const blockStart = new Date(block.start_date);
+    const blockEnd = new Date(block.end_date);
+    const selectedDate = new Date(date);
+    
+    // Normalizar para comparar apenas as datas (sem hora)
+    blockStart.setHours(0, 0, 0, 0);
+    blockEnd.setHours(23, 59, 59, 999);
+    selectedDate.setHours(0, 0, 0, 0);
+    
+    return selectedDate >= blockStart && selectedDate <= blockEnd;
+  });
+
+  // Buscar informações do colaborador para exibir o nome
+  const { data: selectedCollaborator } = useQuery({
+    queryKey: ['collaborator', selectedCollaboratorId],
+    queryFn: async () => {
+      if (!selectedCollaboratorId) return null;
+      
+      const { data, error } = await supabase
+        .from('collaborators')
+        .select('name')
+        .eq('id', selectedCollaboratorId)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedCollaboratorId
+  });
 
   useEffect(() => {
     if (!appointment) {
@@ -100,18 +132,39 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
     mutationFn: async (appointmentData: any) => {
       if (!user?.id) throw new Error('Usuário não autenticado');
 
-      // VALIDAÇÃO: Verificar se colaborador está bloqueado
+      // VALIDAÇÃO: Verificar se colaborador está bloqueado na data selecionada
       if (selectedCollaboratorId && date) {
         const formattedDate = format(date, 'yyyy-MM-dd');
+        const selectedDate = new Date(formattedDate);
+        selectedDate.setHours(0, 0, 0, 0);
+        
         const { data: blocks } = await supabase
           .from('collaborator_blocks')
           .select('*')
-          .eq('collaborator_id', selectedCollaboratorId)
-          .lte('start_date', formattedDate)
-          .gte('end_date', formattedDate);
+          .eq('collaborator_id', selectedCollaboratorId);
 
         if (blocks && blocks.length > 0) {
-          throw new Error('Profissional está com a agenda bloqueada nesta data');
+          const isBlocked = blocks.some(block => {
+            const blockStart = new Date(block.start_date);
+            const blockEnd = new Date(block.end_date);
+            blockStart.setHours(0, 0, 0, 0);
+            blockEnd.setHours(23, 59, 59, 999);
+            return selectedDate >= blockStart && selectedDate <= blockEnd;
+          });
+
+          if (isBlocked) {
+            const blockingBlock = blocks.find(block => {
+              const blockStart = new Date(block.start_date);
+              const blockEnd = new Date(block.end_date);
+              blockStart.setHours(0, 0, 0, 0);
+              blockEnd.setHours(23, 59, 59, 999);
+              return selectedDate >= blockStart && selectedDate <= blockEnd;
+            });
+            
+            throw new Error(
+              `Profissional está ausente no período de ${format(new Date(blockingBlock.start_date), 'dd/MM/yyyy')} até ${format(new Date(blockingBlock.end_date), 'dd/MM/yyyy')}`
+            );
+          }
         }
       }
 
@@ -173,16 +226,40 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
       }
 
       // Para múltiplos serviços, criar um agendamento para cada serviço
-      const appointments = selectedServices.map(selectedService => ({
-        ...appointmentData,
-        service_id: selectedService.serviceId,
-        collaborator_id: selectedService.collaboratorId,
-        total_amount: selectedService.service.price,
-        user_id: user?.id,
-        status: 'agendado',
-        client_id: clientId,
-        client_phone: normalizedPhone,
-      }));
+      // Se houver múltiplos colaboradores, criar um agendamento para cada combinação serviço-colaborador
+      const appointments: any[] = [];
+      
+      selectedServices.forEach(selectedService => {
+        const collaboratorIds = selectedService.collaboratorIds || (selectedService.collaboratorId ? [selectedService.collaboratorId] : []);
+        
+        if (collaboratorIds.length > 0) {
+          // Criar um agendamento para cada colaborador selecionado
+          collaboratorIds.forEach(collaboratorId => {
+            appointments.push({
+              ...appointmentData,
+              service_id: selectedService.serviceId,
+              collaborator_id: collaboratorId,
+              total_amount: selectedService.service.price,
+              user_id: user?.id,
+              status: 'agendado',
+              client_id: clientId,
+              client_phone: normalizedPhone,
+            });
+          });
+        } else {
+          // Se não houver colaborador selecionado, criar agendamento sem colaborador
+          appointments.push({
+            ...appointmentData,
+            service_id: selectedService.serviceId,
+            collaborator_id: null,
+            total_amount: selectedService.service.price,
+            user_id: user?.id,
+            status: 'agendado',
+            client_id: clientId,
+            client_phone: normalizedPhone,
+          });
+        }
+      });
 
       for (const apt of appointments) {
         const { error } = await supabase
@@ -296,13 +373,16 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
         }
       }
 
+      const firstService = selectedServices[0];
+      const collaboratorId = firstService?.collaboratorIds?.[0] || firstService?.collaboratorId || null;
+      
       const { error } = await supabase
         .from('appointments')
         .update({
           ...appointmentData,
-          service_id: selectedServices[0]?.serviceId,
-          collaborator_id: selectedServices[0]?.collaboratorId,
-          total_amount: selectedServices[0]?.service?.price,
+          service_id: firstService?.serviceId,
+          collaborator_id: collaboratorId,
+          total_amount: firstService?.service?.price,
           client_id: targetClientId,
           client_phone: normalizedPhone,
           client_name: trimmedClientName,
@@ -343,7 +423,8 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
     setSelectedServices([{ 
       id: '1', 
       serviceId: '', 
-      service: { id: '', name: '', price: 0, duration: 0, category: '' } 
+      service: { id: '', name: '', price: 0, duration: 0, category: '' },
+      collaboratorIds: []
     }]);
     setNotes('');
   };
@@ -496,18 +577,31 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
               />
             </div>
 
-            {isCollaboratorBlocked && collaboratorBlocks[0] && (
+            {selectedCollaboratorId && allCollaboratorBlocks.length > 0 && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  <p className="font-semibold mb-1">Profissional Indisponível</p>
-                  <p className="text-sm">Este profissional está com a agenda bloqueada no período selecionado.</p>
-                  <p className="text-sm mt-1">
-                    <strong>Motivo:</strong> {collaboratorBlocks[0].reason}
+                  <p className="font-semibold mb-2">
+                    {selectedCollaborator?.name || 'Este profissional'} está ausente
                   </p>
-                  <p className="text-xs mt-1">
-                    De {format(parseISO(collaboratorBlocks[0].start_date), 'dd/MM/yyyy')} até {format(parseISO(collaboratorBlocks[0].end_date), 'dd/MM/yyyy')}
-                  </p>
+                  <p className="text-sm mb-2">Períodos de ausência:</p>
+                  <div className="space-y-2">
+                    {allCollaboratorBlocks.map((block) => (
+                      <div key={block.id} className="bg-destructive/10 p-2 rounded text-sm">
+                        <p className="font-medium">
+                          {format(new Date(block.start_date), 'dd/MM/yyyy')} até {format(new Date(block.end_date), 'dd/MM/yyyy')}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          <strong>Motivo:</strong> {block.reason}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  {isDateBlocked && (
+                    <p className="text-sm font-medium mt-2 text-destructive">
+                      ⚠️ A data selecionada está dentro de um período de ausência!
+                    </p>
+                  )}
                 </AlertDescription>
               </Alert>
             )}
@@ -532,7 +626,7 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
                 disabled={
                   createAppointmentMutation.isPending || 
                   updateAppointmentMutation.isPending || 
-                  isCollaboratorBlocked
+                  isDateBlocked
                 }
               >
                 {appointment ? 'Atualizar' : 'Criar'} Agendamento

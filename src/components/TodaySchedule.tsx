@@ -64,6 +64,7 @@ export const TodaySchedule = () => {
           const { data: collaboratorsData } = await supabase
             .from('collaborators')
             .select('id, name')
+            .eq('user_id', user.id)
             .in('id', collaboratorIds);
           
           // Adicionar nome do colaborador aos agendamentos
