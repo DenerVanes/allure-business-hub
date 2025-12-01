@@ -125,6 +125,18 @@ export default function AgendamentoPublico() {
     enabled: !!selectedCollaborator && !!selectedDate
   });
 
+  // Limpar horário quando colaborador mudar
+  useEffect(() => {
+    setSelectedTime('');
+  }, [selectedCollaborator]);
+
+  // Limpar horário se colaborador estiver bloqueado
+  useEffect(() => {
+    if (collaboratorBlocks.length > 0) {
+      setSelectedTime('');
+    }
+  }, [collaboratorBlocks]);
+
   // Gerar horários disponíveis
   const generateTimeSlots = () => {
     const slots: string[] = [];
@@ -159,6 +171,21 @@ export default function AgendamentoPublico() {
     mutationFn: async () => {
       if (!profile?.user_id || !selectedDate || !selectedService || !selectedTime) {
         throw new Error('Dados incompletos');
+      }
+
+      // VALIDAÇÃO FINAL: Verificar se colaborador está bloqueado
+      if (selectedCollaborator) {
+        const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+        const { data: blocks } = await supabase
+          .from('collaborator_blocks')
+          .select('*')
+          .eq('collaborator_id', selectedCollaborator)
+          .lte('start_date', formattedDate)
+          .gte('end_date', formattedDate);
+
+        if (blocks && blocks.length > 0) {
+          throw new Error('Profissional está com a agenda bloqueada nesta data');
+        }
       }
 
       const normalizedPhone = normalizePhone(clientPhone);
@@ -448,7 +475,12 @@ export default function AgendamentoPublico() {
                   type="submit" 
                   className="w-full" 
                   size="lg"
-                  disabled={createAppointmentMutation.isPending || !clientName || !clientPhone}
+                  disabled={
+                    createAppointmentMutation.isPending || 
+                    !clientName || 
+                    !clientPhone ||
+                    (selectedCollaborator && collaboratorBlocks.length > 0)
+                  }
                 >
                   {createAppointmentMutation.isPending ? 'Agendando...' : 'Confirmar Agendamento'}
                 </Button>
