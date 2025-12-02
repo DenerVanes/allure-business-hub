@@ -38,7 +38,8 @@ const App = () => (
         <BrowserRouter>
           <SidebarProvider>
             <Routes>
-              <Route path="/auth" element={<Auth />} />
+              {/* Rota pública de autenticação /login */}
+              <Route path="/login" element={<Auth />} />
               <Route path="/agendar/:slug" element={<AgendamentoPublico />} />
               <Route path="/" element={<AppLayout />}>
                 <Route index element={<Index />} />

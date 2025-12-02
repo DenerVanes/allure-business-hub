@@ -45,6 +45,7 @@ const Configuracoes = () => {
   const { user, signOut } = useAuth();
   const queryClient = useQueryClient();
   const [copiedLink, setCopiedLink] = useState(false);
+  const [publicLink, setPublicLink] = useState('');
 
   const { data: profile } = useQuery({
     queryKey: ['user-profile', user?.id],
@@ -157,6 +158,36 @@ const Configuracoes = () => {
 
   const onSubmit = (data: ProfileFormData) => {
     updateProfileMutation.mutate(data);
+  };
+
+  // Monta e mantém o link público de agendamento de forma estável
+  React.useEffect(() => {
+    if (profile?.slug && typeof window !== 'undefined') {
+      const link = `${window.location.origin}/agendar/${profile.slug}`;
+      console.log('Link público de agendamento montado:', link);
+      setPublicLink(link);
+    }
+  }, [profile?.slug]);
+
+  const handleCopyPublicLink = async () => {
+    if (!publicLink) return;
+
+    try {
+      await navigator.clipboard.writeText(publicLink);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+      toast({
+        title: 'Link copiado!',
+        description: 'O link foi copiado para a área de transferência.',
+      });
+    } catch (error) {
+      console.error('Erro ao copiar link público:', error);
+      toast({
+        title: 'Não foi possível copiar o link',
+        description: 'Copie manualmente o endereço exibido no campo.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -276,21 +307,15 @@ const Configuracoes = () => {
             </p>
             <div className="flex gap-2">
               <Input
-                value={`${window.location.origin}/agendar/${profile.slug}`}
+                value={publicLink}
                 readOnly
-                className="flex-1"
+                onClick={(e) => (e.currentTarget as HTMLInputElement).select()}
+                className="flex-1 cursor-text"
               />
               <Button
+                type="button"
                 variant={copiedLink ? "default" : "outline"}
-                onClick={() => {
-                  navigator.clipboard.writeText(`${window.location.origin}/agendar/${profile.slug}`);
-                  setCopiedLink(true);
-                  setTimeout(() => setCopiedLink(false), 2000);
-                  toast({
-                    title: 'Link copiado!',
-                    description: 'O link foi copiado para a área de transferência.',
-                  });
-                }}
+                onClick={handleCopyPublicLink}
               >
                 {copiedLink ? (
                   <>

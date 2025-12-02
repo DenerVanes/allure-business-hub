@@ -1,11 +1,17 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Sparkles, Heart } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 const Auth = () => {
@@ -20,11 +26,11 @@ const Auth = () => {
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     const formData = new FormData(e.currentTarget);
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
-    
+
     await signIn(email, password);
     setIsLoading(false);
   };
@@ -32,166 +38,214 @@ const Auth = () => {
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     const formData = new FormData(e.currentTarget);
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
     const businessName = formData.get('businessName') as string;
-    
+
     await signUp(email, password, businessName);
     setIsLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-surface flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-6 mx-auto px-4">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="p-3 bg-gradient-primary rounded-xl">
-              <Sparkles className="h-6 w-6 text-white" />
+    <div className="min-h-screen w-full bg-gradient-to-br from-[#FCE7F3] via-[#F9E0FF] to-[#C084FC] flex items-center justify-center px-4 py-6">
+      <div className="w-full max-w-6xl mx-auto">
+        <div className="flex flex-col lg:flex-row bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden min-h-[560px]">
+          {/* Left column – Login / Sign up */}
+          <div className="w-full lg:w-[40%] px-8 sm:px-10 py-8 sm:py-10 flex flex-col justify-between bg-white">
+            <div className="space-y-6">
+              {/* Logo + Heading */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-[#F472B6] to-[#9333EA] flex items-center justify-center shadow-md">
+                  <Sparkles className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-[#9333EA]">
+                    Beauty Hub
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Plataforma para profissionais da beleza
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+                  Bem-vinda ao seu negócio
+                </h1>
+                <p className="text-sm sm:text-base text-muted-foreground">
+                  Gerencie seus agendamentos, clientes e receitas em um só lugar.
+                </p>
+              </div>
+
+              {/* Auth Forms */}
+              <Card className="border border-[#FBCFE8] shadow-md">
+                <CardHeader className="pb-3">
+                  <CardDescription className="text-xs uppercase tracking-[0.2em] text-[#F472B6]">
+                    Acesse ou crie sua conta
+                  </CardDescription>
+                  <CardTitle className="text-lg font-semibold mt-1">
+                    Área do salão
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Tabs defaultValue="signin" className="space-y-4">
+                    <TabsList className="grid w-full grid-cols-2 bg-[#FDF2FF]">
+                      <TabsTrigger value="signin">Entrar</TabsTrigger>
+                      <TabsTrigger value="signup">Criar conta</TabsTrigger>
+                    </TabsList>
+
+                    {/* Sign In Tab */}
+                    <TabsContent value="signin" className="space-y-4">
+                      <form onSubmit={handleSignIn} className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="signin-email" className="text-sm font-semibold">
+                            E-mail
+                          </Label>
+                          <Input
+                            id="signin-email"
+                            name="email"
+                            type="email"
+                            placeholder="voce@seusalao.com"
+                            required
+                            className="h-11 rounded-xl border-[#F9A8D4] focus-visible:ring-[#F472B6]"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="signin-password" className="text-sm font-semibold">
+                            Senha
+                          </Label>
+                          <Input
+                            id="signin-password"
+                            name="password"
+                            type="password"
+                            placeholder="Sua senha secreta"
+                            required
+                            className="h-11 rounded-xl border-[#F9A8D4] focus-visible:ring-[#F472B6]"
+                          />
+                        </div>
+
+                        <Button
+                          type="submit"
+                          disabled={isLoading}
+                          className="w-full h-11 rounded-xl bg-gradient-to-r from-[#FF69B4] via-[#F472B6] to-[#9B59B6] text-white font-semibold shadow-lg shadow-[#F9A8D4]/60 hover:from-[#F472B6] hover:via-[#EC4899] hover:to-[#8B5CF6] transition-all duration-200 border-0"
+                        >
+                          {isLoading ? 'Entrando...' : 'Entrar'}
+                        </Button>
+                      </form>
+                    </TabsContent>
+
+                    {/* Sign Up Tab */}
+                    <TabsContent value="signup" className="space-y-4">
+                      <form onSubmit={handleSignUp} className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="signup-business" className="text-sm font-semibold">
+                            Nome do negócio
+                          </Label>
+                          <Input
+                            id="signup-business"
+                            name="businessName"
+                            type="text"
+                            placeholder="Salão da Maria"
+                            required
+                            className="h-11 rounded-xl border-[#F9A8D4] focus-visible:ring-[#F472B6]"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="signup-email" className="text-sm font-semibold">
+                            E-mail
+                          </Label>
+                          <Input
+                            id="signup-email"
+                            name="email"
+                            type="email"
+                            placeholder="voce@seusalao.com"
+                            required
+                            className="h-11 rounded-xl border-[#F9A8D4] focus-visible:ring-[#F472B6]"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="signup-password" className="text-sm font-semibold">
+                            Senha
+                          </Label>
+                          <Input
+                            id="signup-password"
+                            name="password"
+                            type="password"
+                            placeholder="Mínimo 8 caracteres"
+                            required
+                            minLength={8}
+                            className="h-11 rounded-xl border-[#F9A8D4] focus-visible:ring-[#F472B6]"
+                          />
+                        </div>
+
+                        <Button
+                          type="submit"
+                          disabled={isLoading}
+                          className="w-full h-11 rounded-xl bg-gradient-to-r from-[#FF69B4] via-[#F472B6] to-[#9B59B6] text-white font-semibold shadow-lg shadow-[#F9A8D4]/60 hover:from-[#F472B6] hover:via-[#EC4899] hover:to-[#8B5CF6] transition-all duration-200 border-0"
+                        >
+                          {isLoading ? 'Criando conta...' : 'Criar conta'}
+                        </Button>
+                      </form>
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
             </div>
-            <div className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Beauty Hub
+
+            {/* Terms / Privacy */}
+            <div className="pt-4 text-xs text-muted-foreground">
+              <p>
+                Ao entrar ou criar sua conta, você concorda com nossos{' '}
+                <button
+                  type="button"
+                  className="text-[#F472B6] hover:underline font-medium"
+                >
+                  Termos de Uso
+                </button>{' '}
+                e{' '}
+                <button
+                  type="button"
+                  className="text-[#F472B6] hover:underline font-medium"
+                >
+                  Política de Privacidade
+                </button>
+                .
+              </p>
             </div>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">
-            Bem-vinda ao seu negócio
-          </h1>
-          <p className="text-muted-foreground">
-            Gerencie agendamentos, clientes e receitas em um só lugar
-          </p>
-        </div>
 
-        {/* Auth Forms */}
-        <Card className="shadow-medium border-border/50">
-          <CardHeader className="space-y-1 pb-4">
-            <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground">
-              <Heart className="h-4 w-4 text-primary" />
-              <span>Feito com amor para profissionais da beleza</span>
+          {/* Right column – Illustration area */}
+          <div className="hidden md:flex flex-1 items-center justify-center bg-gradient-to-br from-[#FCE7F3] via-[#F472B6] to-[#9333EA] relative">
+            <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_top,_#fff,_transparent_55%),radial-gradient(circle_at_bottom,_#F9A8D4,_transparent_55%)]" />
+
+            <div className="relative z-10 max-w-md w-full px-10 py-10 text-white space-y-4">
+              <p className="text-xs uppercase tracking-[0.25em] text-pink-100/90">
+                Painel premium para salões
+              </p>
+              <h2 className="text-2xl sm:text-3xl font-semibold leading-snug">
+                Visualize sua agenda, organize seus clientes e acompanhe suas
+                receitas em tempo real.
+              </h2>
+              <p className="text-sm text-pink-50/90">
+                Ideal para salões, estúdios de beleza e profissionais que
+                desejam um controle moderno e elegante do negócio.
+              </p>
+
+              {/* IMAGE AREA: aqui será inserida uma ilustração personalizada */}
+              <div className="mt-6 w-full h-80 sm:h-96 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md overflow-hidden">
+                <img
+                  src="/mulher.jpg.png"
+                  alt="Profissional de beleza usando o Beauty Hub no celular"
+                  className="w-full h-full object-cover object-center"
+                />
+              </div>
             </div>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="signin" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signin">Entrar</TabsTrigger>
-                <TabsTrigger value="signup">Criar Conta</TabsTrigger>
-              </TabsList>
-              
-              {/* Sign In Tab */}
-              <TabsContent value="signin" className="space-y-4">
-                <div className="space-y-2">
-                  <CardTitle className="text-xl">Entrar na conta</CardTitle>
-                  <CardDescription>
-                    Digite suas credenciais para acessar
-                  </CardDescription>
-                </div>
-                
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-email">E-mail</Label>
-                    <Input
-                      id="signin-email"
-                      name="email"
-                      type="email"
-                      placeholder="seu@email.com"
-                      required
-                      className="transition-all duration-200 focus:shadow-soft"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-password">Senha</Label>
-                    <Input
-                      id="signin-password"
-                      name="password"
-                      type="password"
-                      placeholder="••••••••"
-                      required
-                      className="transition-all duration-200 focus:shadow-soft"
-                    />
-                  </div>
-                  
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
-                    disabled={isLoading}
-                    variant="default"
-                  >
-                    {isLoading ? 'Entrando...' : 'Entrar'}
-                  </Button>
-                </form>
-              </TabsContent>
-              
-              {/* Sign Up Tab */}
-              <TabsContent value="signup" className="space-y-4">
-                <div className="space-y-2">
-                  <CardTitle className="text-xl">Criar nova conta</CardTitle>
-                  <CardDescription>
-                    Cadastre-se e comece a gerenciar seu negócio
-                  </CardDescription>
-                </div>
-                
-                <form onSubmit={handleSignUp} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-business">Nome do Negócio</Label>
-                    <Input
-                      id="signup-business"
-                      name="businessName"
-                      type="text"
-                      placeholder="Salão da Maria"
-                      required
-                      className="transition-all duration-200 focus:shadow-soft"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">E-mail</Label>
-                    <Input
-                      id="signup-email"
-                      name="email"
-                      type="email"
-                      placeholder="seu@email.com"
-                      required
-                      className="transition-all duration-200 focus:shadow-soft"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">Senha</Label>
-                    <Input
-                      id="signup-password"
-                      name="password"
-                      type="password"
-                      placeholder="Mínimo 8 caracteres"
-                      required
-                      minLength={8}
-                      className="transition-all duration-200 focus:shadow-soft"
-                    />
-                  </div>
-                  
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
-                    disabled={isLoading}
-                    variant="default"
-                  >
-                    {isLoading ? 'Criando conta...' : 'Criar Conta'}
-                  </Button>
-                </form>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-
-        {/* Footer */}
-        <div className="text-center text-sm text-muted-foreground">
-          <p>Ao se cadastrar, você concorda com nossos</p>
-          <p>
-            <span className="text-primary hover:underline cursor-pointer">Termos de Uso</span>
-            {' e '}
-            <span className="text-primary hover:underline cursor-pointer">Política de Privacidade</span>
-          </p>
+          </div>
         </div>
       </div>
     </div>
