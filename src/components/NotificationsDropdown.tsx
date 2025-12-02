@@ -9,19 +9,21 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bell, Calendar, Clock, Package, AlertTriangle } from 'lucide-react';
+import { Bell, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { format, addHours, isWithinInterval, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { getBrazilianDate, convertToSupabaseDate } from '@/utils/timezone';
+import { getBrazilianDate } from '@/utils/timezone';
 
 interface Notification {
   id: string;
-  type: 'new_appointment' | 'upcoming_appointment' | 'low_stock' | 'out_of_stock';
+  type: 'new_appointment';
   title: string;
   message: string;
+  appointmentInfo: string;
+  isOnline: boolean;
   timestamp: Date;
   link?: string;
 }
@@ -32,9 +34,9 @@ export function NotificationsDropdown() {
   const [open, setOpen] = useState(false);
   const [lastSeenAt, setLastSeenAt] = useState<Date | null>(null);
 
-  // Buscar agendamentos
+  // Buscar agendamentos recentes
   const { data: appointments = [] } = useQuery({
-    queryKey: ['appointments', user?.id],
+    queryKey: ['appointments-notifications', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
       
@@ -46,42 +48,20 @@ export function NotificationsDropdown() {
           clients (name)
         `)
         .eq('user_id', user.id)
-        .in('status', ['agendado', 'confirmado'])
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(10);
       
       if (error) throw error;
       return data || [];
     },
     enabled: !!user?.id,
-    refetchInterval: 30000, // Atualizar a cada 30 segundos
+    refetchInterval: 30000,
   });
 
-  // Buscar produtos com estoque baixo
-  const { data: products = [] } = useQuery({
-    queryKey: ['products', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('quantity', { ascending: true });
-      
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!user?.id,
-    refetchInterval: 60000, // Atualizar a cada minuto
-  });
-
-  // Processar notificações
+  // Processar notificações - apenas novos agendamentos
   useEffect(() => {
     const newNotifications: Notification[] = [];
-    const today = getBrazilianDate();
-    const now = today;
-    const oneHourFromNow = addHours(now, 1);
-    const todayString = convertToSupabaseDate(today);
+    const now = getBrazilianDate();
 
     // Novos agendamentos (criados nas últimas 24 horas)
     const recentAppointments = appointments.filter(apt => {
@@ -90,114 +70,43 @@ export function NotificationsDropdown() {
       return hoursSinceCreation <= 24 && hoursSinceCreation >= 0;
     });
 
-    // Limitar a 5 notificações de novos agendamentos
-    recentAppointments.slice(0, 5).forEach(apt => {
+    recentAppointments.slice(0, 10).forEach(apt => {
+      const clientName = (apt.clients as any)?.name || apt.client_name || 'Cliente';
+      const appointmentDate = format(parseISO(apt.appointment_date), "dd/MM/yyyy", { locale: ptBR });
+      const appointmentTime = apt.appointment_time.slice(0, 5); // HH:mm
+      
+      // Verificar se foi agendamento online (se não tem client_id, foi criado manualmente)
+      const isOnline = apt.client_id !== null;
+
       newNotifications.push({
         id: `new-${apt.id}`,
         type: 'new_appointment',
         title: 'Novo Agendamento',
-        message: `${(apt.clients as any)?.name || 'Cliente'} fez um novo agendamento online. Confira na sua agenda.`,
+        message: `${clientName} fez um novo agendamento`,
+        appointmentInfo: `${appointmentDate} às ${appointmentTime}`,
+        isOnline,
         timestamp: parseISO(apt.created_at),
         link: '/agendamentos',
       });
-    });
-
-    // Agendamentos na próxima hora (apenas hoje)
-    const upcomingAppointments = appointments.filter(apt => {
-      if (apt.appointment_date !== todayString) return false;
-      
-      const [hours, minutes] = apt.appointment_time.split(':').map(Number);
-      const appointmentDateTime = new Date(today);
-      appointmentDateTime.setHours(hours, minutes, 0, 0);
-      
-      // Obter hora atual em minutos desde meia-noite
-      const nowMinutes = now.getHours() * 60 + now.getMinutes();
-      const oneHourFromNowMinutes = nowMinutes + 60;
-      const appointmentMinutes = hours * 60 + minutes;
-      
-      // Verificar se está entre agora e 1 hora a partir de agora
-      return appointmentMinutes >= nowMinutes && appointmentMinutes <= oneHourFromNowMinutes;
-    });
-
-    upcomingAppointments.forEach(apt => {
-      newNotifications.push({
-        id: `upcoming-${apt.id}`,
-        type: 'upcoming_appointment',
-        title: 'Agendamento em Breve',
-        message: `${(apt.clients as any)?.name || 'Cliente'} tem agendamento às ${apt.appointment_time} - ${(apt.services as any)?.name || 'serviço'}`,
-        timestamp: new Date(),
-        link: '/agendamentos',
-      });
-    });
-
-    // Alertas de estoque
-    products.forEach(product => {
-      if (product.quantity === 0) {
-        newNotifications.push({
-          id: `out-of-stock-${product.id}`,
-          type: 'out_of_stock',
-          title: 'Produto Sem Estoque',
-          message: `${product.name} está sem estoque`,
-          timestamp: new Date(),
-          link: '/estoque',
-        });
-      } else if (product.quantity <= (product.min_quantity || 0)) {
-        newNotifications.push({
-          id: `low-stock-${product.id}`,
-          type: 'low_stock',
-          title: 'Estoque Baixo',
-          message: `${product.name} está com estoque baixo (${product.quantity} unidades)`,
-          timestamp: new Date(),
-          link: '/estoque',
-        });
-      }
     });
 
     // Ordenar por timestamp (mais recentes primeiro)
     newNotifications.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
     setNotifications(newNotifications);
-  }, [appointments, products]);
+  }, [appointments]);
 
-  // Contar apenas notificações mais recentes que o último momento em que o usuário abriu o dropdown
+  // Contar notificações não lidas
   const unreadCount = notifications.filter((n) =>
     !lastSeenAt || n.timestamp > lastSeenAt
   ).length;
 
-  // Quando o dropdown abre, marcar todas as notificações atuais como vistas
+  // Marcar como vistas ao abrir
   useEffect(() => {
     if (open) {
       setLastSeenAt(new Date());
     }
   }, [open]);
-
-  const getNotificationIcon = (type: Notification['type']) => {
-    switch (type) {
-      case 'new_appointment':
-      case 'upcoming_appointment':
-        return <Calendar className="h-4 w-4" />;
-      case 'low_stock':
-      case 'out_of_stock':
-        return <Package className="h-4 w-4" />;
-      default:
-        return <Bell className="h-4 w-4" />;
-    }
-  };
-
-  const getNotificationColor = (type: Notification['type']) => {
-    switch (type) {
-      case 'new_appointment':
-        return 'text-blue-600 bg-blue-50';
-      case 'upcoming_appointment':
-        return 'text-orange-600 bg-orange-50';
-      case 'low_stock':
-        return 'text-yellow-600 bg-yellow-50';
-      case 'out_of_stock':
-        return 'text-red-600 bg-red-50';
-      default:
-        return 'text-gray-600 bg-gray-50';
-    }
-  };
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -229,7 +138,7 @@ export function NotificationsDropdown() {
                   key={notification.id}
                   className={cn(
                     "flex items-start gap-3 p-3 rounded-lg cursor-pointer hover:bg-accent transition-colors",
-                    getNotificationColor(notification.type)
+                    "text-blue-600 bg-blue-50"
                   )}
                   onClick={() => {
                     if (notification.link) {
@@ -237,8 +146,8 @@ export function NotificationsDropdown() {
                     }
                   }}
                 >
-                  <div className={cn("p-2 rounded-full", getNotificationColor(notification.type))}>
-                    {getNotificationIcon(notification.type)}
+                  <div className="p-2 rounded-full text-blue-600 bg-blue-100">
+                    <Calendar className="h-4 w-4" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground">
@@ -247,8 +156,14 @@ export function NotificationsDropdown() {
                     <p className="text-xs text-muted-foreground mt-1">
                       {notification.message}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {format(notification.timestamp, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {notification.appointmentInfo}
+                      {notification.isOnline && (
+                        <span className="ml-1 text-green-600 font-medium">(Online)</span>
+                      )}
+                    </p>
+                    <p className="text-xs text-muted-foreground/70 mt-1">
+                      {format(notification.timestamp, "dd/MM 'às' HH:mm", { locale: ptBR })}
                     </p>
                   </div>
                 </div>
@@ -260,4 +175,3 @@ export function NotificationsDropdown() {
     </DropdownMenu>
   );
 }
-
