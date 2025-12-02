@@ -166,6 +166,62 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
             );
           }
         }
+
+        // VALIDAÇÃO CRÍTICA: Verificar se o colaborador já tem agendamento que conflita com o horário
+        // (apenas para novos agendamentos, não para edição do mesmo agendamento)
+        if (selectedCollaboratorId && date && appointmentData.appointment_time) {
+          // Obter duração do serviço que está sendo agendado
+          const newService = selectedServices[0]?.service;
+          const newServiceDuration = newService?.duration || 60;
+
+          // Buscar todos os agendamentos do dia para verificar conflitos
+          const { data: existingApts, error: checkError } = await supabase
+            .from('appointments')
+            .select(`
+              *,
+              collaborators (name),
+              services (name, duration)
+            `)
+            .eq('user_id', user.id)
+            .eq('collaborator_id', selectedCollaboratorId)
+            .eq('appointment_date', formattedDate)
+            .in('status', ['agendado', 'confirmado']);
+
+          if (checkError) throw checkError;
+
+          // Verificar conflitos considerando a duração
+          if (existingApts && existingApts.length > 0) {
+            const [newHours, newMinutes] = appointmentData.appointment_time.split(':').map(Number);
+            const newStart = newHours * 60 + newMinutes; // minutos desde meia-noite
+            const newEnd = newStart + newServiceDuration;
+
+            for (const existingApt of existingApts) {
+              // Ignorar se for o mesmo agendamento sendo editado
+              if (appointment && existingApt.id === appointment.id) continue;
+
+              const [aptHours, aptMinutes] = existingApt.appointment_time.split(':').map(Number);
+              const aptStart = aptHours * 60 + aptMinutes;
+              const aptDuration = (existingApt.services as any)?.duration || 60;
+              const aptEnd = aptStart + aptDuration;
+
+              // Verifica se há sobreposição de horários
+              if (newStart < aptEnd && newEnd > aptStart) {
+                const collaboratorName = (existingApt.collaborators as any)?.name || 'Profissional';
+                const existingServiceName = (existingApt.services as any)?.name || '';
+                
+                // Calcular horário de término do agendamento existente
+                const aptStartTime = new Date();
+                aptStartTime.setHours(aptHours, aptMinutes, 0, 0);
+                const aptEndTime = new Date(aptStartTime.getTime() + aptDuration * 60000);
+                const aptEndTimeStr = format(aptEndTime, 'HH:mm');
+
+                throw new Error(
+                  `${collaboratorName} já possui um atendimento agendado para ${format(date, 'dd/MM/yyyy')} das ${existingApt.appointment_time} às ${aptEndTimeStr}. Por gentileza, selecione outro horário.`
+                );
+              }
+            }
+          }
+        }
       }
 
       const normalizedPhone = normalizePhone(appointmentData.client_phone);
