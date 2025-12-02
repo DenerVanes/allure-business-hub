@@ -30,18 +30,21 @@ export default function AgendamentoPublico() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
 
-  // Buscar perfil do salão
+  // Buscar perfil do salão (público)
   const { data: profile, isLoading: profileLoading, error: profileError } = useQuery({
     queryKey: ['public-profile', slug],
     queryFn: async () => {
       console.log('🔍 Buscando perfil com slug:', slug);
       const { data, error } = await supabase
-        .from('profiles')
+        // IMPORTANTE: use uma view/tabela pública segura no Supabase,
+        // por exemplo: public_booking_profiles (apenas colunas necessárias)
+        .from('public_booking_profiles')
         .select('*')
         .eq('slug', slug)
         .eq('agendamento_online_ativo', true)
-        .single();
+        .maybeSingle();
       
+      // Erro real de banco
       if (error) {
         console.error('❌ Erro ao buscar perfil:', error);
         console.error('Detalhes do erro:', {
@@ -53,6 +56,11 @@ export default function AgendamentoPublico() {
         throw error;
       }
       
+      if (!data) {
+        console.warn('⚠️ Nenhum perfil encontrado para o slug:', slug);
+        return null;
+      }
+
       console.log('✅ Perfil encontrado:', data);
       return data;
     },
