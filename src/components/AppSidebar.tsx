@@ -1,10 +1,10 @@
-
-import { Calendar, LayoutDashboard, Scissors, Package, DollarSign, Users, Settings, Sparkles, UserCheck } from 'lucide-react';
+import { Calendar, LayoutDashboard, Scissors, Package, DollarSign, Users, Settings, Sparkles, UserCheck, Shield } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, useSidebar } from '@/components/ui/sidebar';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useAdmin } from '@/hooks/useAdmin';
 
 const menuItems = [
   {
@@ -49,11 +49,20 @@ const menuItems = [
   }
 ];
 
+const adminMenuItems = [
+  {
+    title: 'Gestão',
+    url: '/gestao-clientes',
+    icon: Shield
+  }
+];
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
   const collapsed = state === 'collapsed';
   const { user } = useAuth();
+  const { isAdmin } = useAdmin();
 
   // Buscar nome do salão do perfil
   const { data: profile } = useQuery({
@@ -131,6 +140,38 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Admin Menu - Only visible to admins */}
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel className={collapsed ? 'sr-only' : ''}>
+              Administração
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="space-y-1">
+                {adminMenuItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton 
+                      asChild 
+                      className={`transition-all duration-200 hover:shadow-soft rounded-lg ${
+                        isActive(item.url) 
+                          ? 'bg-primary-light text-primary font-medium shadow-soft border border-primary/20' 
+                          : 'hover:bg-accent'
+                      }`}
+                    >
+                      <NavLink to={item.url} className="flex items-center gap-3 px-3 py-2">
+                        <item.icon className={`h-5 w-5 ${isActive(item.url) ? 'text-primary' : ''}`} />
+                        {!collapsed && (
+                          <span className="text-sm">{item.title}</span>
+                        )}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
     </Sidebar>
   );
