@@ -166,11 +166,9 @@ export function AppointmentsStatusModal({
                             <span className="font-medium">Serviço:</span> {appointment.services?.name}
                           </div>
 
-                          {appointment.collaborator_id && (
-                            <div className="text-muted-foreground">
-                              <span className="font-medium">Profissional:</span> {(appointment as any).collaborators?.name || 'Não informado'}
-                            </div>
-                          )}
+                          <div className="text-muted-foreground">
+                            <span className="font-medium">Profissional:</span> {(appointment as any).collaborators?.name || 'Não informado'}
+                          </div>
 
                           <div className="flex items-center gap-2 text-muted-foreground">
                             <DollarSign className="h-4 w-4" />

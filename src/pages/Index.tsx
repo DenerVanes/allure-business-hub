@@ -48,7 +48,12 @@ const Index = () => {
       
       const { data, error } = await supabase
         .from('appointments')
-        .select('*')
+        .select(`
+          *,
+          services (name, price, duration),
+          clients (name, phone),
+          collaborators (name)
+        `)
         .eq('user_id', user.id);
       
       if (error) throw error;
