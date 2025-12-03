@@ -117,6 +117,8 @@ DECLARE
   _start_date TIMESTAMPTZ;
   _end_date TIMESTAMPTZ;
   _current_end_date TIMESTAMPTZ;
+  _current_plan_status TEXT;
+  _current_plan_expires_at TIMESTAMPTZ;
   _now TIMESTAMPTZ := now();
 BEGIN
   -- Verificar se o usuário é admin
@@ -129,17 +131,30 @@ BEGIN
     RAISE EXCEPTION 'Usuário não encontrado';
   END IF;
 
-  -- Buscar a última assinatura ativa do usuário
-  SELECT MAX(end_date) INTO _current_end_date
-  FROM public.customer_subscriptions
+  -- Buscar o status atual do plano do usuário
+  SELECT plan_status, plan_expires_at 
+  INTO _current_plan_status, _current_plan_expires_at
+  FROM public.profiles
   WHERE user_id = _user_id;
+
+  -- Verificar se o plano está realmente ativo (não cancelado/expirado)
+  -- Se o status é 'expired' ou 'none', ou se a data já passou, ignorar registros antigos
+  IF _current_plan_status = 'active' 
+     AND _current_plan_expires_at IS NOT NULL 
+     AND _current_plan_expires_at >= _now THEN
+    -- Plano está ativo: buscar a data de término atual
+    _current_end_date := _current_plan_expires_at;
+  ELSE
+    -- Plano está expirado, cancelado ou nunca teve plano: ignorar registros antigos
+    _current_end_date := NULL;
+  END IF;
 
   -- Calcular start_date e end_date baseado nas regras de negócio
   IF _current_end_date IS NOT NULL AND _current_end_date >= _now THEN
     -- Plano ativo: começar no dia seguinte ao término atual
     _start_date := _current_end_date + interval '1 day';
   ELSE
-    -- Plano expirado ou nunca teve plano: começar na data do pagamento
+    -- Plano expirado, cancelado ou nunca teve plano: começar na data do pagamento
     _start_date := _paid_at;
   END IF;
 

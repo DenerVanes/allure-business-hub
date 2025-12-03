@@ -170,21 +170,66 @@ const Configuracoes = () => {
   }, [profile?.slug]);
 
   const handleCopyPublicLink = async () => {
-    if (!publicLink) return;
-
-    try {
-      await navigator.clipboard.writeText(publicLink);
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2000);
+    if (!publicLink) {
       toast({
-        title: 'Link copiado!',
-        description: 'O link foi copiado para a área de transferência.',
+        title: 'Erro',
+        description: 'Link não disponível. Aguarde o carregamento.',
+        variant: 'destructive',
       });
+      return;
+    }
+
+    // Método 1: Tentar usar a API moderna do clipboard
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(publicLink);
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 2000);
+        toast({
+          title: 'Link copiado!',
+          description: 'O link foi copiado para a área de transferência.',
+        });
+        return;
+      } catch (error) {
+        console.warn('Clipboard API falhou, tentando método alternativo:', error);
+      }
+    }
+
+    // Método 2: Fallback - criar elemento temporário e copiar
+    try {
+      const textArea = document.createElement('textarea');
+      textArea.value = publicLink;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+
+      if (successful) {
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 2000);
+        toast({
+          title: 'Link copiado!',
+          description: 'O link foi copiado para a área de transferência.',
+        });
+      } else {
+        throw new Error('Falha ao executar comando de cópia');
+      }
     } catch (error) {
       console.error('Erro ao copiar link público:', error);
+      // Selecionar o texto no input para facilitar cópia manual
+      const input = document.querySelector('input[readonly]') as HTMLInputElement;
+      if (input) {
+        input.select();
+        input.setSelectionRange(0, 99999);
+      }
       toast({
-        title: 'Não foi possível copiar o link',
-        description: 'Copie manualmente o endereço exibido no campo.',
+        title: 'Não foi possível copiar automaticamente',
+        description: 'O texto foi selecionado. Use Ctrl+C (ou Cmd+C) para copiar.',
         variant: 'destructive',
       });
     }

@@ -20,15 +20,24 @@ export function StockAlertModal({ open, onOpenChange }: StockAlertModalProps) {
     queryFn: async () => {
       if (!user?.id) return [];
       
+      // Buscar todos os produtos do usuário
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .eq('user_id', user.id)
-        .or('quantity.eq.0,quantity.lte.min_quantity')
-        .order('quantity', { ascending: true });
+        .eq('user_id', user.id);
       
       if (error) throw error;
-      return data || [];
+      
+      // Filtrar produtos com estoque baixo ou sem estoque (mesma lógica do dashboard)
+      // Estoque baixo: quantity <= min_quantity (inclui quantity === 0)
+      const filtered = (data || []).filter(p => p.quantity <= p.min_quantity);
+      
+      // Ordenar: primeiro os sem estoque (quantity === 0), depois os com estoque baixo
+      return filtered.sort((a, b) => {
+        if (a.quantity === 0 && b.quantity !== 0) return -1;
+        if (a.quantity !== 0 && b.quantity === 0) return 1;
+        return a.quantity - b.quantity;
+      });
     },
     enabled: !!user?.id && open
   });

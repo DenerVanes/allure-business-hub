@@ -57,15 +57,28 @@ const Financeiro = () => {
       
       const { start, end } = getDateRange(dateFilter);
       
+      // Buscar transações com JOIN para pegar o nome do serviço quando houver appointment_id
       const { data, error } = await supabase
         .from('financial_transactions')
-        .select('*')
+        .select(`
+          *,
+          appointments (
+            service_id,
+            services (
+              name
+            )
+          )
+        `)
         .eq('user_id', user.id)
         .gte('transaction_date', start)
         .lte('transaction_date', end)
         .order('transaction_date', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao buscar transações:', error);
+        throw error;
+      }
+      
       return data || [];
     },
     enabled: !!user?.id
@@ -261,21 +274,29 @@ const Financeiro = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {transactions.map((transaction) => (
-                  <TableRow key={transaction.id}>
-                    <TableCell>
-                      {formatTransactionDate(transaction.transaction_date)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={transaction.type === 'income' ? 'default' : 'destructive'}>
-                        {transaction.type === 'income' ? 'Receita' : 'Despesa'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{transaction.description}</TableCell>
-                    <TableCell>{transaction.category}</TableCell>
-                    <TableCell className={transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}>
-                      {transaction.type === 'income' ? '+' : '-'} R$ {Number(transaction.amount).toFixed(2)}
-                    </TableCell>
+                {transactions.map((transaction) => {
+                  // Buscar nome do serviço se houver appointment_id
+                  const appointment = (transaction as any).appointments;
+                  const service = appointment?.services;
+                  const serviceName = service?.name;
+                  // Se houver nome do serviço, usar ele; senão, usar a categoria padrão
+                  const displayCategory = serviceName || transaction.category;
+                  
+                  return (
+                    <TableRow key={transaction.id}>
+                      <TableCell>
+                        {formatTransactionDate(transaction.transaction_date)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={transaction.type === 'income' ? 'default' : 'destructive'}>
+                          {transaction.type === 'income' ? 'Receita' : 'Despesa'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{transaction.description}</TableCell>
+                      <TableCell>{displayCategory}</TableCell>
+                      <TableCell className={transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}>
+                        {transaction.type === 'income' ? '+' : '-'} R$ {Number(transaction.amount).toFixed(2)}
+                      </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -299,7 +320,8 @@ const Financeiro = () => {
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}

@@ -347,6 +347,55 @@ export default function AgendamentoPublico() {
       }
 
       const normalizedPhone = normalizePhone(clientPhone);
+      const trimmedClientName = clientName.trim();
+
+      // Buscar ou criar cliente (mesma lógica do agendamento interno)
+      let clientId: string | null = null;
+      if (normalizedPhone) {
+        const { data: existing, error: findErr } = await supabase
+          .from('clients')
+          .select('id, name')
+          .eq('user_id', profile.user_id)
+          .eq('phone', normalizedPhone)
+          .limit(1)
+          .maybeSingle();
+
+        if (findErr && findErr.code !== 'PGRST116') throw findErr;
+
+        if (existing?.id) {
+          // Cliente já existe, atualizar nome se necessário
+          clientId = existing.id;
+
+          if (trimmedClientName && trimmedClientName !== existing.name) {
+            const { error: updateErr } = await supabase
+              .from('clients')
+              .update({
+                name: trimmedClientName,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', existing.id)
+              .eq('user_id', profile.user_id);
+
+            if (updateErr) throw updateErr;
+          }
+        } else {
+          // Cliente não existe, criar novo
+          const { data: inserted, error: insertErr } = await supabase
+            .from('clients')
+            .insert({
+              user_id: profile.user_id,
+              name: trimmedClientName,
+              phone: normalizedPhone,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .select('id')
+            .single();
+
+          if (insertErr) throw insertErr;
+          clientId = inserted.id;
+        }
+      }
 
       const { error } = await supabase
         .from('appointments')
@@ -355,8 +404,9 @@ export default function AgendamentoPublico() {
           service_id: selectedService,
           appointment_date: formattedDate,
           appointment_time: selectedTime,
-          client_name: clientName,
+          client_name: trimmedClientName,
           client_phone: normalizedPhone,
+          client_id: clientId, // Associar ao cliente criado/encontrado
           collaborator_id: selectedCollaborator,
           total_amount: service?.price || 0,
           status: 'agendado',
