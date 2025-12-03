@@ -447,7 +447,7 @@ export default function AgendamentoPublico() {
 
   if (profileLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+      <div className="fixed inset-0 min-h-screen flex items-center justify-center bg-gradient-to-br from-[#FCE7F3] via-[#F9E0FF] to-[#E9D5FF]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
           <p className="text-muted-foreground">Carregando...</p>
@@ -459,8 +459,8 @@ export default function AgendamentoPublico() {
   if (profileError) {
     console.error('❌ Erro ao carregar perfil:', profileError);
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-4">
-        <Card className="max-w-md w-full">
+      <div className="fixed inset-0 min-h-screen flex items-center justify-center bg-gradient-to-br from-[#FCE7F3] via-[#F9E0FF] to-[#E9D5FF] p-4">
+        <Card className="max-w-md w-full shadow-lg border-0 bg-white/90 backdrop-blur-sm">
           <CardContent className="pt-6 text-center">
             <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
             <h2 className="text-xl font-semibold mb-2">Erro ao carregar</h2>
@@ -483,8 +483,8 @@ export default function AgendamentoPublico() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-4">
-        <Card className="max-w-md w-full">
+      <div className="fixed inset-0 min-h-screen flex items-center justify-center bg-gradient-to-br from-[#FCE7F3] via-[#F9E0FF] to-[#E9D5FF] p-4">
+        <Card className="max-w-md w-full shadow-lg border-0 bg-white/90 backdrop-blur-sm">
           <CardContent className="pt-6 text-center">
             <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
             <h2 className="text-xl font-semibold mb-2">Salão não encontrado</h2>
@@ -502,7 +502,7 @@ export default function AgendamentoPublico() {
 
   if (showSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#FCE7F3] via-[#F9E0FF] to-[#E9D5FF] p-4">
+      <div className="fixed inset-0 min-h-screen flex items-center justify-center bg-gradient-to-br from-[#FCE7F3] via-[#F9E0FF] to-[#E9D5FF] p-4">
         <Card className="max-w-md w-full shadow-2xl border-0 bg-white/90 backdrop-blur-sm">
           <CardContent className="pt-8 pb-8 px-6 text-center">
             <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-green-600 mb-6 shadow-lg">
@@ -539,8 +539,9 @@ export default function AgendamentoPublico() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#FCE7F3] via-[#F9E0FF] to-[#E9D5FF] py-6 sm:py-8 px-4">
-      <div className="max-w-5xl mx-auto">
+    <div className="fixed inset-0 min-h-screen overflow-y-auto bg-gradient-to-br from-[#FCE7F3] via-[#F9E0FF] to-[#E9D5FF]">
+      <div className="w-full min-h-full py-6 sm:py-8 px-4 sm:px-6">
+        <div className="max-w-5xl mx-auto">
         {/* Header do Salão - Melhorado */}
         <Card className="mb-6 sm:mb-8 shadow-lg border-0 overflow-hidden bg-gradient-to-br from-white to-primary/5">
           <CardContent className="pt-8 pb-8 px-6 sm:px-8">
@@ -785,6 +786,7 @@ export default function AgendamentoPublico() {
             </div>
           </div>
         </form>
+        </div>
       </div>
     </div>
   );
