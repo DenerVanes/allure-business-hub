@@ -464,7 +464,33 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      public_booking_profiles: {
+        Row: {
+          about: string | null
+          address: string | null
+          agendamento_online_ativo: boolean | null
+          business_name: string | null
+          slug: string | null
+          user_id: string | null
+        }
+        Insert: {
+          about?: string | null
+          address?: string | null
+          agendamento_online_ativo?: boolean | null
+          business_name?: string | null
+          slug?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          about?: string | null
+          address?: string | null
+          agendamento_online_ativo?: boolean | null
+          business_name?: string | null
+          slug?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_get_all_profiles: {
