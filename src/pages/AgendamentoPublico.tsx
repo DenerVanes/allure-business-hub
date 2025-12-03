@@ -502,28 +502,32 @@ export default function AgendamentoPublico() {
 
   if (showSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="pt-6 text-center">
-            <CheckCircle className="h-16 w-16 mx-auto mb-4 text-green-500" />
-            <h2 className="text-2xl font-bold mb-2">Agendamento Confirmado!</h2>
-            <p className="text-muted-foreground mb-4">
-              Seu agendamento foi realizado com sucesso.
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#FCE7F3] via-[#F9E0FF] to-[#E9D5FF] p-4">
+        <Card className="max-w-md w-full shadow-2xl border-0 bg-white/90 backdrop-blur-sm">
+          <CardContent className="pt-8 pb-8 px-6 text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-green-600 mb-6 shadow-lg">
+              <CheckCircle className="h-12 w-12 text-white" />
+            </div>
+            <h2 className="text-3xl font-bold mb-3 bg-gradient-to-r from-[#9333EA] to-[#F472B6] bg-clip-text text-transparent">
+              Agendamento Confirmado!
+            </h2>
+            <p className="text-muted-foreground mb-6 text-base">
+              Seu agendamento foi realizado com sucesso. Você receberá uma confirmação em breve.
             </p>
-            <div className="bg-muted/50 p-4 rounded-lg space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Data:</span>
-                <span className="font-medium">
+            <div className="bg-gradient-to-br from-primary/10 to-primary/5 p-6 rounded-xl space-y-3 text-sm border border-primary/20">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground font-medium">Data:</span>
+                <span className="font-semibold text-foreground">
                   {selectedDate && format(selectedDate, "dd/MM/yyyy")}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Horário:</span>
-                <span className="font-medium">{selectedTime}</span>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground font-medium">Horário:</span>
+                <span className="font-semibold text-foreground">{selectedTime}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Serviço:</span>
-                <span className="font-medium">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground font-medium">Serviço:</span>
+                <span className="font-semibold text-foreground">
                   {services.find(s => s.id === selectedService)?.name}
                 </span>
               </div>
@@ -535,18 +539,31 @@ export default function AgendamentoPublico() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header do Salão */}
-        <Card className="mb-6">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <h1 className="text-2xl font-bold mb-2">{profile.business_name}</h1>
+    <div className="min-h-screen bg-gradient-to-br from-[#FCE7F3] via-[#F9E0FF] to-[#E9D5FF] py-6 sm:py-8 px-4">
+      <div className="max-w-5xl mx-auto">
+        {/* Header do Salão - Melhorado */}
+        <Card className="mb-6 sm:mb-8 shadow-lg border-0 overflow-hidden bg-gradient-to-br from-white to-primary/5">
+          <CardContent className="pt-8 pb-8 px-6 sm:px-8">
+            <div className="text-center space-y-3">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-[#F472B6] to-[#9333EA] mb-4 shadow-md">
+                <CalendarIcon className="h-8 w-8 text-white" />
+              </div>
+              <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-[#9333EA] to-[#F472B6] bg-clip-text text-transparent mb-3">
+                {profile.business_name}
+              </h1>
               {profile.about && (
-                <p className="text-muted-foreground mb-2">{profile.about}</p>
+                <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+                  {profile.about}
+                </p>
               )}
               {profile.address && (
-                <p className="text-sm text-muted-foreground">{profile.address}</p>
+                <div className="flex items-center justify-center gap-2 mt-4 text-sm text-muted-foreground">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span>{profile.address}</span>
+                </div>
               )}
             </div>
           </CardContent>
@@ -557,24 +574,26 @@ export default function AgendamentoPublico() {
             {/* Coluna 1: Seleção de Serviço, Profissional e Data */}
             <div className="space-y-6">
               {/* Seleção de Serviço */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Briefcase className="h-5 w-5" />
+              <Card className="shadow-md border-0 bg-white/80 backdrop-blur-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <Briefcase className="h-5 w-5 text-primary" />
+                    </div>
                     Serviço
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Select value={selectedService} onValueChange={setSelectedService}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-12 text-base">
                       <SelectValue placeholder="Selecione o serviço" />
                     </SelectTrigger>
                     <SelectContent>
                       {services.map(service => (
                         <SelectItem key={service.id} value={service.id}>
                           <div className="flex justify-between items-center w-full gap-4">
-                            <span>{service.name}</span>
-                            <span className="text-muted-foreground">
+                            <span className="font-medium">{service.name}</span>
+                            <span className="text-sm text-muted-foreground">
                               R$ {Number(service.price).toFixed(2)} • {service.duration}min
                             </span>
                           </div>
@@ -587,24 +606,26 @@ export default function AgendamentoPublico() {
 
               {/* Seleção de Profissional */}
               {selectedService && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <User className="h-5 w-5" />
+                <Card className="shadow-md border-0 bg-white/80 backdrop-blur-sm">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        <User className="h-5 w-5 text-primary" />
+                      </div>
                       Profissional
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     {availableCollaborators.length === 0 ? (
-                      <Alert>
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
+                      <Alert className="border-orange-200 bg-orange-50">
+                        <AlertCircle className="h-4 w-4 text-orange-600" />
+                        <AlertDescription className="text-orange-800">
                           Nenhum profissional disponível para este serviço.
                         </AlertDescription>
                       </Alert>
                     ) : (
                       <Select value={selectedCollaborator} onValueChange={setSelectedCollaborator}>
-                        <SelectTrigger>
+                        <SelectTrigger className="h-12 text-base">
                           <SelectValue placeholder="Selecione o profissional" />
                         </SelectTrigger>
                         <SelectContent>
@@ -622,21 +643,23 @@ export default function AgendamentoPublico() {
 
               {/* Seleção de Data */}
               {selectedCollaborator && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <CalendarIcon className="h-5 w-5" />
+                <Card className="shadow-md border-0 bg-white/80 backdrop-blur-sm">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        <CalendarIcon className="h-5 w-5 text-primary" />
+                      </div>
                       Data
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="flex justify-center">
                     <Calendar
                       mode="single"
                       selected={selectedDate}
                       onSelect={setSelectedDate}
                       disabled={(date) => isBefore(date, startOfDay(new Date()))}
                       locale={ptBR}
-                      className="rounded-md border pointer-events-auto"
+                      className="rounded-md border-2 border-primary/20 shadow-sm"
                     />
                   </CardContent>
                 </Card>
@@ -647,31 +670,33 @@ export default function AgendamentoPublico() {
             <div className="space-y-6">
               {/* Seleção de Horário */}
               {selectedDate && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Clock className="h-5 w-5" />
+                <Card className="shadow-md border-0 bg-white/80 backdrop-blur-sm">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        <Clock className="h-5 w-5 text-primary" />
+                      </div>
                       Horário
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     {collaboratorBlocks.length > 0 ? (
-                      <Alert variant="destructive">
+                      <Alert variant="destructive" className="border-red-200 bg-red-50">
                         <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
+                        <AlertDescription className="text-red-800">
                           Profissional Indisponível: {collaboratorBlocks[0]?.reason}
                         </AlertDescription>
                       </Alert>
                     ) : availableTimeSlots.length === 0 ? (
-                      <Alert>
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
+                      <Alert className="border-orange-200 bg-orange-50">
+                        <AlertCircle className="h-4 w-4 text-orange-600" />
+                        <AlertDescription className="text-orange-800">
                           Nenhum horário disponível para esta data.
                         </AlertDescription>
                       </Alert>
                     ) : (
-                      <ScrollArea className="h-[200px]">
-                        <div className="grid grid-cols-3 gap-2">
+                      <ScrollArea className="h-[250px] pr-4">
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                           {availableTimeSlots.map(time => (
                             <Button
                               key={time}
@@ -679,7 +704,12 @@ export default function AgendamentoPublico() {
                               variant={selectedTime === time ? "default" : "outline"}
                               size="sm"
                               onClick={() => setSelectedTime(time)}
-                              className="w-full"
+                              className={cn(
+                                "w-full transition-all duration-200",
+                                selectedTime === time 
+                                  ? "bg-gradient-to-r from-[#9333EA] to-[#F472B6] text-white shadow-md scale-105" 
+                                  : "hover:bg-primary/10 hover:border-primary/50"
+                              )}
                             >
                               {time}
                             </Button>
@@ -689,9 +719,9 @@ export default function AgendamentoPublico() {
                     )}
                     
                     {errorMessage && (
-                      <Alert variant="destructive" className="mt-4">
+                      <Alert variant="destructive" className="mt-4 border-red-200 bg-red-50">
                         <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>{errorMessage}</AlertDescription>
+                        <AlertDescription className="text-red-800">{errorMessage}</AlertDescription>
                       </Alert>
                     )}
                   </CardContent>
@@ -700,38 +730,54 @@ export default function AgendamentoPublico() {
 
               {/* Dados do Cliente */}
               {selectedTime && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Seus Dados</CardTitle>
+                <Card className="shadow-md border-0 bg-white/80 backdrop-blur-sm">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-lg">Seus Dados</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-5">
                     <div className="space-y-2">
-                      <Label htmlFor="name">Nome Completo *</Label>
+                      <Label htmlFor="name" className="text-base font-medium">
+                        Nome Completo *
+                      </Label>
                       <Input
                         id="name"
                         value={clientName}
                         onChange={(e) => setClientName(e.target.value)}
-                        placeholder="Seu nome"
+                        placeholder="Seu nome completo"
                         required
+                        className="h-12 text-base"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="phone">Telefone *</Label>
+                      <Label htmlFor="phone" className="text-base font-medium">
+                        Telefone *
+                      </Label>
                       <Input
                         id="phone"
                         value={clientPhone}
                         onChange={(e) => handlePhoneChange(e.target.value)}
                         placeholder="(00) 00000-0000"
                         required
+                        className="h-12 text-base"
                       />
                     </div>
 
                     <Button
                       type="submit"
-                      className="w-full"
+                      className="w-full h-12 text-base font-semibold bg-gradient-to-r from-[#9333EA] to-[#F472B6] hover:from-[#7C2D9A] hover:to-[#DB2777] text-white shadow-lg hover:shadow-xl transition-all duration-200"
                       disabled={!clientName || !clientPhone || createAppointmentMutation.isPending}
                     >
-                      {createAppointmentMutation.isPending ? 'Agendando...' : 'Confirmar Agendamento'}
+                      {createAppointmentMutation.isPending ? (
+                        <span className="flex items-center gap-2">
+                          <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Agendando...
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          <CheckCircle className="h-5 w-5" />
+                          Confirmar Agendamento
+                        </span>
+                      )}
                     </Button>
                   </CardContent>
                 </Card>
