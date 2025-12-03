@@ -50,11 +50,13 @@ export const Header = () => {
   const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Usuário';
   const businessName = profile?.business_name || 'Salon Line';
 
-  return <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-6">
-      <div className="flex items-center gap-4">
+  return <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-4 sm:px-6">
+      <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
         <SidebarTrigger className="lg:hidden" />
-        <div className="hidden lg:block">
-          <h1 className="text-xl font-semibold text-foreground">{businessName}</h1>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-base sm:text-lg lg:text-xl font-semibold text-foreground truncate">
+            {businessName}
+          </h1>
         </div>
       </div>
 
