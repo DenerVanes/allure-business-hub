@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -30,9 +30,51 @@ interface Notification {
 
 export function NotificationsDropdown() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
-  const [lastSeenAt, setLastSeenAt] = useState<Date | null>(null);
+
+  // Buscar última vez que visualizou notificações
+  const { data: profile } = useQuery({
+    queryKey: ['profile-notifications', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('notifications_last_seen_at')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  const lastSeenAt = profile?.notifications_last_seen_at 
+    ? parseISO(profile.notifications_last_seen_at) 
+    : null;
+
+  // Mutation para atualizar última visualização
+  const updateLastSeenMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.id) return;
+      
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from('profiles')
+        .update({ notifications_last_seen_at: now })
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      return now;
+    },
+    onSuccess: () => {
+      // Invalidar query para atualizar o lastSeenAt
+      queryClient.invalidateQueries({ queryKey: ['profile-notifications', user?.id] });
+    },
+  });
 
   // Buscar agendamentos recentes
   const { data: appointments = [] } = useQuery({
@@ -96,16 +138,25 @@ export function NotificationsDropdown() {
     setNotifications(newNotifications);
   }, [appointments]);
 
-  // Contar notificações não lidas
+  // Contar notificações não lidas (apenas as criadas após a última visualização)
   const unreadCount = notifications.filter((n) =>
     !lastSeenAt || n.timestamp > lastSeenAt
   ).length;
 
-  // Marcar como vistas ao abrir
+  // Marcar como vistas ao abrir o dropdown
   useEffect(() => {
     if (open) {
-      setLastSeenAt(new Date());
+      // Verificar se há notificações não lidas antes de atualizar
+      const hasUnread = notifications.some((n) =>
+        !lastSeenAt || n.timestamp > lastSeenAt
+      );
+      
+      if (hasUnread) {
+        // Atualizar no banco de dados quando o usuário abre o dropdown
+        updateLastSeenMutation.mutate();
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   return (
