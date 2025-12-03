@@ -2,12 +2,15 @@ import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { LogOut, Settings, User } from 'lucide-react';
+import { LogOut, Settings, User, Calendar } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { NotificationsDropdown } from './NotificationsDropdown';
 import { TrialBanner } from './TrialBanner';
+import { useSubscription } from '@/hooks/useSubscription';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 export const Header = () => {
   const {
     user,
@@ -32,6 +35,9 @@ export const Header = () => {
     enabled: !!user?.id
   });
 
+  // Buscar informações do plano
+  const { planExpiresAt, isAdmin, isActive } = useSubscription();
+
   const getInitials = (name: string) => {
     if (!name) return 'U';
     const parts = name.trim().split(' ');
@@ -53,6 +59,16 @@ export const Header = () => {
       </div>
 
       <div className="flex items-center gap-3">
+        {/* Plan Expiration Banner */}
+        {!isAdmin && planExpiresAt && isActive && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg text-primary text-sm">
+            <Calendar className="h-4 w-4" />
+            <span className="font-medium">
+              Plano ativo até {format(parseISO(planExpiresAt), 'dd/MM/yyyy', { locale: ptBR })}
+            </span>
+          </div>
+        )}
+
         {/* Trial Banner */}
         <TrialBanner />
 

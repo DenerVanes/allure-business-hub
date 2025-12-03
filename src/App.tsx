@@ -15,6 +15,7 @@ import Clientes from "./pages/Clientes";
 import Colaboradores from "./pages/Colaboradores";
 import Configuracoes from "./pages/Configuracoes";
 import GestaoClientes from "./pages/GestaoClientes";
+import GerenciarPlanos from "./pages/GerenciarPlanos";
 import Auth from "./pages/Auth";
 import AgendamentoPublico from "./pages/AgendamentoPublico";
 import NotFound from "./pages/NotFound";
@@ -51,6 +52,7 @@ const App = () => (
                 <Route path="colaboradores" element={<Colaboradores />} />
                 <Route path="configuracoes" element={<Configuracoes />} />
                 <Route path="gestao-clientes" element={<GestaoClientes />} />
+                <Route path="admin/planos" element={<GerenciarPlanos />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

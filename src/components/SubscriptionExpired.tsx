@@ -28,7 +28,7 @@ export const SubscriptionExpired = ({ trialExpiresAt }: SubscriptionExpiredProps
         <CardContent className="space-y-6">
           <div className="text-center space-y-2">
             <p className="text-muted-foreground">
-              Seu período de teste gratuito de 14 dias expirou.
+              Sua assinatura expirou. Por favor, entre em contato com o suporte para renovar.
             </p>
             {formattedDate && (
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -42,7 +42,7 @@ export const SubscriptionExpired = ({ trialExpiresAt }: SubscriptionExpiredProps
             <p className="text-sm font-semibold">Para continuar usando a plataforma:</p>
             <div className="space-y-2 text-sm text-muted-foreground">
               <p>• Entre em contato com nossa equipe de suporte</p>
-              <p>• Ative sua assinatura para ter acesso completo</p>
+              <p>• Renove sua assinatura para ter acesso completo</p>
             </div>
           </div>
 

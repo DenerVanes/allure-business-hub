@@ -1,4 +1,4 @@
-import { Calendar, LayoutDashboard, Scissors, Package, DollarSign, Users, Settings, Sparkles, UserCheck, Shield } from 'lucide-react';
+import { Calendar, LayoutDashboard, Scissors, Package, DollarSign, Users, Settings, Sparkles, UserCheck, Shield, CreditCard } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, useSidebar } from '@/components/ui/sidebar';
 import { useQuery } from '@tanstack/react-query';
@@ -51,9 +51,14 @@ const menuItems = [
 
 const adminMenuItems = [
   {
-    title: 'Gestão',
+    title: 'Gestão de Clientes',
     url: '/gestao-clientes',
     icon: Shield
+  },
+  {
+    title: 'Gerenciar Planos',
+    url: '/admin/planos',
+    icon: CreditCard
   }
 ];
 
