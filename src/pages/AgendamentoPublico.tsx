@@ -525,7 +525,7 @@ export default function AgendamentoPublico() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Briefcase className="h-5 w-5" />
-                    Selecione o Serviço
+                    Serviço
                   </CardTitle>
                 </CardHeader>
                 <CardContent>

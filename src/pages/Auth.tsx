@@ -11,12 +11,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Sparkles } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Sparkles, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 const Auth = () => {
   const { user, signIn, signUp } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('signin');
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
   // Redirect if already authenticated
   if (user) {
@@ -31,21 +34,38 @@ const Auth = () => {
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
 
-    await signIn(email, password);
+    const { error } = await signIn(email, password);
     setIsLoading(false);
+    
+    // Se login bem-sucedido, o redirecionamento acontece automaticamente via user state
   };
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
+    setShowSuccessMessage(false);
 
     const formData = new FormData(e.currentTarget);
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
     const businessName = formData.get('businessName') as string;
 
-    await signUp(email, password, businessName);
+    const { error } = await signUp(email, password, businessName);
     setIsLoading(false);
+
+    if (!error) {
+      // Conta criada com sucesso
+      setShowSuccessMessage(true);
+      
+      // Limpar formulário
+      e.currentTarget.reset();
+      
+      // Mudar para aba de login após 2 segundos
+      setTimeout(() => {
+        setActiveTab('signin');
+        setShowSuccessMessage(false);
+      }, 2000);
+    }
   };
 
   return (
@@ -90,7 +110,7 @@ const Auth = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Tabs defaultValue="signin" className="space-y-4">
+                  <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
                     <TabsList className="grid w-full grid-cols-2 bg-[#FDF2FF]">
                       <TabsTrigger value="signin">Entrar</TabsTrigger>
                       <TabsTrigger value="signup">Criar conta</TabsTrigger>
@@ -139,6 +159,14 @@ const Auth = () => {
 
                     {/* Sign Up Tab */}
                     <TabsContent value="signup" className="space-y-4">
+                      {showSuccessMessage && (
+                        <Alert className="bg-green-50 border-green-200">
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <AlertDescription className="text-green-800">
+                            Conta criada com sucesso! Redirecionando para login...
+                          </AlertDescription>
+                        </Alert>
+                      )}
                       <form onSubmit={handleSignUp} className="space-y-4">
                         <div className="space-y-2">
                           <Label htmlFor="signup-business" className="text-sm font-semibold">
