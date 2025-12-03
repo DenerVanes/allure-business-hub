@@ -2,12 +2,12 @@ import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Bell, LogOut, Settings, User } from 'lucide-react';
+import { LogOut, Settings, User } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { NotificationsDropdown } from './NotificationsDropdown';
-
+import { TrialBanner } from './TrialBanner';
 export const Header = () => {
   const {
     user,
@@ -53,9 +53,11 @@ export const Header = () => {
       </div>
 
       <div className="flex items-center gap-3">
+        {/* Trial Banner */}
+        <TrialBanner />
+
         {/* Notifications */}
         <NotificationsDropdown />
-
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
