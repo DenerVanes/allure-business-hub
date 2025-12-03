@@ -1,4 +1,4 @@
-import { Calendar, LayoutDashboard, Scissors, Package, DollarSign, Users, Settings, Sparkles, UserCheck, Shield, CreditCard } from 'lucide-react';
+import { Calendar, LayoutDashboard, Scissors, Package, DollarSign, Users, Settings, UserCheck, Shield, CreditCard, CheckCircle } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, useSidebar } from '@/components/ui/sidebar';
 import { useQuery } from '@tanstack/react-query';
@@ -69,25 +69,6 @@ export function AppSidebar() {
   const { user } = useAuth();
   const { isAdmin } = useAdmin();
 
-  // Buscar nome do salão do perfil
-  const { data: profile } = useQuery({
-    queryKey: ['user-profile', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null;
-      
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('business_name')
-        .eq('user_id', user.id)
-        .single();
-      
-      if (error && error.code !== 'PGRST116') throw error;
-      return data;
-    },
-    enabled: !!user?.id
-  });
-
-  const businessName = profile?.business_name || 'Agendari';
 
   const isActive = (path: string) => {
     if (path === '/') {
@@ -100,13 +81,37 @@ export function AppSidebar() {
     <Sidebar className="border-r border-border/50 bg-card/30 backdrop-blur-sm">
       <SidebarHeader className="border-b border-border/50 p-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-gradient-primary rounded-lg">
-            <Sparkles className="h-5 w-5 text-white" />
+          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#F472B6] to-[#9333EA] flex items-center justify-center shadow-md relative overflow-hidden">
+            {/* Calendário com checkmark - mesma logo da tela de login */}
+            <svg
+              width="28"
+              height="28"
+              viewBox="0 0 28 28"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="text-white"
+            >
+              {/* Abas do calendário no topo */}
+              <rect x="5" y="3" width="4" height="3" rx="0.5" fill="currentColor" />
+              <rect x="19" y="3" width="4" height="3" rx="0.5" fill="currentColor" />
+              {/* Corpo do calendário */}
+              <rect x="4" y="6" width="20" height="18" rx="2.5" fill="rgba(255,255,255,0.25)" />
+              <rect x="4" y="6" width="20" height="18" rx="2.5" stroke="currentColor" strokeWidth="2" />
+              {/* Checkmark centralizado */}
+              <path
+                d="M10 14.5L12.5 17L18 11.5"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+            </svg>
           </div>
           {!collapsed && (
             <div>
-              <h2 className="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent">
-                {businessName}
+              <h2 className="text-lg font-bold bg-gradient-to-r from-[#F472B6] to-[#9333EA] bg-clip-text text-transparent">
+                Agendaris
               </h2>
               <p className="text-xs text-muted-foreground">
                 Gestão de Beleza

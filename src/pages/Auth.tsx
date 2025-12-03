@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Sparkles, CheckCircle } from 'lucide-react';
+import { Calendar, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 const Auth = () => {
@@ -77,14 +77,38 @@ const Auth = () => {
             <div className="space-y-6">
               {/* Logo + Heading */}
               <div className="flex items-center gap-3 mb-4">
-                <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-[#F472B6] to-[#9333EA] flex items-center justify-center shadow-md">
-                  <Sparkles className="h-5 w-5 text-white" />
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#F472B6] to-[#9333EA] flex items-center justify-center shadow-md relative overflow-hidden">
+                  {/* Calendário com checkmark - SVG customizado */}
+                  <svg
+                    width="28"
+                    height="28"
+                    viewBox="0 0 28 28"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="text-white"
+                  >
+                    {/* Abas do calendário no topo */}
+                    <rect x="5" y="3" width="4" height="3" rx="0.5" fill="currentColor" />
+                    <rect x="19" y="3" width="4" height="3" rx="0.5" fill="currentColor" />
+                    {/* Corpo do calendário */}
+                    <rect x="4" y="6" width="20" height="18" rx="2.5" fill="rgba(255,255,255,0.25)" />
+                    <rect x="4" y="6" width="20" height="18" rx="2.5" stroke="currentColor" strokeWidth="2" />
+                    {/* Checkmark centralizado */}
+                    <path
+                      d="M10 14.5L12.5 17L18 11.5"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      fill="none"
+                    />
+                  </svg>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-[#9333EA]">
-                    Beauty Hub
-                  </p>
-                  <p className="text-sm text-muted-foreground">
+                  <h1 className="text-2xl sm:text-3xl font-extrabold text-[#9333EA] leading-tight mb-1 tracking-tight">
+                    Agendaris
+                  </h1>
+                  <p className="text-xs sm:text-sm text-muted-foreground/80">
                     Plataforma para profissionais da beleza
                   </p>
                 </div>
@@ -268,7 +292,7 @@ const Auth = () => {
               <div className="mt-6 w-full h-80 sm:h-96 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md overflow-hidden">
                 <img
                   src="/mulher.jpg.png"
-                  alt="Profissional de beleza usando o Beauty Hub no celular"
+                  alt="Profissional de beleza usando o Agendaris no celular"
                   className="w-full h-full object-cover object-center"
                 />
               </div>
