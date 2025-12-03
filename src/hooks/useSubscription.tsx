@@ -1,7 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { useEffect } from 'react';
+import { useAdmin } from './useAdmin';
 
 interface ProfileWithSubscription {
   id: string;
@@ -12,7 +12,7 @@ interface ProfileWithSubscription {
 
 export const useSubscription = () => {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
+  const { isAdmin, isLoading: adminLoading } = useAdmin();
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ['user-subscription', user?.id],
@@ -27,31 +27,34 @@ export const useSubscription = () => {
 
       if (error && error.code !== 'PGRST116') throw error;
       
+      if (!data) return null;
+
       // Se o trial expirou mas o status ainda está como 'trial', atualizar
-      if (data && data.subscription_status === 'trial' && data.trial_expires_at) {
+      if (data.subscription_status === 'trial' && data.trial_expires_at) {
         const expiresAt = new Date(data.trial_expires_at);
         const now = new Date();
         
         if (expiresAt < now) {
           // Atualizar status para expired
-          const { error: updateError } = await supabase
+          await supabase
             .from('profiles')
             .update({ subscription_status: 'expired' })
             .eq('user_id', user.id);
           
-          if (!updateError) {
-            return { ...data, subscription_status: 'expired' } as ProfileWithSubscription;
-          }
+          return { ...data, subscription_status: 'expired' } as ProfileWithSubscription;
         }
       }
       
-      return data as ProfileWithSubscription | null;
+      return data as ProfileWithSubscription;
     },
     enabled: !!user?.id,
     refetchInterval: 60000, // Verificar a cada minuto
   });
 
   const isExpired = () => {
+    // Admin nunca expira
+    if (isAdmin) return false;
+    
     if (!profile) return false;
     
     // Se o status já está como expired, retorna true
@@ -69,20 +72,34 @@ export const useSubscription = () => {
   };
 
   const isTrial = () => {
+    if (isAdmin) return false;
     return profile?.subscription_status === 'trial';
   };
 
   const isActive = () => {
+    if (isAdmin) return true;
     return profile?.subscription_status === 'active';
+  };
+
+  const getDaysRemaining = () => {
+    if (!profile?.trial_expires_at || isAdmin) return null;
+    
+    const expiresAt = new Date(profile.trial_expires_at);
+    const now = new Date();
+    const diffTime = expiresAt.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return Math.max(0, diffDays);
   };
 
   return {
     profile,
-    isLoading,
+    isLoading: isLoading || adminLoading,
     isExpired: isExpired(),
     isTrial: isTrial(),
     isActive: isActive(),
     trialExpiresAt: profile?.trial_expires_at || null,
+    daysRemaining: getDaysRemaining(),
+    isAdmin,
   };
 };
-

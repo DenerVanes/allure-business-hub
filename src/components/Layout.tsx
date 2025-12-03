@@ -14,7 +14,7 @@ interface LayoutProps {
 
 export const Layout = ({ children }: LayoutProps) => {
   const { user, loading } = useAuth();
-  const { isExpired, isLoading: subscriptionLoading, trialExpiresAt } = useSubscription();
+  const { isExpired, isLoading: subscriptionLoading, trialExpiresAt, isAdmin } = useSubscription();
 
   if (loading || subscriptionLoading) {
     return (
@@ -31,8 +31,8 @@ export const Layout = ({ children }: LayoutProps) => {
     return <Navigate to="/login" replace />;
   }
 
-  // Verificar se a assinatura expirou
-  if (isExpired) {
+  // Verificar se a assinatura expirou (admin nunca expira)
+  if (isExpired && !isAdmin) {
     return <SubscriptionExpired trialExpiresAt={trialExpiresAt} />;
   }
 

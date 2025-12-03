@@ -17,6 +17,16 @@ import { ptBR } from 'date-fns/locale';
 import { formatPhone, normalizePhone } from '@/utils/phone';
 import { cn } from '@/lib/utils';
 
+// Interface explícita para o perfil público
+interface PublicBookingProfile {
+  user_id: string;
+  agendamento_online_ativo: boolean;
+  slug: string;
+  business_name: string;
+  about: string | null;
+  address: string | null;
+}
+
 export default function AgendamentoPublico() {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -33,13 +43,11 @@ export default function AgendamentoPublico() {
   // Buscar perfil do salão (público)
   const { data: profile, isLoading: profileLoading, error: profileError } = useQuery({
     queryKey: ['public-profile', slug],
-    queryFn: async () => {
+    queryFn: async (): Promise<PublicBookingProfile | null> => {
       console.log('🔍 Buscando perfil com slug:', slug);
       const { data, error } = await supabase
-        // IMPORTANTE: use uma view/tabela pública segura no Supabase,
-        // por exemplo: public_booking_profiles (apenas colunas necessárias)
-        .from('public_booking_profiles')
-        .select('*')
+        .from('profiles')
+        .select('user_id, agendamento_online_ativo, slug, business_name, about, address')
         .eq('slug', slug)
         .eq('agendamento_online_ativo', true)
         .maybeSingle();
@@ -47,12 +55,6 @@ export default function AgendamentoPublico() {
       // Erro real de banco
       if (error) {
         console.error('❌ Erro ao buscar perfil:', error);
-        console.error('Detalhes do erro:', {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          hint: error.hint
-        });
         throw error;
       }
       
@@ -62,7 +64,7 @@ export default function AgendamentoPublico() {
       }
 
       console.log('✅ Perfil encontrado:', data);
-      return data;
+      return data as PublicBookingProfile;
     },
     retry: false
   });
@@ -470,13 +472,12 @@ export default function AgendamentoPublico() {
                 <span className="font-medium">{selectedTime}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Cliente:</span>
-                <span className="font-medium">{clientName}</span>
+                <span className="text-muted-foreground">Serviço:</span>
+                <span className="font-medium">
+                  {services.find(s => s.id === selectedService)?.name}
+                </span>
               </div>
             </div>
-            <p className="text-sm text-muted-foreground mt-4">
-              Em breve você receberá uma confirmação.
-            </p>
           </CardContent>
         </Card>
       </div>
@@ -486,41 +487,26 @@ export default function AgendamentoPublico() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8 px-4">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">{profile.business_name}</h1>
-          {profile.about && (
-            <p className="text-muted-foreground">{profile.about}</p>
-          )}
-          {profile.address && (
-            <p className="text-sm text-muted-foreground mt-2">{profile.address}</p>
-          )}
-        </div>
+        {/* Header do Salão */}
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <h1 className="text-2xl font-bold mb-2">{profile.business_name}</h1>
+              {profile.about && (
+                <p className="text-muted-foreground mb-2">{profile.about}</p>
+              )}
+              {profile.address && (
+                <p className="text-sm text-muted-foreground">{profile.address}</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         <form onSubmit={handleSubmit}>
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Seleção de Data */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CalendarIcon className="h-5 w-5" />
-                  Selecione a Data
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={setSelectedDate}
-                  disabled={(date) => isBefore(date, startOfDay(new Date()))}
-                  locale={ptBR}
-                  className="rounded-md border pointer-events-auto"
-                />
-              </CardContent>
-            </Card>
-
-            {/* Seleção de Serviço e Horário */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Coluna 1: Seleção de Serviço, Profissional e Data */}
             <div className="space-y-6">
+              {/* Seleção de Serviço */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -531,15 +517,15 @@ export default function AgendamentoPublico() {
                 <CardContent>
                   <Select value={selectedService} onValueChange={setSelectedService}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Escolha um serviço" />
+                      <SelectValue placeholder="Selecione o serviço" />
                     </SelectTrigger>
                     <SelectContent>
                       {services.map(service => (
                         <SelectItem key={service.id} value={service.id}>
-                          <div className="flex justify-between items-center w-full">
+                          <div className="flex justify-between items-center w-full gap-4">
                             <span>{service.name}</span>
-                            <span className="text-sm text-muted-foreground ml-4">
-                              R$ {service.price.toFixed(2)}
+                            <span className="text-muted-foreground">
+                              R$ {Number(service.price).toFixed(2)} • {service.duration}min
                             </span>
                           </div>
                         </SelectItem>
@@ -549,35 +535,32 @@ export default function AgendamentoPublico() {
                 </CardContent>
               </Card>
 
-              {collaborators.length > 0 && (
+              {/* Seleção de Profissional */}
+              {selectedService && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <User className="h-5 w-5" />
-                      Profissional *
+                      Profissional
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     {availableCollaborators.length === 0 ? (
-                      <div className="text-center py-4">
-                        <AlertCircle className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                        <p className="text-sm text-muted-foreground">
-                          Nenhum profissional cadastrado para este serviço.
-                        </p>
-                      </div>
+                      <Alert>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          Nenhum profissional disponível para este serviço.
+                        </AlertDescription>
+                      </Alert>
                     ) : (
-                      <Select
-                        value={selectedCollaborator}
-                        onValueChange={setSelectedCollaborator}
-                        required
-                      >
+                      <Select value={selectedCollaborator} onValueChange={setSelectedCollaborator}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Selecione um profissional" />
+                          <SelectValue placeholder="Selecione o profissional" />
                         </SelectTrigger>
                         <SelectContent>
-                          {availableCollaborators.map(collab => (
-                            <SelectItem key={collab.id} value={collab.id}>
-                              {collab.name}
+                          {availableCollaborators.map(collaborator => (
+                            <SelectItem key={collaborator.id} value={collaborator.id}>
+                              {collaborator.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -587,117 +570,124 @@ export default function AgendamentoPublico() {
                 </Card>
               )}
 
-              {selectedDate && selectedService && selectedCollaborator && (
+              {/* Seleção de Data */}
+              {selectedCollaborator && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <CalendarIcon className="h-5 w-5" />
+                      Data
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={setSelectedDate}
+                      disabled={(date) => isBefore(date, startOfDay(new Date()))}
+                      locale={ptBR}
+                      className="rounded-md border pointer-events-auto"
+                    />
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* Coluna 2: Horários e Dados do Cliente */}
+            <div className="space-y-6">
+              {/* Seleção de Horário */}
+              {selectedDate && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Clock className="h-5 w-5" />
-                      Horários Disponíveis
+                      Horário
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     {collaboratorBlocks.length > 0 ? (
-                      <div className="text-center py-8">
-                        <AlertCircle className="h-12 w-12 mx-auto mb-3 text-destructive" />
-                        <p className="font-semibold text-foreground mb-2">
-                          Profissional Indisponível
-                        </p>
-                        <p className="text-sm text-muted-foreground mb-1">
-                          Este profissional está com a agenda bloqueada no período selecionado.
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Motivo: {collaboratorBlocks[0].reason}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          De {format(parseISO(collaboratorBlocks[0].start_date), 'dd/MM/yyyy')} até {format(parseISO(collaboratorBlocks[0].end_date), 'dd/MM/yyyy')}
-                        </p>
-                      </div>
+                      <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          Profissional Indisponível: {collaboratorBlocks[0]?.reason}
+                        </AlertDescription>
+                      </Alert>
+                    ) : availableTimeSlots.length === 0 ? (
+                      <Alert>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          Nenhum horário disponível para esta data.
+                        </AlertDescription>
+                      </Alert>
                     ) : (
                       <ScrollArea className="h-[200px]">
-                        {availableTimeSlots.length === 0 ? (
-                          <div className="text-center py-8 text-muted-foreground">
-                            <p>Nenhum horário disponível para esta data</p>
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-3 gap-2">
-                            {availableTimeSlots.map(time => (
-                              <Button
-                                key={time}
-                                type="button"
-                                variant={selectedTime === time ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => setSelectedTime(time)}
-                                className="w-full"
-                              >
-                                {time}
-                              </Button>
-                            ))}
-                          </div>
-                        )}
+                        <div className="grid grid-cols-3 gap-2">
+                          {availableTimeSlots.map(time => (
+                            <Button
+                              key={time}
+                              type="button"
+                              variant={selectedTime === time ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setSelectedTime(time)}
+                              className="w-full"
+                            >
+                              {time}
+                            </Button>
+                          ))}
+                        </div>
                       </ScrollArea>
                     )}
                     
-                    {/* Mensagem de erro abaixo dos horários */}
                     {errorMessage && (
                       <Alert variant="destructive" className="mt-4">
                         <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
-                          {errorMessage}
-                        </AlertDescription>
+                        <AlertDescription>{errorMessage}</AlertDescription>
                       </Alert>
                     )}
                   </CardContent>
                 </Card>
               )}
+
+              {/* Dados do Cliente */}
+              {selectedTime && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Seus Dados</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Nome Completo *</Label>
+                      <Input
+                        id="name"
+                        value={clientName}
+                        onChange={(e) => setClientName(e.target.value)}
+                        placeholder="Seu nome"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Telefone *</Label>
+                      <Input
+                        id="phone"
+                        value={clientPhone}
+                        onChange={(e) => handlePhoneChange(e.target.value)}
+                        placeholder="(00) 00000-0000"
+                        required
+                      />
+                    </div>
+
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={!clientName || !clientPhone || createAppointmentMutation.isPending}
+                    >
+                      {createAppointmentMutation.isPending ? 'Agendando...' : 'Confirmar Agendamento'}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
-
-          {/* Dados do Cliente */}
-          {selectedDate && selectedService && selectedTime && (
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle>Seus Dados</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nome Completo *</Label>
-                  <Input
-                    id="name"
-                    value={clientName}
-                    onChange={(e) => setClientName(e.target.value)}
-                    placeholder="Digite seu nome completo"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Telefone *</Label>
-                  <Input
-                    id="phone"
-                    value={clientPhone}
-                    onChange={(e) => handlePhoneChange(e.target.value)}
-                    placeholder="(00) 00000-0000"
-                    required
-                  />
-                </div>
-
-                <Button 
-                  type="submit" 
-                  className="w-full" 
-                  size="lg"
-                  disabled={
-                    createAppointmentMutation.isPending || 
-                    !clientName || 
-                    !clientPhone ||
-                    !selectedCollaborator ||
-                    collaboratorBlocks.length > 0
-                  }
-                >
-                  {createAppointmentMutation.isPending ? 'Agendando...' : 'Confirmar Agendamento'}
-                </Button>
-              </CardContent>
-            </Card>
-          )}
         </form>
       </div>
     </div>
