@@ -227,6 +227,39 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_subscriptions: {
+        Row: {
+          admin_id: string
+          created_at: string | null
+          days_added: number
+          end_date: string
+          id: string
+          paid_at: string
+          start_date: string
+          user_id: string
+        }
+        Insert: {
+          admin_id: string
+          created_at?: string | null
+          days_added: number
+          end_date: string
+          id?: string
+          paid_at: string
+          start_date: string
+          user_id: string
+        }
+        Update: {
+          admin_id?: string
+          created_at?: string | null
+          days_added?: number
+          end_date?: string
+          id?: string
+          paid_at?: string
+          start_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       financial_transactions: {
         Row: {
           amount: number
@@ -328,7 +361,10 @@ export type Database = {
           id: string
           instagram: string | null
           last_activity_at: string | null
+          notifications_last_seen_at: string | null
           phone: string | null
+          plan_expires_at: string | null
+          plan_status: string | null
           slug: string | null
           subscription_status: string | null
           trial_expires_at: string | null
@@ -346,7 +382,10 @@ export type Database = {
           id?: string
           instagram?: string | null
           last_activity_at?: string | null
+          notifications_last_seen_at?: string | null
           phone?: string | null
+          plan_expires_at?: string | null
+          plan_status?: string | null
           slug?: string | null
           subscription_status?: string | null
           trial_expires_at?: string | null
@@ -364,7 +403,10 @@ export type Database = {
           id?: string
           instagram?: string | null
           last_activity_at?: string | null
+          notifications_last_seen_at?: string | null
           phone?: string | null
+          plan_expires_at?: string | null
+          plan_status?: string | null
           slug?: string | null
           subscription_status?: string | null
           trial_expires_at?: string | null
@@ -499,6 +541,19 @@ export type Database = {
       }
     }
     Functions: {
+      admin_add_subscription_days: {
+        Args: {
+          _admin_email: string
+          _days_added: number
+          _paid_at: string
+          _user_id: string
+        }
+        Returns: string
+      }
+      admin_cancel_user_plan: {
+        Args: { _admin_email: string; _user_id: string }
+        Returns: undefined
+      }
       admin_get_all_profiles: {
         Args: never
         Returns: {
@@ -512,6 +567,20 @@ export type Database = {
           user_id: string
         }[]
       }
+      admin_get_users_with_plans: {
+        Args: never
+        Returns: {
+          business_name: string
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          phone: string
+          plan_expires_at: string
+          plan_status: string
+          user_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -519,6 +588,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      update_expired_plans: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user"
