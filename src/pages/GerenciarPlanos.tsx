@@ -40,7 +40,7 @@ export default function GerenciarPlanos() {
   const { data: users, isLoading: usersLoading, refetch } = useQuery({
     queryKey: ['admin-users-with-plans'],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('admin_get_users_with_plans');
+      const { data, error } = await (supabase.rpc as any)('admin_get_users_with_plans');
       
       if (error) {
         console.error('Erro ao buscar usuários:', error);
