@@ -72,7 +72,7 @@ export function GerenciarAssinaturaModal({ user, open, onClose }: GerenciarAssin
         throw new Error('Quantidade de dias deve ser um número positivo');
       }
 
-      const { data, error } = await supabase.rpc('admin_add_subscription_days', {
+      const { data, error } = await (supabase.rpc as any)('admin_add_subscription_days', {
         _user_id: user.user_id,
         _paid_at: paidAt.toISOString(),
         _days_added: days,
@@ -107,7 +107,7 @@ export function GerenciarAssinaturaModal({ user, open, onClose }: GerenciarAssin
         throw new Error('Usuário não autenticado');
       }
 
-      const { error } = await supabase.rpc('admin_cancel_user_plan', {
+      const { error } = await (supabase.rpc as any)('admin_cancel_user_plan', {
         _user_id: user.user_id,
         _admin_email: currentUser.email
       });

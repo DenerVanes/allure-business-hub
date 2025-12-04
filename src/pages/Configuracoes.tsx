@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Settings, User, Building, Save, Share2, Copy, Check } from 'lucide-react';
+import { Settings, User, Building, Save, Share2, Copy, Check, Clock } from 'lucide-react';
+import { BusinessHoursConfig } from '@/components/BusinessHoursConfig';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -386,6 +387,9 @@ const Configuracoes = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Horários de Atendimento */}
+      <BusinessHoursConfig />
 
       <div className="flex justify-between">
         <Button

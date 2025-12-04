@@ -12,10 +12,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CalendarIcon, Clock, User, Briefcase, CheckCircle, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
-import { format, parseISO, isBefore, startOfDay, addDays } from 'date-fns';
+import { format, parseISO, isBefore, startOfDay, addDays, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatPhone, normalizePhone } from '@/utils/phone';
 import { cn } from '@/lib/utils';
+import { generateAvailableTimeSlots, isDayOpen } from '@/hooks/useWorkingHours';
+
+interface Break {
+  start: string;
+  end: string;
+}
+
+interface WorkingHour {
+  id: string;
+  user_id: string;
+  day_of_week: number;
+  is_open: boolean;
+  start_time: string;
+  end_time: string;
+  breaks: Break[];
+}
 
 // Interface explícita para o perfil público
 interface PublicBookingProfile {
@@ -115,6 +131,30 @@ export default function AgendamentoPublico() {
       
       if (error) throw error;
       return data || [];
+    },
+    enabled: !!profile?.user_id
+  });
+
+  // Buscar horários de atendimento
+  const { data: workingHours = [] } = useQuery({
+    queryKey: ['public-working-hours', profile?.user_id],
+    queryFn: async (): Promise<WorkingHour[]> => {
+      if (!profile?.user_id) return [];
+      
+      const { data, error } = await supabase
+        .from('working_hours')
+        .select('*')
+        .eq('user_id', profile.user_id)
+        .order('day_of_week');
+      
+      if (error) throw error;
+      
+      return (data || []).map(h => ({
+        ...h,
+        breaks: (h.breaks as unknown as Break[]) || [],
+        start_time: h.start_time?.slice(0, 5) || '08:00',
+        end_time: h.end_time?.slice(0, 5) || '18:00',
+      })) as WorkingHour[];
     },
     enabled: !!profile?.user_id
   });
@@ -224,11 +264,17 @@ export default function AgendamentoPublico() {
     }
   }, [collaboratorBlocks]);
 
-  // Gerar horários disponíveis
-  const generateTimeSlots = () => {
+  // Gerar horários disponíveis baseado nos horários de atendimento
+  const generateTimeSlots = (dayOfWeek: number, serviceDuration: number = 30) => {
+    // Se tem working hours configurados, usar eles
+    if (workingHours.length > 0) {
+      return generateAvailableTimeSlots(workingHours, dayOfWeek, serviceDuration);
+    }
+    
+    // Fallback: horários fixos se não houver configuração
     const slots: string[] = [];
-    const start = 7; // 7h
-    const end = 22; // 22h
+    const start = 8;
+    const end = 18;
     
     for (let hour = start; hour < end; hour++) {
       for (let minute of ['00', '30']) {
@@ -257,13 +303,33 @@ export default function AgendamentoPublico() {
     return (newStart < aptEnd && newEnd > aptStart);
   };
 
+  // Verificar se um dia está fechado
+  const isDateDisabled = (date: Date) => {
+    // Não permitir datas passadas
+    if (isBefore(date, startOfDay(new Date()))) return true;
+    
+    // Se tem working hours, verificar se o dia está aberto
+    if (workingHours.length > 0) {
+      const dayOfWeek = getDay(date);
+      return !isDayOpen(workingHours, dayOfWeek);
+    }
+    
+    return false;
+  };
+
   const availableTimeSlots = useMemo(() => {
     if (!selectedCollaborator || !selectedDate || !selectedService) return [];
     
     const selectedServiceData = services.find(s => s.id === selectedService);
     const serviceDuration = selectedServiceData?.duration || 60; // duração em minutos
+    const dayOfWeek = getDay(selectedDate);
     
-    return generateTimeSlots().filter(time => {
+    // Se o dia está fechado, não mostrar horários
+    if (workingHours.length > 0 && !isDayOpen(workingHours, dayOfWeek)) {
+      return [];
+    }
+    
+    return generateTimeSlots(dayOfWeek, serviceDuration).filter(time => {
       // Verificar se há conflito com agendamentos existentes considerando a duração
       const hasConflict = existingAppointments.some(apt => 
         hasTimeConflict(time, serviceDuration, apt)
@@ -274,7 +340,7 @@ export default function AgendamentoPublico() {
       
       return !hasConflict && !isBlocked;
     });
-  }, [selectedCollaborator, selectedDate, selectedService, existingAppointments, collaboratorBlocks, services]);
+  }, [selectedCollaborator, selectedDate, selectedService, existingAppointments, collaboratorBlocks, services, workingHours]);
 
   // Criar agendamento
   const createAppointmentMutation = useMutation({
@@ -658,7 +724,7 @@ export default function AgendamentoPublico() {
                       mode="single"
                       selected={selectedDate}
                       onSelect={setSelectedDate}
-                      disabled={(date) => isBefore(date, startOfDay(new Date()))}
+                      disabled={isDateDisabled}
                       locale={ptBR}
                       className="rounded-md border-2 border-primary/20 shadow-sm"
                     />

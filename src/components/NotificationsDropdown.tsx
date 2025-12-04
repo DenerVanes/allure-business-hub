@@ -42,12 +42,12 @@ export function NotificationsDropdown() {
       
       const { data, error } = await supabase
         .from('profiles')
-        .select('notifications_last_seen_at')
+        .select('*')
         .eq('user_id', user.id)
         .single();
       
       if (error && error.code !== 'PGRST116') throw error;
-      return data;
+      return data as { notifications_last_seen_at: string | null } | null;
     },
     enabled: !!user?.id,
   });
@@ -64,7 +64,7 @@ export function NotificationsDropdown() {
       const now = new Date().toISOString();
       const { error } = await supabase
         .from('profiles')
-        .update({ notifications_last_seen_at: now })
+        .update({ notifications_last_seen_at: now } as any)
         .eq('user_id', user.id);
       
       if (error) throw error;

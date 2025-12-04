@@ -510,6 +510,42 @@ export type Database = {
         }
         Relationships: []
       }
+      working_hours: {
+        Row: {
+          breaks: Json
+          created_at: string
+          day_of_week: number
+          end_time: string
+          id: string
+          is_open: boolean
+          start_time: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          breaks?: Json
+          created_at?: string
+          day_of_week: number
+          end_time?: string
+          id?: string
+          is_open?: boolean
+          start_time?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          breaks?: Json
+          created_at?: string
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          is_open?: boolean
+          start_time?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       public_booking_profiles: {

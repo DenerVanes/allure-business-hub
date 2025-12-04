@@ -23,7 +23,7 @@ export const useSubscription = () => {
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, user_id, trial_expires_at, subscription_status, plan_expires_at, plan_status')
+        .select('*')
         .eq('user_id', user.id)
         .single();
 
@@ -31,38 +31,40 @@ export const useSubscription = () => {
       
       if (!data) return null;
 
+      // Cast para o tipo correto
+      const profileData = data as unknown as ProfileWithSubscription;
       const now = new Date();
       
       // Atualizar plan_status se necessário (verificar se expirou)
-      if (data.plan_status === 'active' && data.plan_expires_at) {
-        const expiresAt = new Date(data.plan_expires_at);
+      if (profileData.plan_status === 'active' && profileData.plan_expires_at) {
+        const expiresAt = new Date(profileData.plan_expires_at);
         if (expiresAt < now) {
           // Atualizar status para expired
           await supabase
             .from('profiles')
-            .update({ plan_status: 'expired' })
+            .update({ plan_status: 'expired' } as any)
             .eq('user_id', user.id);
           
-          return { ...data, plan_status: 'expired' } as ProfileWithSubscription;
+          return { ...profileData, plan_status: 'expired' } as ProfileWithSubscription;
         }
       }
 
       // Se o trial expirou mas o status ainda está como 'trial', atualizar
-      if (data.subscription_status === 'trial' && data.trial_expires_at) {
-        const expiresAt = new Date(data.trial_expires_at);
+      if (profileData.subscription_status === 'trial' && profileData.trial_expires_at) {
+        const expiresAt = new Date(profileData.trial_expires_at);
         
         if (expiresAt < now) {
           // Atualizar status para expired
           await supabase
             .from('profiles')
-            .update({ subscription_status: 'expired' })
+            .update({ subscription_status: 'expired' } as any)
             .eq('user_id', user.id);
           
-          return { ...data, subscription_status: 'expired' } as ProfileWithSubscription;
+          return { ...profileData, subscription_status: 'expired' } as ProfileWithSubscription;
         }
       }
       
-      return data as ProfileWithSubscription;
+      return profileData;
     },
     enabled: !!user?.id,
     refetchInterval: 60000, // Verificar a cada minuto
