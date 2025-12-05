@@ -17,6 +17,7 @@ import { ptBR } from 'date-fns/locale';
 import { formatPhone, normalizePhone } from '@/utils/phone';
 import { cn } from '@/lib/utils';
 import { generateAvailableTimeSlots, isDayOpen } from '@/hooks/useWorkingHours';
+import { getAvailableTimeSlots, isCollaboratorAvailable } from '@/utils/collaboratorSchedule';
 
 interface Break {
   start: string;
@@ -228,6 +229,23 @@ export default function AgendamentoPublico() {
   });
 
   // Buscar bloqueios por horário do colaborador
+  // Buscar horários de trabalho do colaborador
+  const { data: collaboratorSchedules = [] } = useQuery({
+    queryKey: ['collaborator-schedules-public', selectedCollaborator],
+    queryFn: async () => {
+      if (!selectedCollaborator) return [];
+      
+      const { data, error } = await supabase
+        .from('collaborator_schedules')
+        .select('*')
+        .eq('collaborator_id', selectedCollaborator);
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedCollaborator
+  });
+
   const { data: collaboratorTimeBlocks = [] } = useQuery({
     queryKey: ['public-time-blocks', selectedCollaborator, selectedDate],
     queryFn: async () => {
@@ -367,6 +385,23 @@ export default function AgendamentoPublico() {
     if (workingHours.length > 0 && !isDayOpen(workingHours, dayOfWeek)) {
       return [];
     }
+
+    // Verificar horários de trabalho do colaborador
+    if (collaboratorSchedules.length > 0) {
+      const slots = getAvailableTimeSlots(
+        collaboratorSchedules,
+        selectedDate,
+        30, // intervalo de 30 minutos
+        existingAppointments,
+        serviceDuration
+      );
+      
+      // Filtrar slots que não conflitam com bloqueios
+      return slots.filter(time => {
+        const isTimeBlocked = isTimeBlockedByTimeBlock(time, serviceDuration);
+        return !isTimeBlocked;
+      });
+    }
     
     return generateTimeSlots(dayOfWeek, serviceDuration).filter(time => {
       // Verificar se há conflito com agendamentos existentes considerando a duração
@@ -382,7 +417,7 @@ export default function AgendamentoPublico() {
       
       return !hasConflict && !isDayBlocked && !isTimeBlocked;
     });
-  }, [selectedCollaborator, selectedDate, selectedService, existingAppointments, collaboratorBlocks, collaboratorTimeBlocks, services, workingHours]);
+  }, [selectedCollaborator, selectedDate, selectedService, existingAppointments, collaboratorBlocks, collaboratorTimeBlocks, collaboratorSchedules, services, workingHours]);
 
   // Criar agendamento
   const createAppointmentMutation = useMutation({
@@ -392,6 +427,35 @@ export default function AgendamentoPublico() {
       }
 
       const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+
+      // VALIDAÇÃO: Verificar horários de trabalho do colaborador
+      if (selectedCollaborator && selectedTime) {
+        const { data: collaboratorData } = await supabase
+          .from('collaborators')
+          .select('*')
+          .eq('id', selectedCollaborator)
+          .single();
+
+        if (collaboratorData) {
+          const { data: schedules } = await supabase
+            .from('collaborator_schedules')
+            .select('*')
+            .eq('collaborator_id', selectedCollaborator);
+
+          if (schedules && schedules.length > 0) {
+            const validation = isCollaboratorAvailable(
+              collaboratorData,
+              schedules,
+              selectedDate,
+              selectedTime
+            );
+
+            if (!validation.available) {
+              throw new Error(validation.reason || 'Colaborador não está disponível neste horário');
+            }
+          }
+        }
+      }
 
       // VALIDAÇÃO: Verificar se colaborador está bloqueado (dia inteiro)
       const { data: blocks } = await supabase

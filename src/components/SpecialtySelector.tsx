@@ -70,11 +70,16 @@ export function SpecialtySelector({ specialties, onSpecialtiesChange }: Specialt
 
   return (
     <div className="space-y-3">
-      <Label>Especialidades</Label>
+      <Label className="text-sm font-medium" style={{ color: '#5A4A5E' }}>
+        Especialidades
+      </Label>
       
       <div className="flex gap-2">
         <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-          <SelectTrigger className="flex-1">
+          <SelectTrigger 
+            className="flex-1"
+            style={{ borderRadius: '12px', borderColor: '#F7D5E8' }}
+          >
             <SelectValue placeholder="Selecione uma categoria de serviço..." />
           </SelectTrigger>
           <SelectContent>
@@ -91,6 +96,8 @@ export function SpecialtySelector({ specialties, onSpecialtiesChange }: Specialt
           size="sm"
           onClick={addSpecialty}
           disabled={!selectedCategory}
+          className="rounded-full"
+          style={{ borderColor: '#C9A7FD', color: '#8E44EC' }}
         >
           <Plus className="h-4 w-4" />
         </Button>
@@ -99,12 +106,17 @@ export function SpecialtySelector({ specialties, onSpecialtiesChange }: Specialt
       {specialties.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {specialties.map((specialty, index) => (
-            <Badge key={index} variant="secondary" className="gap-1">
+            <Badge 
+              key={index} 
+              className="gap-1 rounded-full px-3 py-1"
+              style={{ backgroundColor: '#F7D5E8', color: '#8E44EC' }}
+            >
               {specialty}
               <button
                 type="button"
                 onClick={() => removeSpecialty(specialty)}
-                className="ml-1 hover:text-red-500"
+                className="ml-1 hover:opacity-70 transition-opacity"
+                style={{ color: '#EB67A3' }}
               >
                 <X className="h-3 w-3" />
               </button>

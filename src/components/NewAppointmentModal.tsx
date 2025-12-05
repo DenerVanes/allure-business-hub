@@ -24,6 +24,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 import { ServiceSelector } from './ServiceSelector';
 import { formatPhone, normalizePhone } from '@/utils/phone';
+import { isCollaboratorAvailable } from '@/utils/collaboratorSchedule';
 
 interface NewAppointmentModalProps {
   open: boolean;
@@ -152,11 +153,45 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
     mutationFn: async (appointmentData: any) => {
       if (!user?.id) throw new Error('Usuário não autenticado');
 
-      // VALIDAÇÃO: Verificar se colaborador está bloqueado na data selecionada
-      if (selectedCollaboratorId && date) {
-        const formattedDate = format(date, 'yyyy-MM-dd');
-        const selectedDate = new Date(formattedDate);
-        selectedDate.setHours(0, 0, 0, 0);
+        // VALIDAÇÃO: Verificar horários de trabalho do colaborador
+        if (selectedCollaboratorId && date && appointmentData.appointment_time) {
+          const formattedDate = format(date, 'yyyy-MM-dd');
+          const selectedDate = new Date(formattedDate);
+          selectedDate.setHours(0, 0, 0, 0);
+
+          // Buscar colaborador e seus horários
+          const { data: collaboratorData } = await supabase
+            .from('collaborators')
+            .select('*')
+            .eq('id', selectedCollaboratorId)
+            .single();
+
+          if (collaboratorData) {
+            const { data: schedules } = await supabase
+              .from('collaborator_schedules')
+              .select('*')
+              .eq('collaborator_id', selectedCollaboratorId);
+
+            if (schedules && schedules.length > 0) {
+              const validation = isCollaboratorAvailable(
+                collaboratorData,
+                schedules,
+                selectedDate,
+                appointmentData.appointment_time
+              );
+
+              if (!validation.available) {
+                throw new Error(validation.reason || 'Colaborador não está disponível neste horário');
+              }
+            }
+          }
+        }
+
+        // VALIDAÇÃO: Verificar se colaborador está bloqueado na data selecionada
+        if (selectedCollaboratorId && date) {
+          const formattedDate = format(date, 'yyyy-MM-dd');
+          const selectedDate = new Date(formattedDate);
+          selectedDate.setHours(0, 0, 0, 0);
         
         const { data: blocks } = await supabase
           .from('collaborator_blocks')
