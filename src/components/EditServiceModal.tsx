@@ -4,12 +4,13 @@ import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Edit, DollarSign, Clock, Tag, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
@@ -66,10 +67,15 @@ export const EditServiceModal = ({ open, onOpenChange, service }: EditServiceMod
 
   useEffect(() => {
     if (service) {
+      // Formatar preço com vírgula
+      const formattedPrice = service.price 
+        ? service.price.toString().replace('.', ',')
+        : '';
+      
       form.reset({
         name: service.name || '',
         description: service.description || '',
-        price: service.price?.toString() || '',
+        price: formattedPrice,
         duration: service.duration?.toString() || '',
         category: service.category || '',
         category_id: service.category_id || '',
@@ -81,13 +87,17 @@ export const EditServiceModal = ({ open, onOpenChange, service }: EditServiceMod
     mutationFn: async (data: ServiceForm) => {
       if (!user?.id || !service?.id) throw new Error('Dados insuficientes');
 
+      // Converter preço de string para número (aceita vírgula)
+      const price = parseFloat(data.price.replace(',', '.'));
+      const duration = parseInt(data.duration);
+
       const { error } = await supabase
         .from('services')
         .update({
           name: data.name,
           description: data.description,
-          price: parseFloat(data.price),
-          duration: parseInt(data.duration),
+          price: price,
+          duration: duration,
           category: data.category_id ? undefined : data.category,
           category_id: data.category_id || null,
         })
@@ -120,7 +130,13 @@ export const EditServiceModal = ({ open, onOpenChange, service }: EditServiceMod
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Editar Serviço</DialogTitle>
+          <DialogTitle className="flex items-center gap-2 text-xl">
+            <Edit className="h-5 w-5 text-primary" />
+            Editar Serviço
+          </DialogTitle>
+          <DialogDescription>
+            Atualize as informações do serviço. Os campos marcados são obrigatórios.
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -130,9 +146,16 @@ export const EditServiceModal = ({ open, onOpenChange, service }: EditServiceMod
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nome do Serviço</FormLabel>
+                  <FormLabel className="flex items-center gap-2">
+                    <Tag className="h-4 w-4" />
+                    Nome do Serviço
+                  </FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: Corte Feminino" {...field} />
+                    <Input 
+                      placeholder="Ex: Corte + Escova, Manicure Completa..." 
+                      {...field} 
+                      className="text-base"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -144,10 +167,14 @@ export const EditServiceModal = ({ open, onOpenChange, service }: EditServiceMod
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Descrição (opcional)</FormLabel>
+                  <FormLabel className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Descrição (opcional)
+                  </FormLabel>
                   <FormControl>
                     <Textarea 
-                      placeholder="Descreva o serviço..."
+                      placeholder="Ex: Corte com tesoura, escova progressiva e finalização..."
+                      className="min-h-[80px]"
                       {...field}
                     />
                   </FormControl>
@@ -162,14 +189,23 @@ export const EditServiceModal = ({ open, onOpenChange, service }: EditServiceMod
                 name="price"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Preço (R$)</FormLabel>
+                    <FormLabel className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      Preço (R$)
+                    </FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="0,00"
-                        {...field}
-                      />
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="129,90"
+                          className="pl-9 text-base"
+                          {...field}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/[^\d,]/g, '');
+                            field.onChange(value);
+                          }}
+                        />
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -181,13 +217,20 @@ export const EditServiceModal = ({ open, onOpenChange, service }: EditServiceMod
                 name="duration"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Duração (min)</FormLabel>
+                    <FormLabel className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Duração (min)
+                    </FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
-                        placeholder="60"
-                        {...field}
-                      />
+                      <div className="relative">
+                        <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          type="number"
+                          placeholder="90"
+                          className="pl-9 text-base"
+                          {...field}
+                        />
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -232,8 +275,17 @@ export const EditServiceModal = ({ open, onOpenChange, service }: EditServiceMod
               <Button
                 type="submit"
                 disabled={updateServiceMutation.isPending}
+                className="gap-2 bg-primary hover:bg-primary/90"
+                size="lg"
               >
-                {updateServiceMutation.isPending ? 'Salvando...' : 'Salvar Alterações'}
+                {updateServiceMutation.isPending ? (
+                  'Salvando...'
+                ) : (
+                  <>
+                    <Edit className="h-4 w-4" />
+                    Salvar Alterações
+                  </>
+                )}
               </Button>
             </div>
           </form>

@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, DollarSign, Clock, Tag, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -162,12 +162,12 @@ export const NewServiceModal = ({ open, onOpenChange, onServiceCreated }: NewSer
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-xl">
             <Sparkles className="h-5 w-5 text-primary" />
             Novo Serviço
           </DialogTitle>
           <DialogDescription>
-            Cadastre um novo serviço para oferecer aos seus clientes.
+            Cadastre um novo serviço para oferecer aos seus clientes. Preencha os campos obrigatórios.
           </DialogDescription>
         </DialogHeader>
 
@@ -178,9 +178,16 @@ export const NewServiceModal = ({ open, onOpenChange, onServiceCreated }: NewSer
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nome do Serviço</FormLabel>
+                  <FormLabel className="flex items-center gap-2">
+                    <Tag className="h-4 w-4" />
+                    Nome do Serviço
+                  </FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: Corte + Escova" {...field} />
+                    <Input 
+                      placeholder="Ex: Corte + Escova, Manicure Completa, Depilação..." 
+                      {...field} 
+                      className="text-base"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -193,17 +200,24 @@ export const NewServiceModal = ({ open, onOpenChange, onServiceCreated }: NewSer
                 name="price"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Preço (R$)</FormLabel>
+                    <FormLabel className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      Preço (R$)
+                    </FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="0,00" 
-                        {...field}
-                        onChange={(e) => {
-                          // Formatação básica do preço
-                          let value = e.target.value.replace(/[^\d,]/g, '');
-                          field.onChange(value);
-                        }}
-                      />
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                          placeholder="129,90" 
+                          {...field}
+                          className="pl-9 text-base"
+                          onChange={(e) => {
+                            // Formatação básica do preço
+                            let value = e.target.value.replace(/[^\d,]/g, '');
+                            field.onChange(value);
+                          }}
+                        />
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -215,11 +229,17 @@ export const NewServiceModal = ({ open, onOpenChange, onServiceCreated }: NewSer
                 name="duration"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Duração</FormLabel>
+                    <FormLabel className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Duração
+                    </FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione" />
+                        <SelectTrigger className="text-base">
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <SelectValue placeholder="Selecione a duração" />
+                          </div>
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -266,11 +286,14 @@ export const NewServiceModal = ({ open, onOpenChange, onServiceCreated }: NewSer
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Descrição (opcional)</FormLabel>
+                  <FormLabel className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Descrição (opcional)
+                  </FormLabel>
                   <FormControl>
                     <textarea
-                      className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      placeholder="Descrição do serviço..."
+                      className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      placeholder="Ex: Corte com tesoura, escova progressiva e finalização com secador..."
                       {...field}
                     />
                   </FormControl>
@@ -279,7 +302,7 @@ export const NewServiceModal = ({ open, onOpenChange, onServiceCreated }: NewSer
               )}
             />
 
-            <DialogFooter className="gap-2">
+            <DialogFooter className="gap-2 sm:gap-0">
               <Button
                 type="button"
                 variant="outline"
@@ -291,7 +314,8 @@ export const NewServiceModal = ({ open, onOpenChange, onServiceCreated }: NewSer
               <Button
                 type="submit"
                 disabled={createServiceMutation.isPending}
-                className="gap-2"
+                className="gap-2 bg-primary hover:bg-primary/90"
+                size="lg"
               >
                 {createServiceMutation.isPending ? (
                   "Salvando..."

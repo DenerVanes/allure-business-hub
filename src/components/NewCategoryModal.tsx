@@ -4,10 +4,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { FolderPlus, Tag } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
@@ -101,7 +102,13 @@ export const NewCategoryModal = ({ open, onOpenChange }: NewCategoryModalProps) 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Nova Categoria de Serviço</DialogTitle>
+          <DialogTitle className="flex items-center gap-2 text-xl">
+            <FolderPlus className="h-5 w-5 text-primary" />
+            Nova Categoria de Serviço
+          </DialogTitle>
+          <DialogDescription>
+            Crie uma nova categoria para organizar seus serviços. Ex: Cortes, Coloração, Tratamentos...
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -111,9 +118,16 @@ export const NewCategoryModal = ({ open, onOpenChange }: NewCategoryModalProps) 
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nome da Categoria</FormLabel>
+                  <FormLabel className="flex items-center gap-2">
+                    <Tag className="h-4 w-4" />
+                    Nome da Categoria
+                  </FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: Cortes, Coloração, Tratamentos..." {...field} />
+                    <Input 
+                      placeholder="Ex: Cortes, Coloração, Tratamentos, Unhas..." 
+                      {...field} 
+                      className="text-base"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -132,8 +146,17 @@ export const NewCategoryModal = ({ open, onOpenChange }: NewCategoryModalProps) 
               <Button
                 type="submit"
                 disabled={createCategoryMutation.isPending}
+                className="gap-2 bg-primary hover:bg-primary/90"
+                size="lg"
               >
-                {createCategoryMutation.isPending ? 'Criando...' : 'Criar Categoria'}
+                {createCategoryMutation.isPending ? (
+                  'Criando...'
+                ) : (
+                  <>
+                    <FolderPlus className="h-4 w-4" />
+                    Criar Categoria
+                  </>
+                )}
               </Button>
             </div>
           </form>
