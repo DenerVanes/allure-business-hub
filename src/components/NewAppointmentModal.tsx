@@ -80,6 +80,26 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
     enabled: !!selectedCollaboratorId
   });
 
+  // Buscar bloqueios por horário do colaborador para a data selecionada
+  const { data: collaboratorTimeBlocks = [] } = useQuery({
+    queryKey: ['collaborator-time-blocks', selectedCollaboratorId, date],
+    queryFn: async () => {
+      if (!selectedCollaboratorId || !date) return [];
+      
+      const formattedDate = format(date, 'yyyy-MM-dd');
+      const { data, error } = await supabase
+        .from('collaborator_time_blocks' as any)
+        .select('*')
+        .eq('collaborator_id', selectedCollaboratorId)
+        .eq('block_date', formattedDate)
+        .order('start_time');
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedCollaboratorId && !!date
+  });
+
   // Verificar se a data selecionada está dentro de algum bloqueio
   const isDateBlocked = date && allCollaboratorBlocks.some(block => {
     const blockStart = new Date(block.start_date);
@@ -164,6 +184,37 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
             throw new Error(
               `Profissional está ausente no período de ${format(new Date(blockingBlock.start_date), 'dd/MM/yyyy')} até ${format(new Date(blockingBlock.end_date), 'dd/MM/yyyy')}`
             );
+          }
+        }
+
+        // VALIDAÇÃO: Verificar se o horário específico está bloqueado
+        if (appointmentData.appointment_time) {
+          const newService = selectedServices[0]?.service;
+          const newServiceDuration = newService?.duration || 60;
+          
+          const { data: timeBlocksData } = await supabase
+            .from('collaborator_time_blocks' as any)
+            .select('*')
+            .eq('collaborator_id', selectedCollaboratorId)
+            .eq('block_date', formattedDate);
+
+          if (timeBlocksData && timeBlocksData.length > 0) {
+            const [timeH, timeM] = appointmentData.appointment_time.split(':').map(Number);
+            const aptStart = timeH * 60 + timeM;
+            const aptEnd = aptStart + newServiceDuration;
+
+            for (const block of timeBlocksData) {
+              const [blockStartH, blockStartM] = (block as any).start_time.split(':').map(Number);
+              const [blockEndH, blockEndM] = (block as any).end_time.split(':').map(Number);
+              const blockStart = blockStartH * 60 + blockStartM;
+              const blockEnd = blockEndH * 60 + blockEndM;
+
+              if (aptStart < blockEnd && aptEnd > blockStart) {
+                throw new Error(
+                  `Este colaborador não está disponível neste horário devido a um bloqueio de agenda (${(block as any).start_time.slice(0, 5)} às ${(block as any).end_time.slice(0, 5)}).`
+                );
+              }
+            }
           }
         }
 

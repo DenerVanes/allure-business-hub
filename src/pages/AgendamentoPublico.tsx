@@ -207,7 +207,7 @@ export default function AgendamentoPublico() {
     enabled: !!profile?.user_id && !!selectedDate && !!selectedCollaborator
   });
 
-  // Buscar bloqueios de colaboradores
+  // Buscar bloqueios de colaboradores (dia inteiro)
   const { data: collaboratorBlocks = [] } = useQuery({
     queryKey: ['public-blocks', selectedCollaborator, selectedDate],
     queryFn: async () => {
@@ -220,6 +220,26 @@ export default function AgendamentoPublico() {
         .eq('collaborator_id', selectedCollaborator)
         .lte('start_date', formattedDate)
         .gte('end_date', formattedDate);
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedCollaborator && !!selectedDate
+  });
+
+  // Buscar bloqueios por horário do colaborador
+  const { data: collaboratorTimeBlocks = [] } = useQuery({
+    queryKey: ['public-time-blocks', selectedCollaborator, selectedDate],
+    queryFn: async () => {
+      if (!selectedCollaborator || !selectedDate) return [];
+      
+      const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+      const { data, error } = await supabase
+        .from('collaborator_time_blocks' as any)
+        .select('*')
+        .eq('collaborator_id', selectedCollaborator)
+        .eq('block_date', formattedDate)
+        .order('start_time');
       
       if (error) throw error;
       return data || [];
@@ -317,6 +337,25 @@ export default function AgendamentoPublico() {
     return false;
   };
 
+  // Função para verificar se um horário está bloqueado por bloqueio de horário específico
+  const isTimeBlockedByTimeBlock = (time: string, serviceDuration: number) => {
+    if (!collaboratorTimeBlocks || collaboratorTimeBlocks.length === 0) return false;
+    
+    const [timeH, timeM] = time.split(':').map(Number);
+    const aptStart = timeH * 60 + timeM;
+    const aptEnd = aptStart + serviceDuration;
+    
+    return collaboratorTimeBlocks.some((block: any) => {
+      const [blockStartH, blockStartM] = block.start_time.split(':').map(Number);
+      const [blockEndH, blockEndM] = block.end_time.split(':').map(Number);
+      const blockStart = blockStartH * 60 + blockStartM;
+      const blockEnd = blockEndH * 60 + blockEndM;
+      
+      // Conflito se houver sobreposição
+      return aptStart < blockEnd && aptEnd > blockStart;
+    });
+  };
+
   const availableTimeSlots = useMemo(() => {
     if (!selectedCollaborator || !selectedDate || !selectedService) return [];
     
@@ -335,12 +374,15 @@ export default function AgendamentoPublico() {
         hasTimeConflict(time, serviceDuration, apt)
       );
       
-      // Verificar se colaborador está bloqueado
-      const isBlocked = collaboratorBlocks.length > 0;
+      // Verificar se colaborador está bloqueado (dia inteiro)
+      const isDayBlocked = collaboratorBlocks.length > 0;
       
-      return !hasConflict && !isBlocked;
+      // Verificar se o horário específico está bloqueado
+      const isTimeBlocked = isTimeBlockedByTimeBlock(time, serviceDuration);
+      
+      return !hasConflict && !isDayBlocked && !isTimeBlocked;
     });
-  }, [selectedCollaborator, selectedDate, selectedService, existingAppointments, collaboratorBlocks, services, workingHours]);
+  }, [selectedCollaborator, selectedDate, selectedService, existingAppointments, collaboratorBlocks, collaboratorTimeBlocks, services, workingHours]);
 
   // Criar agendamento
   const createAppointmentMutation = useMutation({
@@ -351,7 +393,7 @@ export default function AgendamentoPublico() {
 
       const formattedDate = format(selectedDate, 'yyyy-MM-dd');
 
-      // VALIDAÇÃO: Verificar se colaborador está bloqueado
+      // VALIDAÇÃO: Verificar se colaborador está bloqueado (dia inteiro)
       const { data: blocks } = await supabase
         .from('collaborator_blocks')
         .select('*')
@@ -363,9 +405,36 @@ export default function AgendamentoPublico() {
         throw new Error('Profissional está com a agenda bloqueada nesta data');
       }
 
-      // VALIDAÇÃO CRÍTICA: Verificar se o colaborador já tem agendamento que conflita com o horário
+      // VALIDAÇÃO: Verificar se o horário específico está bloqueado
       const service = services.find(s => s.id === selectedService);
       const newServiceDuration = service?.duration || 60;
+      
+      const { data: timeBlocksData } = await supabase
+        .from('collaborator_time_blocks' as any)
+        .select('*')
+        .eq('collaborator_id', selectedCollaborator)
+        .eq('block_date', formattedDate);
+
+      if (timeBlocksData && timeBlocksData.length > 0) {
+        const [timeH, timeM] = selectedTime.split(':').map(Number);
+        const aptStart = timeH * 60 + timeM;
+        const aptEnd = aptStart + newServiceDuration;
+
+        for (const block of timeBlocksData) {
+          const [blockStartH, blockStartM] = (block as any).start_time.split(':').map(Number);
+          const [blockEndH, blockEndM] = (block as any).end_time.split(':').map(Number);
+          const blockStart = blockStartH * 60 + blockStartM;
+          const blockEnd = blockEndH * 60 + blockEndM;
+
+          if (aptStart < blockEnd && aptEnd > blockStart) {
+            throw new Error(
+              `Este colaborador não está disponível neste horário devido a um bloqueio de agenda (${(block as any).start_time.slice(0, 5)} às ${(block as any).end_time.slice(0, 5)}).`
+            );
+          }
+        }
+      }
+
+      // VALIDAÇÃO CRÍTICA: Verificar se o colaborador já tem agendamento que conflita com o horário
 
       // Buscar todos os agendamentos do dia para verificar conflitos
       const { data: existingApts, error: checkError } = await supabase

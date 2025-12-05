@@ -188,6 +188,47 @@ export type Database = {
           },
         ]
       }
+      collaborator_time_blocks: {
+        Row: {
+          block_date: string
+          collaborator_id: string
+          created_at: string | null
+          end_time: string
+          id: string
+          reason: string | null
+          start_time: string
+          updated_at: string | null
+        }
+        Insert: {
+          block_date: string
+          collaborator_id: string
+          created_at?: string | null
+          end_time: string
+          id?: string
+          reason?: string | null
+          start_time: string
+          updated_at?: string | null
+        }
+        Update: {
+          block_date?: string
+          collaborator_id?: string
+          created_at?: string | null
+          end_time?: string
+          id?: string
+          reason?: string | null
+          start_time?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collaborator_time_blocks_collaborator_id_fkey"
+            columns: ["collaborator_id"]
+            isOneToOne: false
+            referencedRelation: "collaborators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       collaborators: {
         Row: {
           active: boolean
