@@ -1,10 +1,9 @@
-
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { DollarSign } from 'lucide-react';
+import { DollarSign, Calendar, FileText, Tag, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -52,26 +51,54 @@ interface FinanceModalProps {
   transaction?: Database['public']['Tables']['financial_transactions']['Row'] | null;
 }
 
+// Categorias automáticas de salão de beleza
 const incomeCategories = [
-  'Serviços',
+  'Corte',
+  'Escova',
+  'Hidratação',
+  'Botox',
+  'Manicure',
+  'Pedicure',
+  'Depilação',
+  'Sobrancelha',
   'Produtos',
+  'Coloração',
+  'Luzes',
+  'Alisamento',
+  'Tratamento Capilar',
   'Outros'
 ];
 
-const expenseCategories = [
+const defaultExpenseCategories = [
   'Produtos',
   'Aluguel',
+  'Funcionária',
+  'Reposição de Estoque',
   'Energia',
   'Água',
   'Internet',
   'Marketing',
   'Transporte',
+  'Manutenção',
+  'Equipamentos',
   'Outros'
 ];
 
 export const FinanceModal = ({ open, onOpenChange, type, mode = 'create', transaction }: FinanceModalProps) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  // Buscar categorias customizadas do localStorage
+  const [customExpenseCategories, setCustomExpenseCategories] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (user?.id && open) {
+      const stored = localStorage.getItem(`expense-categories-${user.id}`);
+      setCustomExpenseCategories(stored ? JSON.parse(stored) : []);
+    }
+  }, [user?.id, open]);
+
+  const expenseCategories = [...defaultExpenseCategories, ...customExpenseCategories];
 
   const form = useForm<FinanceFormData>({
     resolver: zodResolver(financeSchema),
@@ -122,6 +149,7 @@ export const FinanceModal = ({ open, onOpenChange, type, mode = 'create', transa
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['financial-transactions-all'] });
       toast({
         title: `${type === 'income' ? 'Receita' : 'Despesa'} registrada!`,
         description: `A ${type === 'income' ? 'receita' : 'despesa'} foi registrada com sucesso.`,
@@ -163,6 +191,7 @@ export const FinanceModal = ({ open, onOpenChange, type, mode = 'create', transa
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['financial-transactions-all'] });
       toast({
         title: 'Transação atualizada',
         description: 'Os dados da transação foram atualizados com sucesso.',
@@ -199,13 +228,13 @@ export const FinanceModal = ({ open, onOpenChange, type, mode = 'create', transa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px]" style={{ borderRadius: '20px' }}>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5 text-primary" />
+          <DialogTitle className="flex items-center gap-2 text-xl" style={{ color: '#5A2E98' }}>
+            <Sparkles className="h-5 w-5" style={{ color: type === 'income' ? '#EB67A3' : '#8E44EC' }} />
             {title}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-[#5A4A5E]">
             Registre uma nova {type === 'income' ? 'receita' : 'despesa'} para controle financeiro.
           </DialogDescription>
         </DialogHeader>
@@ -218,18 +247,25 @@ export const FinanceModal = ({ open, onOpenChange, type, mode = 'create', transa
                 name="amount"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Valor (R$)</FormLabel>
+                    <FormLabel className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      Valor (R$)
+                    </FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="0,00" 
-                        {...field}
-                        onChange={(e) => {
-                          // Formatação básica do valor
-                          let value = e.target.value.replace(/[^\d,]/g, '');
-                          field.onChange(value);
-                        }}
-                        value={field.value}
-                      />
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#5A4A5E]" />
+                        <Input 
+                          placeholder="129,90" 
+                          {...field}
+                          className="pl-9 text-base"
+                          style={{ borderRadius: '12px' }}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/[^\d,]/g, '');
+                            field.onChange(value);
+                          }}
+                          value={field.value}
+                        />
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -241,9 +277,17 @@ export const FinanceModal = ({ open, onOpenChange, type, mode = 'create', transa
                 name="date"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Data</FormLabel>
+                    <FormLabel className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Data
+                    </FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input 
+                        type="date" 
+                        {...field} 
+                        className="text-base"
+                        style={{ borderRadius: '12px' }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -256,11 +300,16 @@ export const FinanceModal = ({ open, onOpenChange, type, mode = 'create', transa
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Descrição</FormLabel>
+                  <FormLabel className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Descrição
+                  </FormLabel>
                   <FormControl>
                     <Input 
-                      placeholder={`Descreva a ${type === 'income' ? 'receita' : 'despesa'}`} 
+                      placeholder={`Ex: ${type === 'income' ? 'Corte + Escova para Maria' : 'Compra de produtos para estoque'}`}
                       {...field} 
+                      className="text-base"
+                      style={{ borderRadius: '12px' }}
                     />
                   </FormControl>
                   <FormMessage />
@@ -273,10 +322,13 @@ export const FinanceModal = ({ open, onOpenChange, type, mode = 'create', transa
               name="category"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Categoria</FormLabel>
+                  <FormLabel className="flex items-center gap-2">
+                    <Tag className="h-4 w-4" />
+                    Categoria
+                  </FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="text-base" style={{ borderRadius: '12px' }}>
                         <SelectValue placeholder="Selecione a categoria" />
                       </SelectTrigger>
                     </FormControl>
@@ -293,25 +345,30 @@ export const FinanceModal = ({ open, onOpenChange, type, mode = 'create', transa
               )}
             />
 
-            <DialogFooter className="gap-2">
+            <DialogFooter className="gap-2 sm:gap-0 pt-4">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
                 disabled={isSubmitting}
+                className="rounded-full"
               >
                 Cancelar
               </Button>
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="gap-2"
+                className="gap-2 rounded-full px-6"
+                style={{ 
+                  backgroundColor: type === 'income' ? '#EB67A3' : '#8E44EC',
+                  color: 'white'
+                }}
               >
                 {isSubmitting ? (
                   "Salvando..."
                 ) : (
                   <>
-                    <DollarSign className="h-4 w-4" />
+                    <Sparkles className="h-4 w-4" />
                     {buttonText}
                   </>
                 )}
