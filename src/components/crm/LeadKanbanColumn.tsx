@@ -1,10 +1,11 @@
 import { useDroppable } from '@dnd-kit/core';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { LeadCard } from './LeadCard';
 import { Lead } from '@/pages/FunilLeads';
-import { LucideIcon } from 'lucide-react';
+import { LucideIcon, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface LeadKanbanColumnProps {
@@ -16,14 +17,16 @@ interface LeadKanbanColumnProps {
   };
   leads: Lead[];
   onLeadClick: (lead: Lead) => void;
+  onViewAll?: () => void;
 }
 
-export function LeadKanbanColumn({ status, config, leads, onLeadClick }: LeadKanbanColumnProps) {
+export function LeadKanbanColumn({ status, config, leads, onLeadClick, onViewAll }: LeadKanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: status,
   });
 
   const Icon = config.icon;
+  const isClosedOrLost = status === 'fechado' || status === 'perdido';
 
   return (
     <Card 
@@ -64,11 +67,12 @@ export function LeadKanbanColumn({ status, config, leads, onLeadClick }: LeadKan
       </CardHeader>
       
       <CardContent className="px-2 pb-4">
-        <ScrollArea className="h-[calc(100vh-400px)] min-h-[300px]">
-          <div className="space-y-2 px-2">
+        {isClosedOrLost ? (
+          // Para Fechado e Perdido: mostrar botão "Ver tudo"
+          <div className="flex flex-col items-center justify-center py-8 px-4">
             {leads.length === 0 ? (
               <div 
-                className="text-center py-8 px-4 rounded-lg border-2 border-dashed"
+                className="text-center py-8 px-4 rounded-lg border-2 border-dashed w-full"
                 style={{ borderColor: `${config.color}40` }}
               >
                 <p className="text-xs text-[#5A4A5E]">
@@ -76,16 +80,57 @@ export function LeadKanbanColumn({ status, config, leads, onLeadClick }: LeadKan
                 </p>
               </div>
             ) : (
-              leads.map(lead => (
-                <LeadCard 
-                  key={lead.id} 
-                  lead={lead} 
-                  onClick={onLeadClick}
-                />
-              ))
+              <>
+                <div 
+                  className="text-center py-6 px-4 rounded-lg border-2 border-dashed w-full mb-4"
+                  style={{ borderColor: `${config.color}40` }}
+                >
+                  <p className="text-xs text-[#5A4A5E] mb-2">
+                    {leads.length} {leads.length === 1 ? 'lead' : 'leads'} {status === 'fechado' ? 'fechado' : 'perdido'}
+                  </p>
+                  <p className="text-xs text-[#5A4A5E]">
+                    Clique em "Ver tudo" para visualizar
+                  </p>
+                </div>
+                <Button
+                  onClick={onViewAll}
+                  className="w-full rounded-full"
+                  style={{ 
+                    backgroundColor: config.color, 
+                    color: 'white'
+                  }}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  Ver tudo ({leads.length})
+                </Button>
+              </>
             )}
           </div>
-        </ScrollArea>
+        ) : (
+          // Para outras colunas: mostrar cards normalmente
+          <ScrollArea className="h-[calc(100vh-400px)] min-h-[300px]">
+            <div className="space-y-2 px-2">
+              {leads.length === 0 ? (
+                <div 
+                  className="text-center py-8 px-4 rounded-lg border-2 border-dashed"
+                  style={{ borderColor: `${config.color}40` }}
+                >
+                  <p className="text-xs text-[#5A4A5E]">
+                    Arraste um lead para cá
+                  </p>
+                </div>
+              ) : (
+                leads.map(lead => (
+                  <LeadCard 
+                    key={lead.id} 
+                    lead={lead} 
+                    onClick={onLeadClick}
+                  />
+                ))
+              )}
+            </div>
+          </ScrollArea>
+        )}
       </CardContent>
     </Card>
   );

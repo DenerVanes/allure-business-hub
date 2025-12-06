@@ -141,17 +141,6 @@ export const TodaySchedule = () => {
     }
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'agendado':
-        return 'bg-blue-100 text-blue-800';
-      case 'confirmado':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'agendado':
@@ -187,16 +176,27 @@ export const TodaySchedule = () => {
 
   if (isLoading) {
     return (
-      <Card className="w-full">
+      <Card 
+        className="w-full border-0 shadow-md"
+        style={{ borderRadius: '20px' }}
+      >
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
+          <CardTitle className="flex items-center gap-2 text-lg" style={{ color: '#5A2E98' }}>
+            <div 
+              className="p-1.5 rounded-lg"
+              style={{ backgroundColor: '#F9F9F9' }}
+            >
+              <Clock className="h-5 w-5" style={{ color: '#8E44EC' }} />
+            </div>
             Agenda de Hoje
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            <div 
+              className="animate-spin rounded-full h-6 w-6 border-b-2"
+              style={{ borderColor: '#8E44EC' }}
+            ></div>
           </div>
         </CardContent>
       </Card>
@@ -205,41 +205,66 @@ export const TodaySchedule = () => {
 
   return (
     <>
-      <Card className="w-full">
+      <Card 
+        className="w-full border-0 shadow-md"
+        style={{ borderRadius: '20px' }}
+      >
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
+          <CardTitle className="flex items-center gap-2 text-lg" style={{ color: '#5A2E98' }}>
+            <div 
+              className="p-1.5 rounded-lg"
+              style={{ backgroundColor: '#F9F9F9' }}
+            >
+              <Clock className="h-5 w-5" style={{ color: '#8E44EC' }} />
+            </div>
             Agenda de Hoje
           </CardTitle>
         </CardHeader>
         <CardContent>
           {appointments.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>Nenhum agendamento para hoje.</p>
+            <div className="text-center py-12">
+              <p className="text-sm" style={{ color: '#5A4A5E' }}>
+                Nenhum agendamento para hoje.
+              </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {appointments.map((appointment) => (
-                <div key={appointment.id} className="p-4 bg-muted/30 rounded-lg border">
+                <div 
+                  key={appointment.id} 
+                  className="p-4 rounded-lg border bg-white"
+                  style={{ 
+                    borderRadius: '12px',
+                    borderColor: '#E5E7EB'
+                  }}
+                >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="font-medium text-lg">
+                        <span className="font-semibold text-lg" style={{ color: '#5A2E98' }}>
                           {format(new Date(`2000-01-01T${appointment.appointment_time}`), 'HH:mm')}
                         </span>
-                        <Badge className={getStatusColor(appointment.status)}>
+                        <Badge 
+                          className="text-xs px-2 py-0.5"
+                          style={{ 
+                            backgroundColor: appointment.status === 'confirmado' ? '#D1FAE5' : '#DBEAFE',
+                            color: appointment.status === 'confirmado' ? '#10B981' : '#3B82F6'
+                          }}
+                        >
                           {getStatusLabel(appointment.status)}
                         </Badge>
                       </div>
                       <div className="flex items-center gap-2 mb-1">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{appointment.client_name}</span>
+                        <User className="h-4 w-4" style={{ color: '#8E44EC' }} />
+                        <span className="font-medium text-sm" style={{ color: '#5A2E98' }}>
+                          {appointment.client_name}
+                        </span>
                       </div>
-                      <div className="text-sm text-muted-foreground mb-1">
+                      <div className="text-xs mb-1" style={{ color: '#5A4A5E' }}>
                         {appointment.services?.name || 'Serviço'} - R$ {appointment.total_amount || 0}
                       </div>
                       {appointment.collaborator_name && (
-                        <div className="text-sm text-muted-foreground mb-3">
+                        <div className="text-xs mb-3" style={{ color: '#5A4A5E' }}>
                           Profissional: {appointment.collaborator_name}
                         </div>
                       )}
@@ -250,6 +275,8 @@ export const TodaySchedule = () => {
                       {appointment.status === 'agendado' ? (
                         <Button
                           size="sm"
+                          className="rounded-full"
+                          style={{ backgroundColor: '#8E44EC', color: 'white' }}
                           onClick={() => updateAppointmentMutation.mutate({ appointmentId: appointment.id, status: 'confirmado' })}
                           disabled={updateAppointmentMutation.isPending}
                         >
@@ -259,6 +286,8 @@ export const TodaySchedule = () => {
                       ) : (
                         <Button
                           size="sm"
+                          className="rounded-full"
+                          style={{ backgroundColor: '#8E44EC', color: 'white' }}
                           onClick={() => handleFinalize(appointment)}
                           disabled={updateAppointmentMutation.isPending}
                         >
@@ -272,7 +301,12 @@ export const TodaySchedule = () => {
                         onOpenChange={(open) => setOpenPopoverId(open ? appointment.id : null)}
                       >
                         <PopoverTrigger asChild>
-                          <Button size="sm" variant="outline">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="rounded-full"
+                            style={{ borderColor: '#C9A7FD', color: '#8E44EC' }}
+                          >
                             <MoreVertical className="h-3 w-3" />
                           </Button>
                         </PopoverTrigger>
@@ -330,10 +364,14 @@ export const TodaySchedule = () => {
                 </div>
               ))}
               
-              <div className="pt-4 border-t">
+              <div 
+                className="pt-4 border-t"
+                style={{ borderColor: '#E5E7EB' }}
+              >
                 <Button
                   variant="outline"
-                  className="w-full"
+                  className="w-full rounded-full"
+                  style={{ borderColor: '#C9A7FD', color: '#8E44EC' }}
                   onClick={() => setShowFullAgenda(true)}
                 >
                   <Eye className="h-4 w-4 mr-2" />

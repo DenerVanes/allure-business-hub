@@ -39,10 +39,21 @@ export function timeToMinutes(time: string): number {
 
 /**
  * Obtém o dia da semana de uma data
+ * JavaScript getDay() retorna: 0=Domingo, 1=Segunda, 2=Terça, 3=Quarta, 4=Quinta, 5=Sexta, 6=Sábado
  */
 export function getDayOfWeek(date: Date): DayOfWeek {
   const daysMap: DayOfWeek[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-  return daysMap[date.getDay()];
+  const dayIndex = date.getDay();
+  const dayOfWeek = daysMap[dayIndex];
+  
+  console.log('📅 DEBUG getDayOfWeek:', {
+    date: date.toISOString(),
+    getDay: dayIndex,
+    dayOfWeek: dayOfWeek,
+    dateString: date.toLocaleDateString('pt-BR', { weekday: 'long' })
+  });
+  
+  return dayOfWeek;
 }
 
 /**
@@ -63,12 +74,43 @@ export function isCollaboratorAvailable(
   // 2. Obter dia da semana do agendamento
   const dayOfWeek = getDayOfWeek(appointmentDate);
 
-  // 3. Buscar configuração do dia
-  const daySchedule = schedules.find(s => s.day_of_week === dayOfWeek);
+  console.log('🔍 DEBUG isCollaboratorAvailable:', {
+    dayOfWeek,
+    schedulesCount: schedules.length,
+    schedules: schedules.map(s => ({ day: s.day_of_week, enabled: s.enabled, start: s.start_time, end: s.end_time }))
+  });
+
+  // 3. Buscar configuração do dia (case-insensitive para garantir)
+  const daySchedule = schedules.find(s => 
+    s.day_of_week?.toLowerCase() === dayOfWeek?.toLowerCase()
+  );
+
+  console.log('📋 Schedule encontrado para o dia:', {
+    dayOfWeek,
+    daySchedule,
+    allSchedules: schedules.map(s => ({
+      day: s.day_of_week,
+      enabled: s.enabled,
+      start: s.start_time,
+      end: s.end_time
+    }))
+  });
 
   // 4. Verificar se colaborador trabalha neste dia
   if (!daySchedule || !daySchedule.enabled) {
-    return { available: false, reason: 'Colaborador não trabalha neste dia' };
+    const availableDays = schedules
+      .filter(s => s.enabled)
+      .map(s => s.day_of_week)
+      .join(', ');
+    console.error('❌ Colaborador não trabalha neste dia:', {
+      dayOfWeek,
+      availableDays,
+      daySchedule
+    });
+    return { 
+      available: false, 
+      reason: `Colaborador não trabalha neste dia (${dayOfWeek}). Dias disponíveis: ${availableDays || 'nenhum'}` 
+    };
   }
 
   // 5. Verificar se horários estão configurados

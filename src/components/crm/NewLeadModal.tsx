@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import { CalendarIcon, UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -42,6 +43,7 @@ interface NewLeadModalProps {
 export function NewLeadModal({ open, onOpenChange }: NewLeadModalProps) {
   const queryClient = useQueryClient();
   const [firstContactDate, setFirstContactDate] = useState<Date | undefined>(new Date());
+  const [hasNotContacted, setHasNotContacted] = useState(false);
 
   const {
     register,
@@ -72,7 +74,7 @@ export function NewLeadModal({ open, onOpenChange }: NewLeadModalProps) {
           neighborhood: data.neighborhood || null,
           instagram: data.instagram || null,
           origin: data.origin || null,
-          first_contact_date: firstContactDate ? format(firstContactDate, 'yyyy-MM-dd') : null,
+          first_contact_date: hasNotContacted ? null : (firstContactDate ? format(firstContactDate, 'yyyy-MM-dd') : null),
           status: 'novo_lead',
           heat_score: 0,
         }));
@@ -87,6 +89,7 @@ export function NewLeadModal({ open, onOpenChange }: NewLeadModalProps) {
       });
       reset();
       setFirstContactDate(new Date());
+      setHasNotContacted(false);
       onOpenChange(false);
     },
     onError: (error: any) => {
@@ -250,6 +253,7 @@ export function NewLeadModal({ open, onOpenChange }: NewLeadModalProps) {
                     variant="outline"
                     className="w-full mt-1 justify-start text-left font-normal"
                     style={{ borderRadius: '12px', borderColor: '#F7D5E8' }}
+                    disabled={hasNotContacted}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {firstContactDate ? format(firstContactDate, 'dd/MM/yyyy', { locale: ptBR }) : 'Selecionar'}
@@ -265,6 +269,28 @@ export function NewLeadModal({ open, onOpenChange }: NewLeadModalProps) {
                 </PopoverContent>
               </Popover>
             </div>
+          </div>
+
+          {/* Checkbox Ainda não teve contato */}
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="hasNotContacted"
+              checked={hasNotContacted}
+              onCheckedChange={(checked) => {
+                setHasNotContacted(checked as boolean);
+                if (checked) {
+                  setFirstContactDate(undefined);
+                } else {
+                  setFirstContactDate(new Date());
+                }
+              }}
+            />
+            <Label
+              htmlFor="hasNotContacted"
+              className="text-sm font-medium text-[#5A4A5E] cursor-pointer"
+            >
+              Ainda não teve contato
+            </Label>
           </div>
 
           {/* Botões */}

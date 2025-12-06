@@ -156,7 +156,9 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
         // VALIDAÇÃO: Verificar horários de trabalho do colaborador
         if (selectedCollaboratorId && date && appointmentData.appointment_time) {
           const formattedDate = format(date, 'yyyy-MM-dd');
-          const selectedDate = new Date(formattedDate);
+          // Criar data sem problemas de timezone - usar apenas ano, mês e dia
+          const [year, month, day] = formattedDate.split('-').map(Number);
+          const selectedDate = new Date(year, month - 1, day); // month - 1 porque Date usa 0-11
           selectedDate.setHours(0, 0, 0, 0);
 
           // Buscar colaborador e seus horários
@@ -172,6 +174,25 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
               .select('*')
               .eq('collaborator_id', selectedCollaboratorId));
 
+            console.log('🔍 DEBUG - Validação de horário do colaborador:');
+            console.log('Data selecionada (string):', formattedDate);
+            console.log('Data objeto:', selectedDate);
+            console.log('Data ISO:', selectedDate.toISOString());
+            console.log('Data local:', selectedDate.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }));
+            console.log('Dia da semana (getDay()):', selectedDate.getDay(), '-', ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'][selectedDate.getDay()]);
+            console.log('Horário selecionado:', appointmentData.appointment_time);
+            console.log('Colaborador ID:', selectedCollaboratorId);
+            console.log('Colaborador:', collaboratorData.name);
+            console.log('Colaborador ativo:', collaboratorData.active);
+            console.log('Schedules encontrados:', schedules);
+            console.log('Schedules detalhados:', schedules?.map(s => ({
+              id: s.id,
+              day_of_week: s.day_of_week,
+              enabled: s.enabled,
+              start_time: s.start_time,
+              end_time: s.end_time
+            })));
+
             if (schedules && schedules.length > 0) {
               const validation = isCollaboratorAvailable(
                 collaboratorData,
@@ -180,9 +201,14 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
                 appointmentData.appointment_time
               );
 
+              console.log('Resultado da validação:', validation);
+
               if (!validation.available) {
                 throw new Error(validation.reason || 'Colaborador não está disponível neste horário');
               }
+            } else {
+              console.warn('⚠️ Nenhum schedule encontrado para o colaborador');
+              // Se não houver schedules, permitir o agendamento (compatibilidade com sistema antigo)
             }
           }
         }
@@ -404,11 +430,57 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
       });
 
       for (const apt of appointments) {
+        // Garantir que todos os campos obrigatórios estão presentes
+        const appointmentToInsert = {
+          user_id: user?.id,
+          service_id: apt.service_id,
+          client_name: apt.client_name || trimmedClientName,
+          client_phone: apt.client_phone || normalizedPhone,
+          appointment_date: apt.appointment_date,
+          appointment_time: apt.appointment_time,
+          status: apt.status || 'agendado',
+          collaborator_id: apt.collaborator_id || null,
+          total_amount: apt.total_amount || 0,
+          client_id: apt.client_id || null,
+          notes: notes || null,
+          observations: notes || null,
+        };
+        
+        // Validar campos obrigatórios antes de inserir
+        if (!appointmentToInsert.service_id) {
+          throw new Error('Serviço é obrigatório');
+        }
+        if (!appointmentToInsert.client_name) {
+          throw new Error('Nome do cliente é obrigatório');
+        }
+        if (!appointmentToInsert.client_phone) {
+          throw new Error('Telefone do cliente é obrigatório');
+        }
+        if (!appointmentToInsert.appointment_date) {
+          throw new Error('Data do agendamento é obrigatória');
+        }
+        if (!appointmentToInsert.appointment_time) {
+          throw new Error('Horário do agendamento é obrigatório');
+        }
+        
         const { error } = await supabase
           .from('appointments')
-          .insert(apt);
+          .insert(appointmentToInsert);
         
-        if (error) throw error;
+        if (error) {
+          console.error('Erro ao inserir agendamento:', error);
+          console.error('Dados sendo inseridos:', appointmentToInsert);
+          // Melhorar mensagem de erro do Supabase
+          if (error.code === '23503') {
+            throw new Error('Erro de referência: Verifique se o serviço ou colaborador existe.');
+          } else if (error.code === '23505') {
+            throw new Error('Já existe um agendamento com estes dados.');
+          } else if (error.message) {
+            throw new Error(error.message);
+          } else {
+            throw new Error(`Erro ao criar agendamento: ${error.code || 'Erro desconhecido'}`);
+          }
+        }
       }
     },
     onSuccess: () => {
@@ -427,12 +499,14 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
       onOpenChange(false);
       resetForm();
     },
-    onError: () => {
+    onError: (error: any) => {
+      const errorMessage = error?.message || error?.error?.message || 'Não foi possível criar o agendamento.';
       toast({
         title: 'Erro',
-        description: 'Não foi possível criar o agendamento.',
+        description: errorMessage,
         variant: 'destructive',
       });
+      console.error('Erro ao criar agendamento:', error);
     }
   });
 
@@ -548,12 +622,14 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
       onOpenChange(false);
       resetForm();
     },
-    onError: () => {
+    onError: (error: any) => {
+      const errorMessage = error?.message || error?.error?.message || 'Não foi possível atualizar o agendamento.';
       toast({
         title: 'Erro',
-        description: 'Não foi possível atualizar o agendamento.',
+        description: errorMessage,
         variant: 'destructive',
       });
+      console.error('Erro ao atualizar agendamento:', error);
     }
   });
 

@@ -33,18 +33,27 @@ export const MetricCard = ({
   };
 
   return (
-    <Card className="group hover:shadow-medium transition-all duration-300 border-border/50 bg-card/50 backdrop-blur-sm">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+    <Card 
+      className="group hover:shadow-md transition-all duration-300 border-0"
+      style={{ borderRadius: '20px' }}
+    >
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+        <CardTitle className="text-sm font-medium" style={{ color: '#5A4A5E' }}>
           {title}
         </CardTitle>
-        <div className="p-2 bg-primary-light rounded-lg group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-200">
+        <div 
+          className="p-2 rounded-lg transition-colors duration-200"
+          style={{ 
+            backgroundColor: '#F7D5E8',
+            color: '#8E44EC'
+          }}
+        >
           <Icon className="h-4 w-4" />
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-1">
-          <div className="text-2xl font-bold text-foreground">
+        <div className="space-y-2">
+          <div className="text-3xl font-bold" style={{ color: '#5A2E98' }}>
             {value}
           </div>
           {(change || description) && (
@@ -55,7 +64,7 @@ export const MetricCard = ({
                 </p>
               )}
               {description && (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs" style={{ color: '#5A4A5E' }}>
                   {description}
                 </p>
               )}

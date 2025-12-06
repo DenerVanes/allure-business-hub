@@ -139,9 +139,9 @@ const Index = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4">
       {/* Top metrics row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <MetricCard
           title="Agendamentos Hoje"
           value={todayAppointments.length}
@@ -151,7 +151,8 @@ const Index = () => {
             <Button 
               variant="outline" 
               size="sm" 
-              className="w-full"
+              className="w-full rounded-full"
+              style={{ borderColor: '#C9A7FD', color: '#8E44EC' }}
               onClick={() => setShowAllAppointmentsModal(true)}
             >
               <Eye className="h-4 w-4 mr-2" />
@@ -235,24 +236,40 @@ const Index = () => {
       </div>
       
       {/* Bottom cards row - Stock Alerts and Financial Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="shadow-soft border-border/50">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card 
+          className="border-0 shadow-md"
+          style={{ borderRadius: '20px' }}
+        >
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Package className="h-5 w-5 text-yellow-600" />
+            <CardTitle className="flex items-center gap-2 text-lg" style={{ color: '#5A2E98' }}>
+              <div 
+                className="p-1.5 rounded-lg"
+                style={{ backgroundColor: '#FDE68A' }}
+              >
+                <Package className="h-5 w-5" style={{ color: '#F59E0B' }} />
+              </div>
               Alertas de Estoque
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium">Produtos com estoque baixo</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="font-medium text-sm" style={{ color: '#5A2E98' }}>
+                    Produtos com estoque baixo
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: '#5A4A5E' }}>
                     {lowStockProducts.length} produtos precisam de atenção
                   </p>
                 </div>
-                <Badge variant={lowStockProducts.length > 0 ? "destructive" : "default"}>
+                <Badge 
+                  className="text-xs px-2 py-1"
+                  style={{ 
+                    backgroundColor: lowStockProducts.length > 0 ? '#FECDD3' : '#E5E7EB',
+                    color: lowStockProducts.length > 0 ? '#EF4444' : '#9CA3AF'
+                  }}
+                >
                   {lowStockProducts.length}
                 </Badge>
               </div>
@@ -260,7 +277,8 @@ const Index = () => {
               <Button 
                 onClick={() => setShowStockAlertModal(true)}
                 variant="outline" 
-                className="w-full"
+                className="w-full rounded-full"
+                style={{ borderColor: '#C9A7FD', color: '#8E44EC' }}
               >
                 <Eye className="h-4 w-4 mr-2" />
                 Ver Produtos
@@ -269,27 +287,53 @@ const Index = () => {
           </CardContent>
         </Card>
 
-        <Card className="shadow-soft border-border/50">
+        <Card 
+          className="border-0 shadow-md"
+          style={{ borderRadius: '20px' }}
+        >
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <TrendingUp className="h-5 w-5 text-blue-600" />
+            <CardTitle className="flex items-center gap-2 text-lg" style={{ color: '#5A2E98' }}>
+              <div 
+                className="p-1.5 rounded-lg"
+                style={{ backgroundColor: '#DBEAFE' }}
+              >
+                <TrendingUp className="h-5 w-5" style={{ color: '#3B82F6' }} />
+              </div>
               Resumo Financeiro
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Receitas do Mês</span>
-                <span className="text-green-600 font-semibold">R$ {monthlyIncome.toFixed(2)}</span>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-sm font-medium" style={{ color: '#5A4A5E' }}>
+                  Receitas do Mês
+                </span>
+                <span className="text-sm font-semibold" style={{ color: '#10B981' }}>
+                  R$ {monthlyIncome.toFixed(2)}
+                </span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Despesas do Mês</span>
-                <span className="text-red-600 font-semibold">R$ {monthlyExpenses.toFixed(2)}</span>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-sm font-medium" style={{ color: '#5A4A5E' }}>
+                  Despesas do Mês
+                </span>
+                <span className="text-sm font-semibold" style={{ color: '#EF4444' }}>
+                  R$ {monthlyExpenses.toFixed(2)}
+                </span>
               </div>
-              <div className="border-t pt-3">
+              <div 
+                className="border-t pt-3 mt-2"
+                style={{ borderColor: '#F7D5E8' }}
+              >
                 <div className="flex justify-between items-center">
-                  <span className="font-medium">Saldo do Mês</span>
-                  <span className={`font-bold ${monthlyIncome - monthlyExpenses >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  <span className="font-semibold text-sm" style={{ color: '#5A2E98' }}>
+                    Saldo do Mês
+                  </span>
+                  <span 
+                    className="font-bold text-base"
+                    style={{ 
+                      color: monthlyIncome - monthlyExpenses >= 0 ? '#10B981' : '#EF4444'
+                    }}
+                  >
                     R$ {(monthlyIncome - monthlyExpenses).toFixed(2)}
                   </span>
                 </div>

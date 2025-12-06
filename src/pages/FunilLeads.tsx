@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { DndContext, DragEndEvent, DragOverlay, closestCorners, DragStartEvent } from '@dnd-kit/core';
+import { DndContext, DragEndEvent, DragOverlay, closestCorners, DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +31,7 @@ import { LeadCard } from '@/components/crm/LeadCard';
 import { LeadKanbanColumn } from '@/components/crm/LeadKanbanColumn';
 import { NewLeadModal } from '@/components/crm/NewLeadModal';
 import { LeadDetailModal } from '@/components/crm/LeadDetailModal';
+import { LeadsListModal } from '@/components/crm/LeadsListModal';
 import { generateLeadsPdf } from '@/utils/leadsPdfExport';
 
 export interface Lead {
@@ -75,6 +76,17 @@ export default function FunilLeads() {
   const [showNewLeadModal, setShowNewLeadModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [showLeadsListModal, setShowLeadsListModal] = useState(false);
+  const [leadsListStatus, setLeadsListStatus] = useState<'fechado' | 'perdido' | null>(null);
+
+  // Configurar sensor com delay para permitir cliques
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Requer movimento de 8px antes de iniciar drag
+      },
+    })
+  );
 
   // Buscar leads
   const { data: leads = [], isLoading } = useQuery({
@@ -373,6 +385,7 @@ export default function FunilLeads() {
 
       {/* Kanban Board */}
       <DndContext 
+        sensors={sensors}
         collisionDetection={closestCorners}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
@@ -385,6 +398,14 @@ export default function FunilLeads() {
               config={config}
               leads={leadsByStatus[status] || []}
               onLeadClick={setSelectedLead}
+              onViewAll={
+                (status === 'fechado' || status === 'perdido') 
+                  ? () => {
+                      setLeadsListStatus(status as 'fechado' | 'perdido');
+                      setShowLeadsListModal(true);
+                    }
+                  : undefined
+              }
             />
           ))}
         </div>
@@ -411,6 +432,16 @@ export default function FunilLeads() {
           open={!!selectedLead}
           onOpenChange={(open) => !open && setSelectedLead(null)}
           lead={selectedLead}
+        />
+      )}
+
+      {leadsListStatus && (
+        <LeadsListModal
+          open={showLeadsListModal}
+          onOpenChange={setShowLeadsListModal}
+          leads={leadsByStatus[leadsListStatus] || []}
+          title={leadsListStatus === 'fechado' ? 'Leads Fechados' : 'Leads Perdidos'}
+          onLeadClick={setSelectedLead}
         />
       )}
     </div>

@@ -37,83 +37,96 @@ export function LeadCard({ lead, onClick, isDragging }: LeadCardProps) {
     ? differenceInDays(new Date(), new Date(lead.last_contact_at))
     : null;
 
+  // O sensor do DndContext já requer 8px de movimento antes de iniciar drag
+  // Isso permite que cliques simples funcionem enquanto arrastos também funcionam
+  const handleClick = (e: React.MouseEvent) => {
+    // Pequeno delay para garantir que não foi um drag
+    // O sensor do DndContext já filtra drags com menos de 8px
+    setTimeout(() => {
+      onClick(lead);
+    }, 100);
+  };
+
   return (
     <Card
       ref={setNodeRef}
       style={style}
-      {...listeners}
       {...attributes}
+      {...listeners}
       className={cn(
-        "p-3 cursor-grab active:cursor-grabbing transition-all hover:shadow-md border-0",
+        "p-2 transition-all hover:shadow-md border-0 relative cursor-grab active:cursor-grabbing w-full overflow-hidden",
         isDragging && "shadow-lg opacity-90 rotate-2"
       )}
-      onClick={() => onClick(lead)}
+      onClick={handleClick}
       role="button"
       tabIndex={0}
     >
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="flex-1 min-w-0">
-          <h4 className="font-semibold text-sm text-[#5A2E98] truncate">
+      {/* Header com temperatura */}
+      <div className="flex items-start justify-between gap-1 mb-1">
+        <div className="flex-1 min-w-0 pr-1 overflow-hidden">
+          <h4 className="font-semibold text-xs leading-tight text-[#5A2E98] truncate">
             {lead.salon_name}
           </h4>
           {lead.contact_name && (
-            <p className="text-xs text-[#5A4A5E] truncate">
+            <p className="text-[10px] text-[#5A4A5E] truncate mt-0.5 leading-tight">
               {lead.contact_name}
             </p>
           )}
         </div>
         
-        {/* Heat Score Badge */}
+        {/* Heat Score - apenas ícone e porcentagem */}
         <div 
-          className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium"
-          style={{ backgroundColor: heatInfo.bg, color: heatInfo.color }}
+          className="flex items-center gap-0.5 text-[10px] font-semibold flex-shrink-0"
+          style={{ color: heatInfo.color }}
+          title={`Temperatura: ${lead.heat_score}%`}
         >
-          <HeatIcon className="h-3 w-3" />
-          <span>{lead.heat_score}%</span>
+          <HeatIcon className="h-3 w-3 flex-shrink-0" />
+          <span className="whitespace-nowrap leading-none">{lead.heat_score}%</span>
         </div>
       </div>
 
-      {/* Info */}
-      <div className="space-y-1 text-xs text-[#5A4A5E]">
+      {/* Info - mais compacto */}
+      <div className="space-y-0.5 text-[10px] text-[#5A4A5E] mb-1">
         {lead.city && (
-          <div className="flex items-center gap-1">
-            <MapPin className="h-3 w-3" />
-            <span className="truncate">{lead.city}{lead.neighborhood ? ` - ${lead.neighborhood}` : ''}</span>
+          <div className="flex items-center gap-0.5 min-w-0">
+            <MapPin className="h-2.5 w-2.5 flex-shrink-0" />
+            <span className="truncate leading-tight">{lead.city}{lead.neighborhood ? ` - ${lead.neighborhood}` : ''}</span>
           </div>
         )}
         
         {lead.phone && (
-          <div className="flex items-center gap-1">
-            <Phone className="h-3 w-3" />
-            <span>{lead.phone}</span>
+          <div className="flex items-center gap-0.5 min-w-0">
+            <Phone className="h-2.5 w-2.5 flex-shrink-0" />
+            <span className="truncate leading-tight">{lead.phone}</span>
           </div>
         )}
 
         {lead.instagram && (
-          <div className="flex items-center gap-1">
-            <Instagram className="h-3 w-3" />
-            <span className="truncate">@{lead.instagram.replace('@', '')}</span>
+          <div className="flex items-center gap-0.5 min-w-0">
+            <Instagram className="h-2.5 w-2.5 flex-shrink-0" />
+            <span className="truncate leading-tight">@{lead.instagram.replace('@', '')}</span>
           </div>
         )}
       </div>
 
-      {/* Footer */}
-      <div className="flex items-center justify-between mt-3 pt-2 border-t border-[#F7D5E8]">
+      {/* Footer - mais compacto */}
+      <div className="flex items-center justify-between mt-1 pt-1 border-t border-[#F7D5E8] gap-1">
         {lead.origin && (
           <Badge 
             variant="secondary" 
-            className="text-xs px-2 py-0"
+            className="text-[10px] px-1.5 py-0 h-4 flex-shrink-0"
             style={{ backgroundColor: '#F7D5E8', color: '#8E44EC' }}
           >
-            {lead.origin === 'trafego_pago' ? 'Tráfego Pago' : 
-             lead.origin.charAt(0).toUpperCase() + lead.origin.slice(1)}
+            <span className="truncate max-w-[80px] block">
+              {lead.origin === 'trafego_pago' ? 'Tráfego Pago' : 
+               lead.origin.charAt(0).toUpperCase() + lead.origin.slice(1)}
+            </span>
           </Badge>
         )}
         
         {daysSinceContact !== null && (
           <span 
-            className="text-xs"
+            className="text-[10px] whitespace-nowrap flex-shrink-0"
             style={{ 
               color: daysSinceContact > 7 ? '#EF4444' : 
                      daysSinceContact > 3 ? '#F59E0B' : '#5A4A5E' 
