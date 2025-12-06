@@ -1,4 +1,4 @@
-import { Calendar, LayoutDashboard, Scissors, Package, DollarSign, Users, Settings, UserCheck, Shield, CreditCard, CheckCircle } from 'lucide-react';
+import { Calendar, LayoutDashboard, Scissors, Package, DollarSign, Users, Settings, UserCheck, Shield, CreditCard, CheckCircle, Target } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, useSidebar } from '@/components/ui/sidebar';
 import { useQuery } from '@tanstack/react-query';
@@ -50,6 +50,11 @@ const menuItems = [
 ];
 
 const adminMenuItems = [
+  {
+    title: 'CRM de Vendas',
+    url: '/funil-leads',
+    icon: Target
+  },
   {
     title: 'Gestão de Clientes',
     url: '/gestao-clientes',
