@@ -46,6 +46,7 @@ export interface Lead {
   status: string;
   heat_score: number;
   origin: string | null;
+  seller: string | null;
   first_contact_date: string | null;
   last_contact_at: string | null;
   next_action_at: string | null;
@@ -73,6 +74,7 @@ export default function FunilLeads() {
   const [filterOrigin, setFilterOrigin] = useState<string>('all');
   const [filterCity, setFilterCity] = useState<string>('all');
   const [filterHeat, setFilterHeat] = useState<string>('all');
+  const [filterSeller, setFilterSeller] = useState<string>('all');
   const [showNewLeadModal, setShowNewLeadModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -157,9 +159,12 @@ export default function FunilLeads() {
         if (filterHeat === 'frio' && lead.heat_score >= 30) return false;
       }
 
+      // Filtro por vendedor
+      if (filterSeller !== 'all' && lead.seller !== filterSeller) return false;
+
       return true;
     });
-  }, [leads, searchQuery, filterOrigin, filterCity, filterHeat]);
+  }, [leads, searchQuery, filterOrigin, filterCity, filterHeat, filterSeller]);
 
   // Agrupar leads por status
   const leadsByStatus = useMemo(() => {
@@ -377,6 +382,17 @@ export default function FunilLeads() {
                 <SelectItem value="quente">🔥 Quente (70%+)</SelectItem>
                 <SelectItem value="morno">🌤 Morno (30-69%)</SelectItem>
                 <SelectItem value="frio">❄️ Frio (0-29%)</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={filterSeller} onValueChange={setFilterSeller}>
+              <SelectTrigger className="w-[180px]" style={{ borderRadius: '12px', borderColor: '#F7D5E8' }}>
+                <SelectValue placeholder="Vendedor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos vendedores</SelectItem>
+                <SelectItem value="Dener Vanes">Dener Vanes</SelectItem>
+                <SelectItem value="Larissa Botelho">Larissa Botelho</SelectItem>
               </SelectContent>
             </Select>
           </div>

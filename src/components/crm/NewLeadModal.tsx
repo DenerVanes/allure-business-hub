@@ -31,6 +31,7 @@ const leadSchema = z.object({
   neighborhood: z.string().optional(),
   instagram: z.string().optional(),
   origin: z.string().optional(),
+  seller: z.string().optional(),
 });
 
 type LeadFormData = z.infer<typeof leadSchema>;
@@ -56,10 +57,12 @@ export function NewLeadModal({ open, onOpenChange }: NewLeadModalProps) {
     resolver: zodResolver(leadSchema),
     defaultValues: {
       origin: '',
+      seller: 'sem_vendedor',
     },
   });
 
   const origin = watch('origin');
+  const seller = watch('seller');
 
   const createLeadMutation = useMutation({
     mutationFn: async (data: LeadFormData) => {
@@ -74,6 +77,7 @@ export function NewLeadModal({ open, onOpenChange }: NewLeadModalProps) {
           neighborhood: data.neighborhood || null,
           instagram: data.instagram || null,
           origin: data.origin || null,
+          seller: data.seller === 'sem_vendedor' || !data.seller ? null : data.seller,
           first_contact_date: hasNotContacted ? null : (firstContactDate ? format(firstContactDate, 'yyyy-MM-dd') : null),
           status: 'novo_lead',
           heat_score: 0,
@@ -219,6 +223,23 @@ export function NewLeadModal({ open, onOpenChange }: NewLeadModalProps) {
               className="mt-1"
               style={{ borderRadius: '12px', borderColor: '#F7D5E8' }}
             />
+          </div>
+
+          {/* Vendedor */}
+          <div>
+            <Label className="text-sm font-medium text-[#5A4A5E]">
+              Vendedor
+            </Label>
+            <Select value={seller} onValueChange={(value) => setValue('seller', value)}>
+              <SelectTrigger className="mt-1" style={{ borderRadius: '12px', borderColor: '#F7D5E8' }}>
+                <SelectValue placeholder="Selecione o vendedor..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sem_vendedor">Sem vendedor</SelectItem>
+                <SelectItem value="Dener Vanes">Dener Vanes</SelectItem>
+                <SelectItem value="Larissa Botelho">Larissa Botelho</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Origem e Data */}

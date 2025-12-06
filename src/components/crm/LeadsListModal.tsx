@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
-import { Search, Phone, Mail, MapPin, Instagram, Calendar as CalendarIcon } from 'lucide-react';
+import { Search, Phone, Mail, MapPin, Instagram, Calendar as CalendarIcon, User } from 'lucide-react';
 import { Lead } from '@/pages/FunilLeads';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -120,6 +120,12 @@ export function LeadsListModal({ open, onOpenChange, leads, title, onLeadClick }
                           <div className="flex items-center gap-1">
                             <CalendarIcon className="h-3 w-3" style={{ color: '#8E44EC' }} />
                             <span>1º contato: {format(new Date(lead.first_contact_date), 'dd/MM/yyyy', { locale: ptBR })}</span>
+                          </div>
+                        )}
+                        {lead.seller && (
+                          <div className="flex items-center gap-1">
+                            <User className="h-3 w-3" style={{ color: '#8E44EC' }} />
+                            <span>{lead.seller}</span>
                           </div>
                         )}
                       </div>

@@ -104,6 +104,7 @@ export function LeadDetailModal({ open, onOpenChange, lead }: LeadDetailModalPro
   const [newTaskDate, setNewTaskDate] = useState<Date | undefined>(undefined);
   const [currentStatus, setCurrentStatus] = useState(lead.status);
   const [heatScore, setHeatScore] = useState(lead.heat_score);
+  const [seller, setSeller] = useState(lead.seller ? lead.seller : 'sem_vendedor');
   const [nextActionDate, setNextActionDate] = useState<Date | undefined>(
     lead.next_action_at ? new Date(lead.next_action_at) : undefined
   );
@@ -287,6 +288,7 @@ export function LeadDetailModal({ open, onOpenChange, lead }: LeadDetailModalPro
         .update({ 
           status: currentStatus, 
           heat_score: heatScore,
+          seller: seller === 'sem_vendedor' || !seller ? null : seller,
           next_action_at: nextActionDate ? nextActionDate.toISOString() : null,
           next_action_description: nextActionDescription || null,
           updated_at: new Date().toISOString()
@@ -408,8 +410,8 @@ export function LeadDetailModal({ open, onOpenChange, lead }: LeadDetailModalPro
             )}
           </div>
 
-          {/* Status e Temperatura */}
-          <div className="grid grid-cols-2 gap-4 py-4 border-y" style={{ borderColor: '#F7D5E8' }}>
+          {/* Status, Vendedor e Temperatura */}
+          <div className="grid grid-cols-3 gap-4 py-4 border-y" style={{ borderColor: '#F7D5E8' }}>
             <div>
               <Label className="text-sm font-medium text-[#5A4A5E]">Status do Lead</Label>
               <Select value={currentStatus} onValueChange={setCurrentStatus}>
@@ -420,6 +422,20 @@ export function LeadDetailModal({ open, onOpenChange, lead }: LeadDetailModalPro
                   {statusOptions.map(opt => (
                     <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium text-[#5A4A5E]">Vendedor</Label>
+              <Select value={seller} onValueChange={(value) => setSeller(value === 'sem_vendedor' ? 'sem_vendedor' : value)}>
+                <SelectTrigger className="mt-1" style={{ borderRadius: '12px', borderColor: '#F7D5E8' }}>
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sem_vendedor">Sem vendedor</SelectItem>
+                  <SelectItem value="Dener Vanes">Dener Vanes</SelectItem>
+                  <SelectItem value="Larissa Botelho">Larissa Botelho</SelectItem>
                 </SelectContent>
               </Select>
             </div>
