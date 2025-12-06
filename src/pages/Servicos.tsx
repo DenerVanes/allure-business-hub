@@ -166,7 +166,7 @@ const Servicos = () => {
     // Filtro por preço
     if (filterPrice !== 'all') {
       filtered = filtered.filter(service => {
-        const price = parseFloat(service.price);
+        const price = parseFloat(String(service.price));
         switch (filterPrice) {
           case '0-50': return price <= 50;
           case '50-100': return price > 50 && price <= 100;
@@ -180,7 +180,7 @@ const Servicos = () => {
     // Filtro por duração
     if (filterDuration !== 'all') {
       filtered = filtered.filter(service => {
-        const duration = parseInt(service.duration);
+        const duration = parseInt(String(service.duration));
         switch (filterDuration) {
           case '0-30': return duration <= 30;
           case '30-60': return duration > 30 && duration <= 60;

@@ -167,15 +167,15 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
             .single();
 
           if (collaboratorData) {
-            const { data: schedules } = await supabase
-              .from('collaborator_schedules')
+            const { data: schedules } = await (supabase
+              .from('collaborator_schedules' as any)
               .select('*')
-              .eq('collaborator_id', selectedCollaboratorId);
+              .eq('collaborator_id', selectedCollaboratorId));
 
             if (schedules && schedules.length > 0) {
               const validation = isCollaboratorAvailable(
                 collaboratorData,
-                schedules,
+                schedules as any,
                 selectedDate,
                 appointmentData.appointment_time
               );
