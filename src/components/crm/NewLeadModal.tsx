@@ -111,7 +111,7 @@ export function NewLeadModal({ open, onOpenChange }: NewLeadModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]" style={{ borderRadius: '20px' }}>
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto" style={{ borderRadius: '20px' }}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl" style={{ color: '#5A2E98' }}>
             <UserPlus className="h-5 w-5" style={{ color: '#8E44EC' }} />
@@ -119,7 +119,7 @@ export function NewLeadModal({ open, onOpenChange }: NewLeadModalProps) {
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
           {/* Nome do Salão */}
           <div>
             <Label htmlFor="salon_name" className="text-sm font-medium text-[#5A4A5E]">
