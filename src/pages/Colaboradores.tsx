@@ -48,20 +48,20 @@ export default function Colaboradores() {
       if (!user?.id || collaborators.length === 0) return [];
       
       const collaboratorIds = collaborators.map(c => c.id);
-      const { data, error } = await supabase
-        .from('collaborator_schedules')
+      const { data, error } = await (supabase
+        .from('collaborator_schedules' as any)
         .select('*')
-        .in('collaborator_id', collaboratorIds);
+        .in('collaborator_id', collaboratorIds));
       
       if (error) throw error;
-      return data || [];
+      return (data || []) as any[];
     },
     enabled: !!user?.id && collaborators.length > 0
   });
 
   // Função para obter horários de um colaborador
   const getCollaboratorSchedules = (collaboratorId: string) => {
-    return allSchedules.filter(s => s.collaborator_id === collaboratorId);
+    return allSchedules.filter((s: any) => s.collaborator_id === collaboratorId);
   };
 
   const deleteCollaboratorMutation = useMutation({
@@ -272,8 +272,8 @@ export default function Colaboradores() {
           ) : (
             <div className="space-y-3">
               {filteredCollaborators.map((collaborator) => {
-                const schedules = getCollaboratorSchedules(collaborator.id);
-                const scheduleSummary = formatWorkScheduleSummary(schedules);
+                const schedules = getCollaboratorSchedules(collaborator.id) as any[];
+                const scheduleSummary = formatWorkScheduleSummary(schedules as any);
                 
                 return (
                   <div

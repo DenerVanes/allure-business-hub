@@ -17,6 +17,7 @@ import { CollaboratorBlockModal } from './CollaboratorBlockModal';
 import { WorkScheduleConfig } from './WorkScheduleConfig';
 import { 
   WorkScheduleDay, 
+  CollaboratorSchedule,
   validateWorkSchedule,
   convertSchedulesToWorkSchedule,
   convertWorkScheduleToSchedules
@@ -77,17 +78,17 @@ export function CollaboratorModal({ open, onOpenChange, collaborator }: Collabor
       if (!collaborator?.id) return [];
       
       try {
-        const { data, error } = await supabase
-          .from('collaborator_schedules')
+        const { data, error } = await (supabase
+          .from('collaborator_schedules' as any)
           .select('*')
           .eq('collaborator_id', collaborator.id)
-          .order('day_of_week');
+          .order('day_of_week'));
         
         if (error) {
           console.error('Erro ao buscar horários:', error);
           return [];
         }
-        return data || [];
+        return (data as unknown as CollaboratorSchedule[]) || [];
       } catch (err) {
         console.error('Erro ao buscar horários:', err);
         return [];
@@ -134,7 +135,7 @@ export function CollaboratorModal({ open, onOpenChange, collaborator }: Collabor
       
       // Só atualizar se os schedules realmente mudaram
       if (schedulesKey !== lastSchedulesRef.current) {
-        const converted = convertSchedulesToWorkSchedule(existingSchedules);
+        const converted = convertSchedulesToWorkSchedule(existingSchedules as CollaboratorSchedule[]);
         setWorkSchedule(converted);
         lastSchedulesRef.current = schedulesKey;
         hasInitializedSchedule.current = true;
@@ -285,10 +286,10 @@ export function CollaboratorModal({ open, onOpenChange, collaborator }: Collabor
 
       // Salvar/atualizar horários
       // Primeiro, deletar todos os horários existentes
-      const { error: deleteError } = await supabase
-        .from('collaborator_schedules')
+      const { error: deleteError } = await (supabase
+        .from('collaborator_schedules' as any)
         .delete()
-        .eq('collaborator_id', collaboratorId);
+        .eq('collaborator_id', collaboratorId));
 
       if (deleteError) {
         console.error('Erro ao deletar horários existentes:', deleteError);
@@ -304,9 +305,9 @@ export function CollaboratorModal({ open, onOpenChange, collaborator }: Collabor
       console.log('Horários a serem inseridos:', schedulesToInsert);
       
       if (schedulesToInsert.length > 0) {
-        const { error: scheduleError, data: insertedSchedules } = await supabase
-          .from('collaborator_schedules')
-          .insert(schedulesToInsert)
+        const { error: scheduleError, data: insertedSchedules } = await (supabase
+          .from('collaborator_schedules' as any)
+          .insert(schedulesToInsert as any))
           .select();
 
         if (scheduleError) {

@@ -243,13 +243,13 @@ export default function AgendamentoPublico() {
     queryFn: async () => {
       if (!selectedCollaborator) return [];
       
-      const { data, error } = await supabase
-        .from('collaborator_schedules')
+      const { data, error } = await (supabase
+        .from('collaborator_schedules' as any)
         .select('*')
-        .eq('collaborator_id', selectedCollaborator);
+        .eq('collaborator_id', selectedCollaborator));
       
       if (error) throw error;
-      return data || [];
+      return (data || []) as any[];
     },
     enabled: !!selectedCollaborator
   });
@@ -397,7 +397,7 @@ export default function AgendamentoPublico() {
     // Verificar horários de trabalho do colaborador
     if (collaboratorSchedules.length > 0) {
       const slots = getAvailableTimeSlots(
-        collaboratorSchedules,
+        collaboratorSchedules as any,
         selectedDate,
         30, // intervalo de 30 minutos
         existingAppointments,
@@ -456,15 +456,15 @@ export default function AgendamentoPublico() {
           .single();
 
         if (collaboratorData) {
-          const { data: schedules } = await supabase
-            .from('collaborator_schedules')
+          const { data: schedules } = await (supabase
+            .from('collaborator_schedules' as any)
             .select('*')
-            .eq('collaborator_id', selectedCollaborator);
+            .eq('collaborator_id', selectedCollaborator));
 
           if (schedules && schedules.length > 0) {
             const validation = isCollaboratorAvailable(
               collaboratorData,
-              schedules,
+              schedules as any,
               selectedDate,
               selectedTime
             );
