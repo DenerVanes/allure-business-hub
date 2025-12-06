@@ -389,6 +389,139 @@ export type Database = {
           },
         ]
       }
+      lead_notes: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          lead_id: string
+          note_type: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          lead_id: string
+          note_type?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          lead_id?: string
+          note_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_notes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_tasks: {
+        Row: {
+          completed: boolean | null
+          completed_at: string | null
+          created_at: string | null
+          description: string | null
+          due_date: string
+          id: string
+          lead_id: string
+          title: string
+        }
+        Insert: {
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          due_date: string
+          id?: string
+          lead_id: string
+          title: string
+        }
+        Update: {
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          due_date?: string
+          id?: string
+          lead_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_tasks_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          city: string | null
+          contact_name: string | null
+          created_at: string | null
+          email: string | null
+          first_contact_date: string | null
+          heat_score: number | null
+          id: string
+          instagram: string | null
+          last_contact_at: string | null
+          neighborhood: string | null
+          next_action_at: string | null
+          next_action_description: string | null
+          origin: string | null
+          phone: string | null
+          salon_name: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          city?: string | null
+          contact_name?: string | null
+          created_at?: string | null
+          email?: string | null
+          first_contact_date?: string | null
+          heat_score?: number | null
+          id?: string
+          instagram?: string | null
+          last_contact_at?: string | null
+          neighborhood?: string | null
+          next_action_at?: string | null
+          next_action_description?: string | null
+          origin?: string | null
+          phone?: string | null
+          salon_name: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          city?: string | null
+          contact_name?: string | null
+          created_at?: string | null
+          email?: string | null
+          first_contact_date?: string | null
+          heat_score?: number | null
+          id?: string
+          instagram?: string | null
+          last_contact_at?: string | null
+          neighborhood?: string | null
+          next_action_at?: string | null
+          next_action_description?: string | null
+          origin?: string | null
+          phone?: string | null
+          salon_name?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           brand: string | null
