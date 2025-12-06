@@ -54,8 +54,10 @@ export default function AgendamentoPublico() {
   const [selectedTime, setSelectedTime] = useState('');
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
+  const [clientBirthDate, setClientBirthDate] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [phoneError, setPhoneError] = useState<string>('');
 
   // Buscar perfil do salão (público)
   const { data: profile, isLoading: profileLoading, error: profileError } = useQuery({
@@ -183,6 +185,12 @@ export default function AgendamentoPublico() {
       );
     });
   }, [collaborators, serviceCategory]);
+
+  // Colaborador selecionado para exibir foto
+  const selectedCollaboratorData = useMemo(() => {
+    if (!selectedCollaborator) return null;
+    return availableCollaborators.find(c => c.id === selectedCollaborator);
+  }, [selectedCollaborator, availableCollaborators]);
 
   // Buscar agendamentos existentes com duração do serviço
   const { data: existingAppointments = [] } = useQuery({
@@ -428,6 +436,17 @@ export default function AgendamentoPublico() {
 
       const formattedDate = format(selectedDate, 'yyyy-MM-dd');
 
+      // VALIDAÇÃO: Verificar se telefone tem DDD (mínimo 10 dígitos)
+      const normalizedPhone = normalizePhone(clientPhone);
+      if (normalizedPhone.length < 10) {
+        throw new Error('Telefone deve conter DDD (mínimo 10 dígitos). Exemplo: (11) 98765-4321');
+      }
+
+      // VALIDAÇÃO: Verificar se data de nascimento foi preenchida
+      if (!clientBirthDate || clientBirthDate.trim() === '') {
+        throw new Error('Data de nascimento é obrigatória');
+      }
+
       // VALIDAÇÃO: Verificar horários de trabalho do colaborador
       if (selectedCollaborator && selectedTime) {
         const { data: collaboratorData } = await supabase
@@ -545,7 +564,6 @@ export default function AgendamentoPublico() {
         }
       }
 
-      const normalizedPhone = normalizePhone(clientPhone);
       const trimmedClientName = clientName.trim();
 
       // Buscar ou criar cliente (mesma lógica do agendamento interno)
@@ -562,16 +580,24 @@ export default function AgendamentoPublico() {
         if (findErr && findErr.code !== 'PGRST116') throw findErr;
 
         if (existing?.id) {
-          // Cliente já existe, atualizar nome se necessário
+          // Cliente já existe, atualizar nome e data de nascimento se necessário
           clientId = existing.id;
 
+          const updateData: any = {};
+
           if (trimmedClientName && trimmedClientName !== existing.name) {
+            updateData.name = trimmedClientName;
+          }
+
+          // Atualizar data de nascimento (obrigatório)
+          updateData.birth_date = clientBirthDate;
+
+          // Só atualizar se houver mudanças
+          if (Object.keys(updateData).length > 0) {
+            updateData.updated_at = new Date().toISOString();
             const { error: updateErr } = await supabase
               .from('clients')
-              .update({
-                name: trimmedClientName,
-                updated_at: new Date().toISOString(),
-              })
+              .update(updateData)
               .eq('id', existing.id)
               .eq('user_id', profile.user_id);
 
@@ -585,6 +611,7 @@ export default function AgendamentoPublico() {
               user_id: profile.user_id,
               name: trimmedClientName,
               phone: normalizedPhone,
+              birth_date: clientBirthDate,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             })
@@ -624,6 +651,7 @@ export default function AgendamentoPublico() {
         setSelectedTime('');
         setClientName('');
         setClientPhone('');
+        setClientBirthDate('');
         setShowSuccess(false);
       }, 5000);
     },
@@ -636,12 +664,35 @@ export default function AgendamentoPublico() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validar DDD obrigatório antes de submeter
+    const normalizedPhone = normalizePhone(clientPhone);
+    if (normalizedPhone.length < 10) {
+      setPhoneError('Telefone deve conter DDD (mínimo 10 dígitos)');
+      return;
+    }
+    
+    // Validar data de nascimento obrigatória
+    if (!clientBirthDate || clientBirthDate.trim() === '') {
+      setErrorMessage('Data de nascimento é obrigatória');
+      return;
+    }
+    
+    setPhoneError('');
+    setErrorMessage('');
     createAppointmentMutation.mutate();
   };
 
   const handlePhoneChange = (value: string) => {
     const digits = normalizePhone(value).slice(0, 11);
     setClientPhone(formatPhone(digits));
+    
+    // Validar DDD obrigatório
+    if (digits.length > 0 && digits.length < 10) {
+      setPhoneError('Telefone deve conter DDD (mínimo 10 dígitos)');
+    } else {
+      setPhoneError('');
+    }
   };
 
   if (profileLoading) {
@@ -831,7 +882,18 @@ export default function AgendamentoPublico() {
                         <SelectContent>
                           {availableCollaborators.map(collaborator => (
                             <SelectItem key={collaborator.id} value={collaborator.id}>
-                              {collaborator.name}
+                              <div className="flex items-center gap-3">
+                                {collaborator.photo_url ? (
+                                  <img
+                                    src={collaborator.photo_url}
+                                    alt={collaborator.name}
+                                    className="h-10 w-10 rounded-full object-cover"
+                                  />
+                                ) : (
+                                  <User className="h-5 w-5" />
+                                )}
+                                <span>{collaborator.name}</span>
+                              </div>
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -958,14 +1020,36 @@ export default function AgendamentoPublico() {
                         onChange={(e) => handlePhoneChange(e.target.value)}
                         placeholder="(00) 00000-0000"
                         required
+                        className={`h-12 text-base ${phoneError ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                      />
+                      {phoneError && (
+                        <p className="text-sm text-red-600 mt-1">{phoneError}</p>
+                      )}
+                      {!phoneError && normalizePhone(clientPhone).length > 0 && normalizePhone(clientPhone).length < 10 && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Digite o DDD + número do telefone (mínimo 10 dígitos)
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="birthDate" className="text-base font-medium">
+                        Data de Nascimento *
+                      </Label>
+                      <Input
+                        id="birthDate"
+                        type="date"
+                        value={clientBirthDate}
+                        onChange={(e) => setClientBirthDate(e.target.value)}
                         className="h-12 text-base"
+                        max={new Date().toISOString().split('T')[0]}
+                        required
                       />
                     </div>
 
                     <Button
                       type="submit"
                       className="w-full h-12 text-base font-semibold bg-gradient-to-r from-[#9333EA] to-[#F472B6] hover:from-[#7C2D9A] hover:to-[#DB2777] text-white shadow-lg hover:shadow-xl transition-all duration-200"
-                      disabled={!clientName || !clientPhone || createAppointmentMutation.isPending}
+                      disabled={!clientName || !clientPhone || normalizePhone(clientPhone).length < 10 || !clientBirthDate || createAppointmentMutation.isPending}
                     >
                       {createAppointmentMutation.isPending ? (
                         <span className="flex items-center gap-2">

@@ -157,35 +157,57 @@ export function CollaboratorModal({ open, onOpenChange, collaborator }: Collabor
 
   const uploadPhoto = async (file: File): Promise<string | null> => {
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random()}.${fileExt}`;
-      const filePath = `collaborators/${user?.id}/${fileName}`;
+      if (!user?.id) {
+        throw new Error('Usuário não autenticado');
+      }
 
-      // Primeiro, verificar se o arquivo já existe e removê-lo se necessário
-      const { data: existingFiles } = await supabase.storage
-        .from('photos')
-        .list(`collaborators/${user?.id}/`);
+      // Validar tipo de arquivo
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error('Tipo de arquivo não permitido. Use JPG, PNG ou WEBP.');
+      }
+
+      // Validar tamanho do arquivo (máximo 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        throw new Error('Arquivo muito grande. Tamanho máximo: 5MB.');
+      }
+
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `collaborators/${user.id}/${fileName}`;
 
       // Upload do novo arquivo
       const { error: uploadError } = await supabase.storage
         .from('photos')
         .upload(filePath, file, {
-          upsert: true // Permite substituir arquivos existentes
+          upsert: true, // Permite substituir arquivos existentes
+          cacheControl: '3600',
+          contentType: file.type
         });
 
       if (uploadError) {
         console.error('Erro no upload:', uploadError);
+        // Se o erro for de política RLS, fornecer mensagem mais clara
+        if (uploadError.message?.includes('row-level security') || uploadError.message?.includes('policy')) {
+          throw new Error('Erro de permissão. Verifique se você está autenticado e tente novamente.');
+        }
         throw uploadError;
       }
 
+      // Obter URL pública
       const { data } = supabase.storage
         .from('photos')
         .getPublicUrl(filePath);
 
+      if (!data?.publicUrl) {
+        throw new Error('Não foi possível obter a URL da imagem.');
+      }
+
       return data.publicUrl;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro detalhado no upload:', error);
-      return null;
+      throw error; // Re-throw para que o erro seja tratado no componente
     }
   };
 
@@ -207,11 +229,16 @@ export function CollaboratorModal({ open, onOpenChange, collaborator }: Collabor
 
       // Upload da foto se houver
       if (photoFile) {
-        const uploadedUrl = await uploadPhoto(photoFile);
-        if (uploadedUrl) {
+        try {
+          const uploadedUrl = await uploadPhoto(photoFile);
+          if (!uploadedUrl) {
+            throw new Error('Erro no upload da foto: URL não retornada');
+          }
           photoUrl = uploadedUrl;
-        } else {
-          throw new Error('Erro no upload da foto');
+        } catch (error: any) {
+          console.error('Erro ao fazer upload da foto:', error);
+          const errorMessage = error?.message || 'Erro no upload da foto';
+          throw new Error(errorMessage);
         }
       }
 

@@ -254,12 +254,33 @@ const Financeiro = () => {
         return acc;
       }, {} as Record<string, number>);
 
+    // Calcular porcentagens para o gráfico de pizza
+    const total = totalIncome + totalExpense;
+    const incomePercentage = total > 0 ? (totalIncome / total) * 100 : 0;
+    const expensePercentage = total > 0 ? (totalExpense / total) * 100 : 0;
+
+    // Calcular porcentagens para receitas por categoria
+    const incomeByCategoryWithPercentage = Object.entries(incomeByCategory).map(([name, value]) => {
+      const percentage = totalIncome > 0 ? (value / totalIncome) * 100 : 0;
+      return { name, value, percentage };
+    });
+
     return {
       pie: [
-        { name: 'Receitas', value: totalIncome, fill: '#C9A7FD' },
-        { name: 'Despesas', value: totalExpense, fill: '#EB67A3' },
+        { 
+          name: 'Receitas', 
+          value: totalIncome, 
+          percentage: incomePercentage,
+          fill: '#C9A7FD' 
+        },
+        { 
+          name: 'Despesas', 
+          value: totalExpense, 
+          percentage: expensePercentage,
+          fill: '#EB67A3' 
+        },
       ],
-      incomeByCategory: Object.entries(incomeByCategory).map(([name, value]) => ({ name, value })),
+      incomeByCategory: incomeByCategoryWithPercentage,
       expenseByCategory: Object.entries(expenseByCategory).map(([name, value]) => ({ name, value })),
     };
   }, [transactions, totalIncome, totalExpense]);
@@ -638,15 +659,60 @@ const Financeiro = () => {
                     cy="50%"
                     innerRadius={60}
                     outerRadius={80}
-                    dataKey="value"
+                    dataKey="percentage"
+                    label={({ percentage }) => `${percentage.toFixed(1)}%`}
+                    labelLine={false}
                   >
                     {chartData.pie.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} />
                     ))}
                   </Pie>
-                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <ChartTooltip 
+                    content={({ active, payload }) => {
+                      if (!active || !payload || !payload.length) return null;
+                      const data = payload[0].payload as any;
+                      return (
+                        <div className="rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
+                          <div className="font-medium mb-1">{data.name}</div>
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-full" 
+                              style={{ backgroundColor: data.fill }}
+                            />
+                            <div className="flex flex-col">
+                              <span className="font-mono font-medium">
+                                {data.percentage.toFixed(1)}%
+                              </span>
+                              <span className="text-muted-foreground text-xs">
+                                {formatCurrency(data.value)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }}
+                  />
                 </PieChart>
               </ChartContainer>
+              {/* Legenda com valores */}
+              <div className="flex justify-center gap-6 mt-4">
+                {chartData.pie.map((entry, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <div 
+                      className="w-4 h-4 rounded-full" 
+                      style={{ backgroundColor: entry.fill }}
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium" style={{ color: '#5A2E98' }}>
+                        {entry.name}
+                      </span>
+                      <span className="text-xs text-[#5A4A5E]">
+                        {formatCurrency(entry.value)} ({entry.percentage.toFixed(1)}%)
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
 
@@ -661,7 +727,31 @@ const Financeiro = () => {
                   <BarChart data={chartData.incomeByCategory}>
                     <XAxis dataKey="name" tick={{ fill: '#5A4A5E', fontSize: 12 }} />
                     <YAxis tick={{ fill: '#5A4A5E', fontSize: 12 }} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <ChartTooltip 
+                      content={({ active, payload }) => {
+                        if (!active || !payload || !payload.length) return null;
+                        const data = payload[0].payload as any;
+                        return (
+                          <div className="rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
+                            <div className="font-medium mb-1">{data.name}</div>
+                            <div className="flex items-center gap-2">
+                              <div 
+                                className="w-3 h-3 rounded-full" 
+                                style={{ backgroundColor: '#C9A7FD' }}
+                              />
+                              <div className="flex flex-col">
+                                <span className="font-mono font-medium">
+                                  {formatCurrency(data.value)}
+                                </span>
+                                <span className="text-muted-foreground text-xs">
+                                  {data.percentage.toFixed(1)}% do total
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }}
+                    />
                     <Bar dataKey="value" fill="#C9A7FD" radius={[8, 8, 0, 0]} />
                   </BarChart>
                 </ChartContainer>

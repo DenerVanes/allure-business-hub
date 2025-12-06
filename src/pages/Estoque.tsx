@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Package, Plus, Edit, Trash2, AlertTriangle, Minus, FolderOpen, Search, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { NewProductModal } from '@/components/NewProductModal';
@@ -157,18 +156,18 @@ const Estoque = () => {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 md:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="space-y-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2" style={{ color: '#5A2E98' }}>Estoque</h1>
-          <p className="text-[#5A4A5E]">Gerencie seu estoque de produtos</p>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2" style={{ color: '#5A2E98' }}>Estoque</h1>
+          <p className="text-sm md:text-base text-[#5A4A5E]">Gerencie seu estoque de produtos</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           <Button
             onClick={() => setShowManageCategories(true)}
             variant="outline"
-            className="rounded-full"
+            className="rounded-full w-full sm:w-auto"
             style={{ borderColor: '#C9A7FD', color: '#8E44EC' }}
           >
             <FolderOpen className="h-4 w-4 mr-2" />
@@ -176,7 +175,7 @@ const Estoque = () => {
           </Button>
           <Button 
             onClick={() => setShowNewProduct(true)}
-            className="rounded-full"
+            className="rounded-full w-full sm:w-auto"
             style={{ backgroundColor: '#8E44EC', color: 'white' }}
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -186,7 +185,7 @@ const Estoque = () => {
       </div>
 
       {/* Cards de Resumo */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         <Card className="border-0 shadow-md hover:shadow-lg transition-shadow" style={{ borderRadius: '25px', backgroundColor: 'white' }}>
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
@@ -254,11 +253,11 @@ const Estoque = () => {
         </Card>
       </div>
 
-      {/* Card Principal com Tabela */}
+      {/* Card Principal com Produtos */}
       <Card className="border-0 shadow-md" style={{ borderRadius: '25px', backgroundColor: 'white' }}>
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-xl" style={{ color: '#5A2E98' }}>
+            <CardTitle className="flex items-center gap-2 text-lg md:text-xl" style={{ color: '#5A2E98' }}>
               <Package className="h-5 w-5" style={{ color: '#8E44EC' }} />
               Produtos em Estoque
             </CardTitle>
@@ -267,63 +266,64 @@ const Estoque = () => {
         <CardContent>
           {/* Filtros */}
           <div className="mb-6 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Busca */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#5A4A5E]" />
-                <Input
-                  placeholder="Buscar produtos..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                  style={{ borderRadius: '12px', borderColor: '#F7D5E8' }}
-                />
-              </div>
+            {/* Busca */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#5A4A5E]" />
+              <Input
+                placeholder="Buscar produtos..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+                style={{ borderRadius: '12px', borderColor: '#F7D5E8' }}
+              />
+            </div>
 
-              {/* Filtro por Inicial */}
+            {/* Filtro por Inicial */}
+            <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-[#5A4A5E]" />
-                <div className="flex gap-1 flex-wrap">
-                  <Button
-                    variant={initialFilter === 'all' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setInitialFilter('all')}
-                    className="rounded-full text-xs"
-                    style={initialFilter === 'all' ? { backgroundColor: '#8E44EC', color: 'white' } : { borderColor: '#F7D5E8', color: '#5A4A5E' }}
-                  >
-                    Todas
-                  </Button>
-                  {availableInitials.map(letter => (
-                    <Button
-                      key={letter}
-                      variant={initialFilter === letter ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setInitialFilter(letter)}
-                      className="rounded-full text-xs min-w-[36px]"
-                      style={initialFilter === letter ? { backgroundColor: '#8E44EC', color: 'white' } : { borderColor: '#F7D5E8', color: '#5A4A5E' }}
-                    >
-                      {letter}
-                    </Button>
-                  ))}
-                </div>
+                <span className="text-sm text-[#5A4A5E]">Filtrar por inicial:</span>
               </div>
-
-              {/* Limpar Filtros */}
-              {(searchQuery || initialFilter !== 'all') && (
+              <div className="flex gap-1 flex-wrap">
                 <Button
-                  variant="outline"
+                  variant={initialFilter === 'all' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setInitialFilter('all');
-                  }}
-                  className="rounded-full"
-                  style={{ borderColor: '#F7D5E8', color: '#8E44EC' }}
+                  onClick={() => setInitialFilter('all')}
+                  className="rounded-full text-xs"
+                  style={initialFilter === 'all' ? { backgroundColor: '#8E44EC', color: 'white' } : { borderColor: '#F7D5E8', color: '#5A4A5E' }}
                 >
-                  Limpar Filtros
+                  Todas
                 </Button>
-              )}
+                {availableInitials.map(letter => (
+                  <Button
+                    key={letter}
+                    variant={initialFilter === letter ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setInitialFilter(letter)}
+                    className="rounded-full text-xs min-w-[36px]"
+                    style={initialFilter === letter ? { backgroundColor: '#8E44EC', color: 'white' } : { borderColor: '#F7D5E8', color: '#5A4A5E' }}
+                  >
+                    {letter}
+                  </Button>
+                ))}
+              </div>
             </div>
+
+            {/* Limpar Filtros */}
+            {(searchQuery || initialFilter !== 'all') && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchQuery('');
+                  setInitialFilter('all');
+                }}
+                className="rounded-full w-full sm:w-auto"
+                style={{ borderColor: '#F7D5E8', color: '#8E44EC' }}
+              >
+                Limpar Filtros
+              </Button>
+            )}
           </div>
 
           {/* Produtos agrupados por categoria */}
@@ -345,12 +345,12 @@ const Estoque = () => {
               </Button>
             </div>
           ) : (
-            <div className="space-y-8">
+            <div className="space-y-6">
               {filteredCategories.map((category) => (
                 <div key={category} className="space-y-4">
                   {/* Cabeçalho da Categoria */}
                   <div className="flex items-center gap-3 pb-2 border-b" style={{ borderColor: '#F7D5E8' }}>
-                    <h3 className="text-lg font-semibold" style={{ color: '#5A2E98' }}>
+                    <h3 className="text-base md:text-lg font-semibold" style={{ color: '#5A2E98' }}>
                       {category}
                     </h3>
                     <Badge 
@@ -361,106 +361,122 @@ const Estoque = () => {
                     </Badge>
                   </div>
 
-                  {/* Tabela de Produtos da Categoria */}
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow style={{ backgroundColor: '#FCFCFD' }}>
-                          <TableHead style={{ color: '#5A2E98', fontWeight: 600 }}>Produto</TableHead>
-                          <TableHead style={{ color: '#5A2E98', fontWeight: 600 }}>Marca</TableHead>
-                          <TableHead style={{ color: '#5A2E98', fontWeight: 600 }}>Quantidade</TableHead>
-                          <TableHead style={{ color: '#5A2E98', fontWeight: 600 }}>Estoque Mín.</TableHead>
-                          <TableHead style={{ color: '#5A2E98', fontWeight: 600 }}>Preço Custo</TableHead>
-                          <TableHead style={{ color: '#5A2E98', fontWeight: 600 }}>Status</TableHead>
-                          <TableHead style={{ color: '#5A2E98', fontWeight: 600 }}>Ações</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {groupedFilteredProducts[category].map((product) => {
-                          const stockInfo = getStockStatus(product.quantity, product.min_quantity);
-                          const StatusIcon = stockInfo.icon;
-                          
-                          return (
-                            <TableRow 
-                              key={product.id}
-                              className="hover:bg-[#FCFCFD] transition-colors"
-                            >
-                              <TableCell>
-                                <div>
-                                  <p className="font-medium" style={{ color: '#5A2E98' }}>{product.name}</p>
-                                  {product.description && (
-                                    <p className="text-sm text-[#5A4A5E] mt-1">{product.description}</p>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell style={{ color: '#5A4A5E' }}>{product.brand || '-'}</TableCell>
-                              <TableCell>
-                                <span className="font-medium" style={{ color: '#5A2E98' }}>{product.quantity}</span>
-                              </TableCell>
-                              <TableCell style={{ color: '#5A4A5E' }}>{product.min_quantity}</TableCell>
-                              <TableCell style={{ color: '#5A4A5E' }}>
+                  {/* Grid de Produtos da Categoria */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                    {groupedFilteredProducts[category].map((product) => {
+                      const stockInfo = getStockStatus(product.quantity, product.min_quantity);
+                      const StatusIcon = stockInfo.icon;
+                      
+                      return (
+                        <div
+                          key={product.id}
+                          className="group relative p-4 border rounded-lg hover:border-primary/50 hover:shadow-md transition-all bg-card"
+                          style={{ borderRadius: '12px' }}
+                        >
+                          {/* Header do Card */}
+                          <div className="flex items-start justify-between gap-2 mb-3">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-sm md:text-base mb-1 line-clamp-1" style={{ color: '#5A2E98' }}>
+                                {product.name}
+                              </h3>
+                              {product.brand && (
+                                <p className="text-xs text-[#5A4A5E] line-clamp-1">
+                                  {product.brand}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0"
+                                onClick={() => setEditingProduct(product)}
+                                title="Editar"
+                              >
+                                <Edit className="h-3.5 w-3.5" style={{ color: '#5A4A5E' }} />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                onClick={() => deleteProductMutation.mutate(product.id)}
+                                disabled={deleteProductMutation.isPending}
+                                title="Excluir"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Descrição */}
+                          {product.description && (
+                            <p className="text-xs text-[#5A4A5E] mb-3 line-clamp-2">
+                              {product.description}
+                            </p>
+                          )}
+
+                          {/* Informações do Produto */}
+                          <div className="space-y-2 mb-3">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-[#5A4A5E]">Quantidade:</span>
+                              <span className="font-medium" style={{ color: '#5A2E98' }}>
+                                {product.quantity}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-[#5A4A5E]">Estoque Mín.:</span>
+                              <span className="text-[#5A4A5E]">{product.min_quantity}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-[#5A4A5E]">Preço Custo:</span>
+                              <span className="text-[#5A4A5E]">
                                 {formatCurrency(product.cost_price)}
-                              </TableCell>
-                              <TableCell>
-                                <Badge 
-                                  className="flex items-center gap-1 w-fit rounded-full"
-                                  style={{ 
-                                    backgroundColor: stockInfo.color + '20',
-                                    color: stockInfo.color,
-                                    border: `1px solid ${stockInfo.color}40`
-                                  }}
-                                >
-                                  <StatusIcon className="h-3 w-3" />
-                                  {stockInfo.status}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => setEditingProduct(product)}
-                                    className="h-8 w-8 p-0 hover:bg-[#F7D5E8]"
-                                    title="Editar"
-                                  >
-                                    <Edit className="h-4 w-4" style={{ color: '#5A4A5E' }} />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => setStockInProduct(product)}
-                                    className="h-8 w-8 p-0 hover:bg-green-50"
-                                    title="Adicionar estoque"
-                                  >
-                                    <Plus className="h-4 w-4" style={{ color: '#8E44EC' }} />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => setStockOutProduct(product)}
-                                    disabled={product.quantity === 0}
-                                    className="h-8 w-8 p-0 hover:bg-[#F7D5E8]"
-                                    title="Remover estoque"
-                                  >
-                                    <Minus className="h-4 w-4" style={{ color: '#5A4A5E' }} />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => deleteProductMutation.mutate(product.id)}
-                                    disabled={deleteProductMutation.isPending}
-                                    className="h-8 w-8 p-0 hover:bg-red-50"
-                                    title="Excluir"
-                                  >
-                                    <Trash2 className="h-4 w-4" style={{ color: '#EB67A3' }} />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Status */}
+                          <div className="mb-3">
+                            <Badge 
+                              className="flex items-center gap-1 w-fit rounded-full text-xs"
+                              style={{ 
+                                backgroundColor: stockInfo.color + '20',
+                                color: stockInfo.color,
+                                border: `1px solid ${stockInfo.color}40`
+                              }}
+                            >
+                              <StatusIcon className="h-3 w-3" />
+                              {stockInfo.status}
+                            </Badge>
+                          </div>
+
+                          {/* Ações */}
+                          <div className="flex gap-2 pt-2 border-t" style={{ borderColor: '#F7D5E8' }}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setStockInProduct(product)}
+                              className="flex-1 text-xs h-8"
+                              style={{ borderColor: '#8E44EC', color: '#8E44EC' }}
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Entrada
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setStockOutProduct(product)}
+                              disabled={product.quantity === 0}
+                              className="flex-1 text-xs h-8"
+                              style={{ borderColor: '#F7A500', color: '#F7A500' }}
+                            >
+                              <Minus className="h-3 w-3 mr-1" />
+                              Saída
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ))}
