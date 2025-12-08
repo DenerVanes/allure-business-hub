@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,7 +30,20 @@ import { isThisMonth } from 'date-fns';
 import { getBrazilianDate, convertToSupabaseDate } from '@/utils/timezone';
 
 const Index = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
+
+  // Verificar se há token de recuperação na URL e redirecionar
+  useEffect(() => {
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const accessToken = hashParams.get('access_token');
+    const type = hashParams.get('type');
+    
+    if (accessToken && type === 'recovery') {
+      // Redirecionar para a página de reset de senha com o hash
+      navigate(`/reset-password${window.location.hash}`, { replace: true });
+    }
+  }, [navigate]);
   const [showFinanceModal, setShowFinanceModal] = useState(false);
   const [financeModalType, setFinanceModalType] = useState<'income' | 'expense'>('income');
   const [showNewClientModal, setShowNewClientModal] = useState(false);

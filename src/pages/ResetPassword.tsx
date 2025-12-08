@@ -26,45 +26,55 @@ const ResetPassword = () => {
   const [isValidating, setIsValidating] = useState(true);
 
   useEffect(() => {
-    // Verificar se há um token de recuperação na URL hash
-    const checkRecoveryToken = async () => {
+    // Verificar e processar o token de recuperação na URL hash
+    const processRecoveryToken = async () => {
       try {
-        // O Supabase processa automaticamente o hash da URL quando há um token
-        // Verificamos se há uma sessão válida (criada pelo token de recuperação)
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        // Verificar também se há um token no hash da URL
+        // Verificar se há um token no hash da URL
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const accessToken = hashParams.get('access_token');
         const type = hashParams.get('type');
+        const refreshToken = hashParams.get('refresh_token');
 
-        // Se não houver token no hash e não houver sessão, o link é inválido
-        if (!accessToken && !session) {
-          setError('Link inválido ou expirado. Por favor, solicite um novo link de recuperação.');
-          setIsValidating(false);
-          return;
-        }
+        // Se houver token no hash, processar manualmente
+        if (accessToken && type === 'recovery') {
+          // O Supabase precisa processar o token do hash
+          // Vamos usar setSession para processar o token
+          const { data: { session }, error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || '',
+          });
 
-        // Se houver token no hash mas ainda não processado, aguardar um pouco
-        if (accessToken && type === 'recovery' && !session) {
-          // Aguardar o Supabase processar o token
-          setTimeout(async () => {
-            const { data: { session: newSession } } = await supabase.auth.getSession();
-            if (!newSession) {
-              setError('Link inválido ou expirado. Por favor, solicite um novo link de recuperação.');
-            }
+          if (sessionError || !session) {
+            setError('Link inválido ou expirado. Por favor, solicite um novo link de recuperação.');
             setIsValidating(false);
-          }, 1000);
+            // Limpar o hash da URL
+            window.history.replaceState(null, '', window.location.pathname);
+            return;
+          }
+
+          // Token processado com sucesso
+          setIsValidating(false);
+          // Limpar o hash da URL para não expor o token
+          window.history.replaceState(null, '', window.location.pathname);
         } else {
+          // Verificar se já existe uma sessão válida
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          if (!session) {
+            setError('Link inválido ou expirado. Por favor, solicite um novo link de recuperação.');
+          }
+          
           setIsValidating(false);
         }
-      } catch (err) {
-        setError('Erro ao validar o link. Por favor, tente novamente.');
+      } catch (err: any) {
+        setError(err.message || 'Erro ao validar o link. Por favor, tente novamente.');
         setIsValidating(false);
+        // Limpar o hash da URL em caso de erro
+        window.history.replaceState(null, '', window.location.pathname);
       }
     };
 
-    checkRecoveryToken();
+    processRecoveryToken();
   }, []);
 
   const handleResetPassword = async (e: React.FormEvent<HTMLFormElement>) => {
