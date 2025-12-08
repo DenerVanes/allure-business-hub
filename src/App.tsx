@@ -19,6 +19,8 @@ import GerenciarPlanos from "./pages/GerenciarPlanos";
 import FunilLeads from "./pages/FunilLeads";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
+import TermosUso from "./pages/TermosUso";
+import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
 import AgendamentoPublico from "./pages/AgendamentoPublico";
 import NotFound from "./pages/NotFound";
 
@@ -44,6 +46,8 @@ const App = () => (
               {/* Rota pública de autenticação /login */}
               <Route path="/login" element={<Auth />} />
               <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/termos-de-uso" element={<TermosUso />} />
+              <Route path="/politica-de-privacidade" element={<PoliticaPrivacidade />} />
               <Route path="/agendar/:slug" element={<AgendamentoPublico />} />
               <Route path="/" element={<AppLayout />}>
                 <Route index element={<Index />} />

@@ -90,7 +90,7 @@ const statusOptions = [
   { value: 'novo_lead', label: 'Novo Lead' },
   { value: 'contato_realizado', label: 'Contato Realizado' },
   { value: 'aguardando_resposta', label: 'Aguardando Resposta' },
-  { value: 'interesse_medio', label: 'Interesse Médio' },
+  { value: 'interesse_medio', label: 'Período de teste' },
   { value: 'interesse_alto', label: 'Interesse Alto' },
   { value: 'fechado', label: 'Fechado' },
   { value: 'perdido', label: 'Perdido' },

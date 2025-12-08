@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import {
   Card,
   CardContent,
@@ -228,7 +228,7 @@ const Auth = () => {
                         <div className="flex justify-end">
                           <button
                             type="button"
-                            className="text-sm font-semibold text-[#F472B6] hover:text-[#d45594] transition-colors"
+                            className="text-sm font-semibold text-blue-600 hover:text-blue-800 hover:underline transition-colors"
                             onClick={() => setShowForgotPassword(true)}
                           >
                             Recuperar senha
@@ -317,19 +317,19 @@ const Auth = () => {
             <div className="pt-4 text-xs text-muted-foreground">
               <p>
                 Ao entrar ou criar sua conta, você concorda com nossos{' '}
-                <button
-                  type="button"
-                  className="text-[#F472B6] hover:underline font-medium"
+                <Link
+                  to="/termos-de-uso"
+                  className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
                 >
                   Termos de Uso
-                </button>{' '}
+                </Link>{' '}
                 e{' '}
-                <button
-                  type="button"
-                  className="text-[#F472B6] hover:underline font-medium"
+                <Link
+                  to="/politica-de-privacidade"
+                  className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
                 >
                   Política de Privacidade
-                </button>
+                </Link>
                 .
               </p>
             </div>

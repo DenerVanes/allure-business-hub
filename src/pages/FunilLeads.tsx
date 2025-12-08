@@ -59,8 +59,8 @@ const statusConfig = {
   novo_lead: { label: 'Novo Lead', color: '#3B82F6', icon: UserPlus },
   contato_realizado: { label: 'Contato Realizado', color: '#8B5CF6', icon: Phone },
   aguardando_resposta: { label: 'Aguardando Resposta', color: '#F59E0B', icon: MessageSquare },
-  interesse_medio: { label: 'Interesse Médio', color: '#EC4899', icon: TrendingUp },
   interesse_alto: { label: 'Interesse Alto', color: '#EF4444', icon: Flame },
+  interesse_medio: { label: 'Período de teste', color: '#EC4899', icon: TrendingUp },
   fechado: { label: 'Fechado', color: '#10B981', icon: Users },
   perdido: { label: 'Perdido', color: '#6B7280', icon: Users },
 };

@@ -183,7 +183,7 @@ export function NewLeadModal({ open, onOpenChange }: NewLeadModalProps) {
             </div>
           </div>
 
-          {/* Cidade e Bairro */}
+          {/* Cidade e Estado */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="city" className="text-sm font-medium text-[#5A4A5E]">
@@ -199,12 +199,12 @@ export function NewLeadModal({ open, onOpenChange }: NewLeadModalProps) {
             </div>
             <div>
               <Label htmlFor="neighborhood" className="text-sm font-medium text-[#5A4A5E]">
-                Bairro
+                Estado
               </Label>
               <Input
                 id="neighborhood"
                 {...register('neighborhood')}
-                placeholder="Ex: Centro"
+                placeholder="Ex: Paraná"
                 className="mt-1"
                 style={{ borderRadius: '12px', borderColor: '#F7D5E8' }}
               />

@@ -19,7 +19,7 @@ const statusLabels: Record<string, string> = {
   novo_lead: 'Novo Lead',
   contato_realizado: 'Contato Realizado',
   aguardando_resposta: 'Aguardando Resposta',
-  interesse_medio: 'Interesse Médio',
+  interesse_medio: 'Período de teste',
   interesse_alto: 'Interesse Alto',
   fechado: 'Fechado',
   perdido: 'Perdido',
