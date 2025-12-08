@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -31,19 +31,46 @@ interface NewProductModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const productCategories = [
+// Categorias padrão (mesmas do ManageProductCategoriesModal)
+const defaultCategories = [
   'Cabelo',
   'Unha',
-  'Estética',
-  'Sobrancelha',
+  'Pele',
   'Maquiagem',
-  'Depilação',
+  'Acessórios',
+  'Equipamentos',
+  'Produtos Químicos',
+  'Higiene',
   'Geral'
 ];
 
 export function NewProductModal({ open, onOpenChange }: NewProductModalProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [productCategories, setProductCategories] = useState<string[]>(defaultCategories);
+
+  // Buscar categorias do localStorage (mesma lógica do ManageProductCategoriesModal)
+  useEffect(() => {
+    if (user?.id && open) {
+      // Buscar categorias customizadas
+      const stored = localStorage.getItem(`product-categories-${user.id}`);
+      const customCategories = stored ? JSON.parse(stored) : [];
+      
+      // Buscar categorias excluídas
+      const storedExcluded = localStorage.getItem(`excluded-product-categories-${user.id}`);
+      const excludedCategories = storedExcluded ? JSON.parse(storedExcluded) : [];
+      
+      // Filtrar categorias padrão excluídas
+      const visibleDefaultCategories = defaultCategories.filter(cat => !excludedCategories.includes(cat));
+      
+      // Filtrar categorias customizadas excluídas
+      const visibleCustomCategories = customCategories.filter((cat: string) => !excludedCategories.includes(cat));
+      
+      // Combinar todas as categorias visíveis
+      const allCategories = [...visibleDefaultCategories, ...visibleCustomCategories];
+      setProductCategories(allCategories);
+    }
+  }, [user?.id, open]);
 
   const {
     register,
