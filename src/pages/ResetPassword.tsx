@@ -27,46 +27,70 @@ const ResetPassword = () => {
 
   useEffect(() => {
     // Verificar e processar o token de recuperação na URL hash
+    // IMPORTANTE: Funciona mesmo se o Supabase redirecionar para localhost
     const processRecoveryToken = async () => {
       try {
-        // Verificar se há um token no hash da URL
+        console.log('=== Processando token de recuperação ===');
+        console.log('URL completa:', window.location.href);
+        console.log('Hash:', window.location.hash);
+        
+        // Verificar se há um token no hash da URL (funciona de qualquer origem)
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const accessToken = hashParams.get('access_token');
         const type = hashParams.get('type');
         const refreshToken = hashParams.get('refresh_token');
 
-        // Se houver token no hash, processar manualmente
+        console.log('Token encontrado:', !!accessToken);
+        console.log('Tipo:', type);
+
+        // Se houver token no hash, processar manualmente (independente da origem)
         if (accessToken && type === 'recovery') {
+          console.log('Token de recuperação detectado, processando...');
+          
           // O Supabase precisa processar o token do hash
-          // Vamos usar setSession para processar o token
+          // Vamos usar setSession para processar o token (funciona de qualquer origem)
           const { data: { session }, error: sessionError } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken || '',
           });
 
-          if (sessionError || !session) {
-            setError('Link inválido ou expirado. Por favor, solicite um novo link de recuperação.');
+          if (sessionError) {
+            console.error('Erro ao processar token:', sessionError);
+            setError(sessionError.message || 'Link inválido ou expirado. Por favor, solicite um novo link de recuperação.');
             setIsValidating(false);
             // Limpar o hash da URL
             window.history.replaceState(null, '', window.location.pathname);
             return;
           }
 
+          if (!session) {
+            console.error('Sessão não criada após processar token');
+            setError('Link inválido ou expirado. Por favor, solicite um novo link de recuperação.');
+            setIsValidating(false);
+            window.history.replaceState(null, '', window.location.pathname);
+            return;
+          }
+
           // Token processado com sucesso
+          console.log('✅ Token processado com sucesso, sessão criada');
           setIsValidating(false);
           // Limpar o hash da URL para não expor o token
           window.history.replaceState(null, '', window.location.pathname);
         } else {
-          // Verificar se já existe uma sessão válida
+          // Verificar se já existe uma sessão válida (caso o token já tenha sido processado)
           const { data: { session } } = await supabase.auth.getSession();
           
           if (!session) {
+            console.log('⚠️ Nenhuma sessão encontrada');
             setError('Link inválido ou expirado. Por favor, solicite um novo link de recuperação.');
+          } else {
+            console.log('✅ Sessão válida encontrada');
           }
           
           setIsValidating(false);
         }
       } catch (err: any) {
+        console.error('❌ Erro ao processar token de recuperação:', err);
         setError(err.message || 'Erro ao validar o link. Por favor, tente novamente.');
         setIsValidating(false);
         // Limpar o hash da URL em caso de erro

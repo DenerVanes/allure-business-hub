@@ -88,7 +88,19 @@ const Auth = () => {
     }
 
     setIsSendingReset(true);
-    const redirectUrl = `${window.location.origin}/reset-password`;
+    // Sempre usar a URL atual (produção ou desenvolvimento)
+    // Se estiver em produção, usar a URL de produção, senão usar localhost
+    const isProduction = window.location.hostname !== 'localhost' && !window.location.hostname.includes('127.0.0.1');
+    const redirectUrl = isProduction 
+      ? `${window.location.origin}/reset-password`
+      : `${window.location.origin}/reset-password`;
+    
+    console.log('Enviando email de recuperação:');
+    console.log('- Hostname:', window.location.hostname);
+    console.log('- Origin:', window.location.origin);
+    console.log('- RedirectTo:', redirectUrl);
+    console.log('- IsProduction:', isProduction);
+    
     const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
       redirectTo: redirectUrl,
     });
