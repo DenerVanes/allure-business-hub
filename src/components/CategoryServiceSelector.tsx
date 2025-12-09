@@ -76,38 +76,11 @@ export const CategoryServiceSelector = ({
   }, [services]);
 
   const toggleCategory = (category: string) => {
-    const wasOpen = openCategories.includes(category);
     setOpenCategories(prev => 
       prev.includes(category) 
         ? prev.filter(c => c !== category)
         : [...prev, category]
     );
-    
-    // Se está abrindo a categoria, fazer scroll para mostrar o conteúdo expandido abaixo
-    if (!wasOpen && scrollContainerRef.current) {
-      setTimeout(() => {
-        const container = scrollContainerRef.current;
-        if (container) {
-          // Encontrar o elemento da categoria que foi expandida
-          const categoryElement = container.querySelector(`[data-category="${category}"]`) as HTMLElement;
-          if (categoryElement) {
-            // Calcular a posição do elemento e fazer scroll para mostrar o conteúdo abaixo
-            const elementTop = categoryElement.offsetTop;
-            const elementHeight = categoryElement.offsetHeight;
-            const containerHeight = container.clientHeight;
-            
-            // Se o elemento está muito acima ou o conteúdo expandido não está visível
-            // Fazer scroll para mostrar o conteúdo abaixo do botão da categoria
-            const scrollPosition = elementTop - 20; // 20px de margem no topo
-            
-            container.scrollTo({
-              top: Math.max(0, scrollPosition),
-              behavior: 'smooth'
-            });
-          }
-        }
-      }, 150); // Delay para aguardar a animação do Collapsible
-    }
   };
 
   // Resetar scroll quando o Popover abrir
@@ -117,23 +90,6 @@ export const CategoryServiceSelector = ({
       scrollContainerRef.current.scrollTop = 0;
     }
   }, [open]);
-
-  // Garantir que o scroll funcione corretamente quando categorias são expandidas
-  useEffect(() => {
-    if (scrollContainerRef.current && open) {
-      // Forçar recálculo do scrollHeight após expansão de categorias
-      const container = scrollContainerRef.current;
-      // Delay maior para garantir que a animação do Collapsible termine completamente
-      const timeoutId = setTimeout(() => {
-        // Força o navegador a recalcular o scrollHeight
-        const currentScroll = container.scrollTop;
-        container.scrollTop = currentScroll + 1;
-        container.scrollTop = currentScroll;
-      }, 300);
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [openCategories, open]);
 
   const handleSelectService = (serviceId: string) => {
     onChange(serviceId);
@@ -188,24 +144,25 @@ export const CategoryServiceSelector = ({
         style={{ 
           maxWidth: 'calc(100vw - 32px)',
           width: 'var(--radix-popover-trigger-width)',
-          maxHeight: isMobile ? '70vh' : '600px'
+          maxHeight: isMobile ? '70vh' : '600px',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column'
         }}
       >
         <div 
           ref={scrollContainerRef}
-          className="custom-scrollbar"
+          className="custom-scrollbar flex-1"
           style={{ 
-            maxHeight: isMobile ? '70vh' : '600px',
-            minHeight: isMobile ? '200px' : '300px',
-            height: 'auto',
             overflowY: 'auto',
             overflowX: 'hidden',
             WebkitOverflowScrolling: 'touch',
             overscrollBehavior: 'contain',
-            backgroundColor: 'white'
+            backgroundColor: 'white',
+            minHeight: 0
           }}
         >
-          <div className="p-2 space-y-1" style={{ paddingBottom: '40px', backgroundColor: 'transparent' }}>
+          <div className="p-2 space-y-1" style={{ paddingBottom: '20px' }}>
             {servicesByCategory.length === 0 ? (
               <div className="text-center py-6 text-muted-foreground">
                 Nenhum serviço disponível
@@ -250,10 +207,7 @@ export const CategoryServiceSelector = ({
                       />
                     </Button>
                   </CollapsibleTrigger>
-                  <CollapsibleContent 
-                    className="mt-1 space-y-0.5 pl-2"
-                    style={{ display: 'block' }}
-                  >
+                  <CollapsibleContent className="mt-1 space-y-0.5 pl-2">
                     {categoryServices.map((service) => (
                       <Button
                         key={service.id}
