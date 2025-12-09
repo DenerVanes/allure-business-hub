@@ -479,6 +479,7 @@ export type Database = {
           origin: string | null
           phone: string | null
           salon_name: string
+          seller: string | null
           status: string
           updated_at: string | null
         }
@@ -498,6 +499,7 @@ export type Database = {
           origin?: string | null
           phone?: string | null
           salon_name: string
+          seller?: string | null
           status?: string
           updated_at?: string | null
         }
@@ -517,6 +519,7 @@ export type Database = {
           origin?: string | null
           phone?: string | null
           salon_name?: string
+          seller?: string | null
           status?: string
           updated_at?: string | null
         }

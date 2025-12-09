@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CalendarIcon, Clock, User, Briefcase, CheckCircle, AlertCircle } from 'lucide-react';
+import { CategoryServiceSelector } from '@/components/CategoryServiceSelector';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { format, parseISO, isBefore, startOfDay, addDays, getDay } from 'date-fns';
@@ -835,23 +836,12 @@ export default function AgendamentoPublico() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Select value={selectedService} onValueChange={setSelectedService}>
-                    <SelectTrigger className="h-12 text-base">
-                      <SelectValue placeholder="Selecione o serviço" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {services.map(service => (
-                        <SelectItem key={service.id} value={service.id}>
-                          <div className="flex justify-between items-center w-full gap-4">
-                            <span className="font-medium">{service.name}</span>
-                            <span className="text-sm text-muted-foreground">
-                              R$ {Number(service.price).toFixed(2)} • {service.duration}min
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <CategoryServiceSelector
+                    services={services}
+                    value={selectedService}
+                    onChange={setSelectedService}
+                    placeholder="Selecione o serviço"
+                  />
                 </CardContent>
               </Card>
 
