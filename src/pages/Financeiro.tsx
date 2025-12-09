@@ -46,7 +46,6 @@ const Financeiro = () => {
   const [dateFilter, setDateFilter] = useState('month');
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [selectedTransaction, setSelectedTransaction] = useState<TransactionRow | null>(null);
-  const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [showManageCategories, setShowManageCategories] = useState(false);
   const [showTransactionsModal, setShowTransactionsModal] = useState(false);
   const [transactionsModalType, setTransactionsModalType] = useState<'income' | 'expense' | 'all'>('all');
@@ -802,7 +801,7 @@ const Financeiro = () => {
             </div>
           ) : (
             <div className="space-y-3">
-              {(showAllTransactions ? transactions : transactions.slice(0, 10)).map((transaction) => {
+              {transactions.slice(0, 10).map((transaction) => {
                 const isIncome = transaction.type === 'income';
                 const appointment = (transaction as any).appointments;
                 const serviceCategory = appointment?.services?.service_categories?.name;
@@ -886,27 +885,18 @@ const Financeiro = () => {
                   </div>
                 );
               })}
-              {transactions.length > 10 && !showAllTransactions && (
+              {transactions.length > 10 && (
                 <div className="text-center pt-4">
                   <Button
-                    onClick={() => setShowAllTransactions(true)}
+                    onClick={() => {
+                      setTransactionsModalType('all');
+                      setShowTransactionsModal(true);
+                    }}
                     variant="outline"
                     className="rounded-full"
                     style={{ borderColor: '#F7D5E8', color: '#8E44EC' }}
                   >
                     Ver todas as transações ({transactions.length})
-                  </Button>
-                </div>
-              )}
-              {showAllTransactions && transactions.length > 10 && (
-                <div className="text-center pt-4">
-                  <Button
-                    onClick={() => setShowAllTransactions(false)}
-                    variant="outline"
-                    className="rounded-full"
-                    style={{ borderColor: '#F7D5E8', color: '#8E44EC' }}
-                  >
-                    Mostrar menos
                   </Button>
                 </div>
               )}

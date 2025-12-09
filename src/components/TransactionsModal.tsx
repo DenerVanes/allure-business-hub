@@ -23,7 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subDays, subWeeks, subMonths, subYears } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subDays, subMonths, subYears } from 'date-fns';
 import { formatTransactionDate, getBrazilianDate } from '@/utils/timezone';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -54,21 +54,19 @@ const TransactionsModal = ({
   const getDateRange = (filter: string) => {
     const now = getBrazilianDate();
     switch (filter) {
-      case 'today':
-        return { start: format(now, 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd') };
-      case 'yesterday':
-        const yesterday = subDays(now, 1);
-        return { start: format(yesterday, 'yyyy-MM-dd'), end: format(yesterday, 'yyyy-MM-dd') };
-      case 'week':
+      case 'thisWeek':
         return { start: format(startOfWeek(now), 'yyyy-MM-dd'), end: format(endOfWeek(now), 'yyyy-MM-dd') };
-      case 'lastWeek':
-        const lastWeek = subWeeks(now, 1);
-        return { start: format(startOfWeek(lastWeek), 'yyyy-MM-dd'), end: format(endOfWeek(lastWeek), 'yyyy-MM-dd') };
+      case 'last7Days':
+        const last7 = subDays(now, 6);
+        return { start: format(last7, 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd') };
+      case 'last15Days':
+        const last15 = subDays(now, 14);
+        return { start: format(last15, 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd') };
       case 'month':
         return { start: format(startOfMonth(now), 'yyyy-MM-dd'), end: format(endOfMonth(now), 'yyyy-MM-dd') };
-      case 'lastMonth':
-        const lastMonth = subMonths(now, 1);
-        return { start: format(startOfMonth(lastMonth), 'yyyy-MM-dd'), end: format(endOfMonth(lastMonth), 'yyyy-MM-dd') };
+      case 'last6Months':
+        const sixMonthsAgo = subMonths(now, 5);
+        return { start: format(startOfMonth(sixMonthsAgo), 'yyyy-MM-dd'), end: format(endOfMonth(now), 'yyyy-MM-dd') };
       case 'thisYear':
         return { start: format(startOfYear(now), 'yyyy-MM-dd'), end: format(endOfYear(now), 'yyyy-MM-dd') };
       case 'lastYear':
@@ -202,12 +200,11 @@ const TransactionsModal = ({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="today">Hoje</SelectItem>
-                    <SelectItem value="yesterday">Ontem</SelectItem>
-                    <SelectItem value="week">Últimos 7 dias</SelectItem>
-                    <SelectItem value="lastWeek">Semana passada</SelectItem>
+                    <SelectItem value="thisWeek">Semana atual</SelectItem>
+                    <SelectItem value="last7Days">Últimos 7 dias</SelectItem>
+                    <SelectItem value="last15Days">Últimos 15 dias</SelectItem>
                     <SelectItem value="month">Este mês</SelectItem>
-                    <SelectItem value="lastMonth">Mês passado</SelectItem>
+                    <SelectItem value="last6Months">Últimos 6 meses</SelectItem>
                     <SelectItem value="thisYear">Este ano</SelectItem>
                     <SelectItem value="lastYear">Ano passado</SelectItem>
                     <SelectItem value="custom">Período Personalizado</SelectItem>

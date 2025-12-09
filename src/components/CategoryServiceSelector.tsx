@@ -1,5 +1,5 @@
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Check, ChevronDown, ChevronRight, Tag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 
 interface Service {
@@ -22,6 +21,7 @@ interface Service {
   price: number;
   duration: number;
   category: string;
+  description?: string | null;
 }
 
 interface CategoryServiceSelectorProps {
@@ -39,6 +39,7 @@ export const CategoryServiceSelector = ({
 }: CategoryServiceSelectorProps) => {
   const [open, setOpen] = useState(false);
   const [openCategories, setOpenCategories] = useState<string[]>([]);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const selectedService = services.find(service => service.id === value);
 
@@ -70,6 +71,23 @@ export const CategoryServiceSelector = ({
         : [...prev, category]
     );
   };
+
+  // Garantir que o scroll funcione corretamente quando categorias são expandidas
+  useEffect(() => {
+    if (scrollContainerRef.current && open) {
+      // Forçar recálculo do scrollHeight após expansão de categorias
+      const container = scrollContainerRef.current;
+      // Delay maior para garantir que a animação do Collapsible termine completamente
+      const timeoutId = setTimeout(() => {
+        // Força o navegador a recalcular o scrollHeight
+        const currentScroll = container.scrollTop;
+        container.scrollTop = currentScroll + 1;
+        container.scrollTop = currentScroll;
+      }, 300);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [openCategories, open]);
 
   const handleSelectService = (serviceId: string) => {
     onChange(serviceId);
@@ -117,9 +135,21 @@ export const CategoryServiceSelector = ({
         className="w-[var(--radix-popover-trigger-width)] p-0 bg-background border shadow-lg" 
         align="start"
         sideOffset={4}
+        onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <ScrollArea className="max-h-[400px]">
-          <div className="p-2 space-y-1">
+        <div 
+          ref={scrollContainerRef}
+          className="custom-scrollbar"
+          style={{ 
+            height: '600px',
+            maxHeight: '600px',
+            overflowY: 'scroll',
+            overflowX: 'hidden',
+            WebkitOverflowScrolling: 'touch',
+            overscrollBehavior: 'contain'
+          }}
+        >
+          <div className="p-2 space-y-1" style={{ paddingBottom: '40px', minHeight: 'fit-content' }}>
             {servicesByCategory.length === 0 ? (
               <div className="text-center py-6 text-muted-foreground">
                 Nenhum serviço disponível
@@ -163,7 +193,10 @@ export const CategoryServiceSelector = ({
                       />
                     </Button>
                   </CollapsibleTrigger>
-                  <CollapsibleContent className="mt-1 space-y-0.5 pl-2">
+                  <CollapsibleContent 
+                    className="mt-1 space-y-0.5 pl-2"
+                    style={{ display: 'block' }}
+                  >
                     {categoryServices.map((service) => (
                       <Button
                         key={service.id}
@@ -198,7 +231,7 @@ export const CategoryServiceSelector = ({
               ))
             )}
           </div>
-        </ScrollArea>
+        </div>
       </PopoverContent>
     </Popover>
   );

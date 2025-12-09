@@ -9,7 +9,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarIcon, Clock, User, Briefcase, CheckCircle, AlertCircle } from 'lucide-react';
+import { CalendarIcon, Clock, User, Briefcase, CheckCircle, AlertCircle, Scissors } from 'lucide-react';
 import { CategoryServiceSelector } from '@/components/CategoryServiceSelector';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,6 +56,7 @@ export default function AgendamentoPublico() {
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [clientBirthDate, setClientBirthDate] = useState('');
+  const [birthDateError, setBirthDateError] = useState<string>('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [phoneError, setPhoneError] = useState<string>('');
@@ -428,6 +429,67 @@ export default function AgendamentoPublico() {
     });
   }, [selectedCollaborator, selectedDate, selectedService, existingAppointments, collaboratorBlocks, collaboratorTimeBlocks, collaboratorSchedules, services, workingHours]);
 
+  // Função para formatar data enquanto digita (dd/mm/aaaa)
+  const formatBirthDate = (value: string): string => {
+    // Remove tudo que não é número
+    const digits = value.replace(/\D/g, '');
+    
+    // Limita a 8 dígitos (ddmmyyyy)
+    const limitedDigits = digits.slice(0, 8);
+    
+    // Aplica a máscara dd/mm/aaaa
+    if (limitedDigits.length <= 2) {
+      return limitedDigits;
+    } else if (limitedDigits.length <= 4) {
+      return `${limitedDigits.slice(0, 2)}/${limitedDigits.slice(2)}`;
+    } else {
+      return `${limitedDigits.slice(0, 2)}/${limitedDigits.slice(2, 4)}/${limitedDigits.slice(4)}`;
+    }
+  };
+
+  // Função para converter dd/mm/aaaa para yyyy-MM-dd (formato ISO)
+  const convertToISODate = (dateStr: string): string | null => {
+    if (!dateStr || dateStr.length !== 10) return null;
+    
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return null;
+    
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10);
+    const year = parseInt(parts[2], 10);
+    
+    // Validar valores
+    if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
+    if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900) return null;
+    
+    // Formatar para ISO (yyyy-MM-dd)
+    const formattedMonth = month.toString().padStart(2, '0');
+    const formattedDay = day.toString().padStart(2, '0');
+    
+    return `${year}-${formattedMonth}-${formattedDay}`;
+  };
+
+  // Função para validar data de nascimento
+  const validateBirthDate = (dateStr: string): boolean => {
+    if (!dateStr || dateStr.length !== 10) return false;
+    
+    const isoDate = convertToISODate(dateStr);
+    if (!isoDate) return false;
+    
+    // Verificar se a data é válida
+    const date = parseISO(isoDate);
+    if (isNaN(date.getTime())) return false;
+    
+    // Verificar se a data não é no futuro
+    if (isBefore(startOfDay(new Date()), startOfDay(date))) return false;
+    
+    // Verificar se não é muito antiga (mais de 150 anos)
+    const maxAge = addDays(new Date(), -150 * 365);
+    if (isBefore(startOfDay(date), startOfDay(maxAge))) return false;
+    
+    return true;
+  };
+
   // Criar agendamento
   const createAppointmentMutation = useMutation({
     mutationFn: async () => {
@@ -446,6 +508,12 @@ export default function AgendamentoPublico() {
       // VALIDAÇÃO: Verificar se data de nascimento foi preenchida
       if (!clientBirthDate || clientBirthDate.trim() === '') {
         throw new Error('Data de nascimento é obrigatória');
+      }
+
+      // Converter data de dd/mm/aaaa para yyyy-MM-dd (formato ISO)
+      const isoBirthDate = convertToISODate(clientBirthDate);
+      if (!isoBirthDate || !validateBirthDate(clientBirthDate)) {
+        throw new Error('Data de nascimento inválida. Use o formato dd/mm/aaaa');
       }
 
       // VALIDAÇÃO: Verificar horários de trabalho do colaborador
@@ -591,7 +659,7 @@ export default function AgendamentoPublico() {
           }
 
           // Atualizar data de nascimento (obrigatório)
-          updateData.birth_date = clientBirthDate;
+          updateData.birth_date = isoBirthDate;
 
           // Só atualizar se houver mudanças
           if (Object.keys(updateData).length > 0) {
@@ -612,7 +680,7 @@ export default function AgendamentoPublico() {
               user_id: profile.user_id,
               name: trimmedClientName,
               phone: normalizedPhone,
-              birth_date: clientBirthDate,
+              birth_date: isoBirthDate,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             })
@@ -676,10 +744,19 @@ export default function AgendamentoPublico() {
     // Validar data de nascimento obrigatória
     if (!clientBirthDate || clientBirthDate.trim() === '') {
       setErrorMessage('Data de nascimento é obrigatória');
+      setBirthDateError('Data de nascimento é obrigatória');
+      return;
+    }
+    
+    // Validar formato da data
+    if (clientBirthDate.length !== 10 || !validateBirthDate(clientBirthDate)) {
+      setErrorMessage('Data de nascimento inválida. Use o formato dd/mm/aaaa');
+      setBirthDateError('Data de nascimento inválida. Use o formato dd/mm/aaaa');
       return;
     }
     
     setPhoneError('');
+    setBirthDateError('');
     setErrorMessage('');
     createAppointmentMutation.mutate();
   };
@@ -693,6 +770,24 @@ export default function AgendamentoPublico() {
       setPhoneError('Telefone deve conter DDD (mínimo 10 dígitos)');
     } else {
       setPhoneError('');
+    }
+  };
+
+  const handleBirthDateChange = (value: string) => {
+    const formatted = formatBirthDate(value);
+    setClientBirthDate(formatted);
+    
+    // Validar quando tiver 10 caracteres (dd/mm/aaaa)
+    if (formatted.length === 10) {
+      if (validateBirthDate(formatted)) {
+        setBirthDateError('');
+      } else {
+        setBirthDateError('Data inválida. Use o formato dd/mm/aaaa');
+      }
+    } else if (formatted.length > 0) {
+      setBirthDateError('');
+    } else {
+      setBirthDateError('');
     }
   };
 
@@ -835,13 +930,30 @@ export default function AgendamentoPublico() {
                     Serviço
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
                   <CategoryServiceSelector
                     services={services}
                     value={selectedService}
                     onChange={setSelectedService}
                     placeholder="Selecione o serviço"
                   />
+                  {selectedService && (() => {
+                    const selectedServiceData = services.find(s => s.id === selectedService);
+                    return selectedServiceData?.description ? (
+                      <div className="mt-4 p-4 rounded-xl bg-white border border-primary/20 shadow-sm">
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 rounded-lg bg-primary/10 shrink-0">
+                            <Scissors className="h-4 w-4 text-primary" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                              {selectedServiceData.description}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
                 </CardContent>
               </Card>
 
@@ -1027,19 +1139,29 @@ export default function AgendamentoPublico() {
                       </Label>
                       <Input
                         id="birthDate"
-                        type="date"
+                        type="text"
+                        inputMode="numeric"
                         value={clientBirthDate}
-                        onChange={(e) => setClientBirthDate(e.target.value)}
-                        className="h-12 text-base"
-                        max={new Date().toISOString().split('T')[0]}
+                        onChange={(e) => handleBirthDateChange(e.target.value)}
+                        placeholder="dd/mm/aaaa"
+                        className={`h-12 text-base ${birthDateError ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                        maxLength={10}
                         required
                       />
+                      {birthDateError && (
+                        <p className="text-sm text-red-600 mt-1">{birthDateError}</p>
+                      )}
+                      {!birthDateError && clientBirthDate.length > 0 && clientBirthDate.length < 10 && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Digite a data no formato dd/mm/aaaa
+                        </p>
+                      )}
                     </div>
 
                     <Button
                       type="submit"
                       className="w-full h-12 text-base font-semibold bg-gradient-to-r from-[#9333EA] to-[#F472B6] hover:from-[#7C2D9A] hover:to-[#DB2777] text-white shadow-lg hover:shadow-xl transition-all duration-200"
-                      disabled={!clientName || !clientPhone || normalizePhone(clientPhone).length < 10 || !clientBirthDate || createAppointmentMutation.isPending}
+                      disabled={!clientName || !clientPhone || normalizePhone(clientPhone).length < 10 || !clientBirthDate || clientBirthDate.length !== 10 || !validateBirthDate(clientBirthDate) || !!birthDateError || createAppointmentMutation.isPending}
                     >
                       {createAppointmentMutation.isPending ? (
                         <span className="flex items-center gap-2">

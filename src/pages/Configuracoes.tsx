@@ -168,6 +168,8 @@ const Configuracoes = () => {
       console.log('Link público de agendamento montado:', link);
       setPublicLink(link);
     }
+    // Não limpa o publicLink quando profile está undefined temporariamente
+    // Isso mantém o card visível durante o recarregamento
   }, [profile?.slug]);
 
   const handleCopyPublicLink = async () => {
@@ -339,7 +341,7 @@ const Configuracoes = () => {
       </div>
 
       {/* Link de Agendamento Público */}
-      {profile?.slug && (
+      {(publicLink || profile?.slug) && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -378,7 +380,7 @@ const Configuracoes = () => {
             </div>
             <div className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">Status:</span>
-              {profile.agendamento_online_ativo ? (
+              {profile?.agendamento_online_ativo ? (
                 <span className="text-green-600 font-medium">Ativo</span>
               ) : (
                 <span className="text-red-600 font-medium">Desativado</span>
