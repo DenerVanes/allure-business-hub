@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CalendarIcon, Clock, User, Briefcase, CheckCircle, AlertCircle, Scissors } from 'lucide-react';
-import { CategoryServiceSelector } from '@/components/CategoryServiceSelector';
+import { VisualServiceSelector } from '@/components/VisualServiceSelector';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { format, parseISO, isBefore, startOfDay, addDays, getDay } from 'date-fns';
@@ -917,45 +917,52 @@ export default function AgendamentoPublico() {
         </Card>
 
         <form onSubmit={handleSubmit}>
+          {/* Container de Serviços - Largura total quando não há serviço selecionado */}
+          {!selectedService ? (
+            <Card className="shadow-md border-0 bg-white/80 backdrop-blur-sm mb-6">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Briefcase className="h-5 w-5 text-primary" />
+                  </div>
+                  Serviço
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <VisualServiceSelector
+                  services={services}
+                  value={selectedService}
+                  onChange={setSelectedService}
+                  placeholder="Selecione o serviço"
+                />
+              </CardContent>
+            </Card>
+          ) : null}
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Coluna 1: Seleção de Serviço, Profissional e Data */}
             <div className="space-y-6">
-              {/* Seleção de Serviço */}
-              <Card className="shadow-md border-0 bg-white/80 backdrop-blur-sm">
-                <CardHeader className="pb-4">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <Briefcase className="h-5 w-5 text-primary" />
-                    </div>
-                    Serviço
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <CategoryServiceSelector
-                    services={services}
-                    value={selectedService}
-                    onChange={setSelectedService}
-                    placeholder="Selecione o serviço"
-                  />
-                  {selectedService && (() => {
-                    const selectedServiceData = services.find(s => s.id === selectedService);
-                    return selectedServiceData?.description ? (
-                      <div className="mt-4 p-4 rounded-xl bg-white border border-primary/20 shadow-sm">
-                        <div className="flex items-start gap-3">
-                          <div className="p-2 rounded-lg bg-primary/10 shrink-0">
-                            <Scissors className="h-4 w-4 text-primary" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm text-muted-foreground leading-relaxed">
-                              {selectedServiceData.description}
-                            </p>
-                          </div>
-                        </div>
+              {/* Seleção de Serviço - Mostra apenas quando há serviço selecionado */}
+              {selectedService && (
+                <Card className="shadow-md border-0 bg-white/80 backdrop-blur-sm">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        <Briefcase className="h-5 w-5 text-primary" />
                       </div>
-                    ) : null;
-                  })()}
-                </CardContent>
-              </Card>
+                      Serviço
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <VisualServiceSelector
+                      services={services}
+                      value={selectedService}
+                      onChange={setSelectedService}
+                      placeholder="Selecione o serviço"
+                    />
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Seleção de Profissional */}
               {selectedService && (
