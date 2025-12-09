@@ -649,29 +649,9 @@ export default function AgendamentoPublico() {
         if (findErr && findErr.code !== 'PGRST116') throw findErr;
 
         if (existing?.id) {
-          // Cliente já existe, atualizar nome e data de nascimento se necessário
+          // Cliente já existe pelo telefone - NÃO atualizar dados, manter dados originais do primeiro cadastro
+          // O telefone é o identificador único, então mantemos os dados do primeiro cadastro
           clientId = existing.id;
-
-          const updateData: any = {};
-
-          if (trimmedClientName && trimmedClientName !== existing.name) {
-            updateData.name = trimmedClientName;
-          }
-
-          // Atualizar data de nascimento (obrigatório)
-          updateData.birth_date = isoBirthDate;
-
-          // Só atualizar se houver mudanças
-          if (Object.keys(updateData).length > 0) {
-            updateData.updated_at = new Date().toISOString();
-            const { error: updateErr } = await supabase
-              .from('clients')
-              .update(updateData)
-              .eq('id', existing.id)
-              .eq('user_id', profile.user_id);
-
-            if (updateErr) throw updateErr;
-          }
         } else {
           // Cliente não existe, criar novo
           const { data: inserted, error: insertErr } = await supabase

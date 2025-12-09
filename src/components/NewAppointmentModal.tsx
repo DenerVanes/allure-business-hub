@@ -354,24 +354,9 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
         if (findErr && findErr.code !== 'PGRST116') throw findErr; // ignore no rows
 
         if (existing?.id) {
+          // Cliente já existe pelo telefone - NÃO atualizar dados, manter dados originais do primeiro cadastro
+          // O telefone é o identificador único, então mantemos os dados do primeiro cadastro
           clientId = existing.id;
-
-          if (trimmedClientName && trimmedClientName !== existing.name) {
-            const { error: updateErr } = await supabase
-              .from('clients')
-              .update({
-                name: trimmedClientName,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', existing.id)
-              .eq('user_id', user.id);
-
-            if (updateErr) throw updateErr;
-          }
-
-          if (user?.id) {
-            queryClient.invalidateQueries({ queryKey: ['clients', user.id] });
-          }
         } else {
           const { data: inserted, error: insertErr } = await supabase
             .from('clients')
