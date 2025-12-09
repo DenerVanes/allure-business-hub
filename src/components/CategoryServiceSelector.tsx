@@ -40,8 +40,19 @@ export const CategoryServiceSelector = ({
   const [open, setOpen] = useState(false);
   const [openCategories, setOpenCategories] = useState<string[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   const selectedService = services.find(service => service.id === value);
+
+  // Detectar se é mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Agrupar serviços por categoria
   const servicesByCategory = useMemo(() => {
@@ -132,24 +143,33 @@ export const CategoryServiceSelector = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-[var(--radix-popover-trigger-width)] p-0 bg-background border shadow-lg" 
+        className="w-[var(--radix-popover-trigger-width)] p-0 bg-white border shadow-lg z-50" 
         align="start"
         sideOffset={4}
         onOpenAutoFocus={(e) => e.preventDefault()}
+        side="bottom"
+        avoidCollisions={true}
+        collisionPadding={8}
+        style={{ 
+          maxWidth: 'calc(100vw - 32px)',
+          width: 'var(--radix-popover-trigger-width)'
+        }}
       >
         <div 
           ref={scrollContainerRef}
           className="custom-scrollbar"
           style={{ 
-            height: '600px',
-            maxHeight: '600px',
-            overflowY: 'scroll',
+            maxHeight: isMobile ? '50vh' : '600px',
+            minHeight: isMobile ? '200px' : '300px',
+            height: 'auto',
+            overflowY: 'auto',
             overflowX: 'hidden',
             WebkitOverflowScrolling: 'touch',
-            overscrollBehavior: 'contain'
+            overscrollBehavior: 'contain',
+            backgroundColor: 'white'
           }}
         >
-          <div className="p-2 space-y-1" style={{ paddingBottom: '40px', minHeight: 'fit-content' }}>
+          <div className="p-2 space-y-1" style={{ paddingBottom: '40px', backgroundColor: 'transparent' }}>
             {servicesByCategory.length === 0 ? (
               <div className="text-center py-6 text-muted-foreground">
                 Nenhum serviço disponível
