@@ -179,46 +179,52 @@ export const VisualServiceSelector = ({
   // Se um serviço está selecionado e não deve mostrar categorias
   if (value && !showCategories) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
+        {/* Header com nome do serviço e botão Alterar - Fora do card */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="p-2 rounded-lg bg-primary/10 shrink-0">
+              <Scissors className="h-5 w-5 text-primary" />
+            </div>
+            <p className="font-semibold text-lg text-foreground">
+              {selectedService?.name}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleChangeService}
+            className="shrink-0"
+          >
+            <X className="h-4 w-4 mr-2" />
+            Alterar
+          </Button>
+        </div>
+
+        {/* Card com informações do serviço */}
         <Card className="border-2 border-primary/30 shadow-md">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <Scissors className="h-5 w-5 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-lg text-foreground">
-                      {selectedService?.name}
-                    </p>
-                    <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <DollarSign className="h-4 w-4" />
-                        R$ {Number(selectedService?.price || 0).toFixed(2)}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        {selectedService?.duration}min
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                {selectedService?.description && (
-                  <p className="text-sm text-muted-foreground mt-2 pl-12">
+            <div className="space-y-3">
+              {/* Preço e Duração - Layout horizontal harmonioso */}
+              <div className="flex items-center gap-4 flex-wrap">
+                <span className="flex items-center gap-1.5 text-lg font-bold text-foreground">
+                  <DollarSign className="h-5 w-5 text-primary" />
+                  R$ {Number(selectedService?.price || 0).toFixed(2)}
+                </span>
+                <span className="flex items-center gap-1.5 text-base text-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                  {selectedService?.duration}min
+                </span>
+              </div>
+
+              {/* Descrição - Completa sem cortes */}
+              {selectedService?.description && (
+                <div className="pt-3 border-t border-border">
+                  <p className="text-sm text-muted-foreground leading-relaxed break-words whitespace-normal">
                     {selectedService.description}
                   </p>
-                )}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleChangeService}
-                className="ml-4"
-              >
-                <X className="h-4 w-4 mr-2" />
-                Alterar
-              </Button>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -276,15 +282,15 @@ export const VisualServiceSelector = ({
                         key={service.id}
                         variant="ghost"
                         className={cn(
-                          "w-full justify-between p-4 h-auto rounded-xl transition-all text-left",
-                          "hover:shadow-md border overflow-hidden",
+                          "w-full justify-start p-4 h-auto rounded-xl transition-all text-left",
+                          "hover:shadow-md border",
                           isSelected
                             ? "bg-primary/15 text-primary ring-2 ring-primary/30 border-primary/50"
                             : "border-border bg-white"
                         )}
                         onClick={() => handleServiceSelect(service.id)}
                       >
-                        <div className="flex flex-col items-start gap-2 flex-1 text-left min-w-0">
+                        <div className="flex flex-col items-start gap-2 flex-1 text-left min-w-0 w-full">
                           <span className={cn(
                             "font-semibold text-base",
                             isSelected && "text-primary"
@@ -292,25 +298,25 @@ export const VisualServiceSelector = ({
                             {service.name}
                           </span>
                           {service.description && (
-                            <span className="text-sm text-muted-foreground line-clamp-2 break-words w-full">
+                            <p className="text-sm text-muted-foreground break-words w-full whitespace-normal">
                               {service.description}
-                            </span>
+                            </p>
                           )}
-                          <div className="flex items-center gap-4 mt-1 flex-wrap">
+                          <div className="flex items-center gap-4 mt-1 flex-wrap w-full">
                             <span className={cn(
-                              "text-base font-bold",
+                              "text-base font-bold whitespace-nowrap",
                               isSelected ? "text-primary" : "text-foreground"
                             )}>
                               R$ {Number(service.price).toFixed(2)}
                             </span>
-                            <span className="text-sm text-muted-foreground flex items-center gap-1">
+                            <span className="text-sm text-muted-foreground flex items-center gap-1 whitespace-nowrap">
                               <Clock className="h-4 w-4" />
                               {service.duration}min
                             </span>
                           </div>
                         </div>
                         {isSelected && (
-                          <Check className="h-6 w-6 text-primary shrink-0 ml-4" />
+                          <Check className="h-6 w-6 text-primary shrink-0 ml-2" />
                         )}
                       </Button>
                     );
