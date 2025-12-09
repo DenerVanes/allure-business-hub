@@ -42,6 +42,9 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
   const [time, setTime] = useState(appointment?.appointment_time || '');
   const [clientName, setClientName] = useState(appointment?.client_name || '');
   const [clientPhone, setClientPhone] = useState(formatPhone(appointment?.client_phone || ''));
+  const [clientBirthDate, setClientBirthDate] = useState('');
+  const [showClientSuggestions, setShowClientSuggestions] = useState(false);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [selectedServices, setSelectedServices] = useState<any[]>(
     appointment ? [{ 
       id: '1', 
@@ -133,20 +136,68 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
     enabled: !!selectedCollaboratorId
   });
 
+  // Buscar clientes filtrados por nome para autocomplete
+  const { data: clientSuggestions = [] } = useQuery({
+    queryKey: ['clients-search', user?.id, clientName],
+    queryFn: async () => {
+      if (!user?.id || !clientName || clientName.length < 2) return [];
+      
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id, name, phone, birth_date')
+        .eq('user_id', user.id)
+        .ilike('name', `%${clientName}%`)
+        .limit(10)
+        .order('name');
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id && clientName.length >= 2 && !selectedClientId
+  });
+
   useEffect(() => {
     if (!appointment) {
       setClientName('');
       setClientPhone('');
+      setClientBirthDate('');
+      setSelectedClientId(null);
+      setShowClientSuggestions(false);
       return;
     }
 
     setClientName(appointment.client_name || '');
     setClientPhone(formatPhone(appointment.client_phone || ''));
+    setSelectedClientId(null);
+    setShowClientSuggestions(false);
   }, [appointment]);
 
   const handlePhoneChange = (value: string) => {
     const digits = normalizePhone(value).slice(0, 11);
     setClientPhone(formatPhone(digits));
+  };
+
+  const handleClientSelect = (client: any) => {
+    setClientName(client.name);
+    setClientPhone(formatPhone(client.phone || ''));
+    if (client.birth_date) {
+      // Formatar data de nascimento para dd/mm/yyyy
+      const birthDate = new Date(client.birth_date);
+      const formattedDate = format(birthDate, 'dd/MM/yyyy');
+      setClientBirthDate(formattedDate);
+    }
+    setSelectedClientId(client.id);
+    setShowClientSuggestions(false);
+  };
+
+  const handleClientNameChange = (value: string) => {
+    setClientName(value);
+    setSelectedClientId(null);
+    if (value.length >= 2) {
+      setShowClientSuggestions(true);
+    } else {
+      setShowClientSuggestions(false);
+    }
   };
 
   const createAppointmentMutation = useMutation({
@@ -625,6 +676,9 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
     setTime('');
     setClientName('');
     setClientPhone('');
+    setClientBirthDate('');
+    setSelectedClientId(null);
+    setShowClientSuggestions(false);
     setSelectedServices([{ 
       id: '1', 
       serviceId: '', 
@@ -751,15 +805,36 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div className="space-y-2 relative">
                 <Label htmlFor="client-name">Nome do Cliente *</Label>
-                <Input
-                  id="client-name"
-                  value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
-                  placeholder="Digite o nome do cliente"
-                  required
-                />
+                <div className="relative">
+                  <Input
+                    id="client-name"
+                    value={clientName}
+                    onChange={(e) => handleClientNameChange(e.target.value)}
+                    onFocus={() => clientName.length >= 2 && setShowClientSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowClientSuggestions(false), 200)}
+                    placeholder="Digite o nome do cliente"
+                    required
+                  />
+                  {showClientSuggestions && clientSuggestions.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-border rounded-md shadow-lg max-h-60 overflow-auto">
+                      {clientSuggestions.map((client) => (
+                        <button
+                          key={client.id}
+                          type="button"
+                          className="w-full text-left px-4 py-2 hover:bg-primary/10 hover:text-foreground transition-colors rounded-sm"
+                          onClick={() => handleClientSelect(client)}
+                        >
+                          <div className="font-medium">{client.name}</div>
+                          {client.phone && (
+                            <div className="text-sm text-muted-foreground">{formatPhone(client.phone)}</div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               
               <div className="space-y-2">

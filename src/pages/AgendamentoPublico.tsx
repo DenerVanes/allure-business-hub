@@ -692,17 +692,7 @@ export default function AgendamentoPublico() {
     },
     onSuccess: () => {
       setShowSuccess(true);
-      // Reset form
-      setTimeout(() => {
-        setSelectedDate(undefined);
-        setSelectedService('');
-        setSelectedCollaborator('');
-        setSelectedTime('');
-        setClientName('');
-        setClientPhone('');
-        setClientBirthDate('');
-        setShowSuccess(false);
-      }, 5000);
+      // Não limpar campos automaticamente - aguardar botão do usuário
     },
     onError: (error: any) => {
       console.error('Erro ao criar agendamento:', error);
@@ -769,6 +759,21 @@ export default function AgendamentoPublico() {
     } else {
       setBirthDateError('');
     }
+  };
+
+  const handleNewAppointment = () => {
+    // Limpar todos os campos e voltar para a tela de agendamento
+    setSelectedDate(undefined);
+    setSelectedService('');
+    setSelectedCollaborator('');
+    setSelectedTime('');
+    setClientName('');
+    setClientPhone('');
+    setClientBirthDate('');
+    setShowSuccess(false);
+    setPhoneError('');
+    setBirthDateError('');
+    setErrorMessage('');
   };
 
   if (profileLoading) {
@@ -857,7 +862,21 @@ export default function AgendamentoPublico() {
                   {services.find(s => s.id === selectedService)?.name}
                 </span>
               </div>
+              {selectedCollaboratorData && (
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground font-medium">Profissional:</span>
+                  <span className="font-semibold text-foreground">
+                    {selectedCollaboratorData.name}
+                  </span>
+                </div>
+              )}
             </div>
+            <Button
+              onClick={handleNewAppointment}
+              className="w-full mt-6 h-12 text-base font-semibold bg-gradient-to-r from-[#9333EA] to-[#F472B6] hover:from-[#7E22CE] hover:to-[#E11D8F] text-white shadow-lg"
+            >
+              Fazer Novo Agendamento
+            </Button>
           </CardContent>
         </Card>
       </div>

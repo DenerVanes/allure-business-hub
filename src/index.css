@@ -34,9 +34,9 @@
     --muted: 270 24% 92%;
     --muted-foreground: 266 20% 45%;
     
-    /* Accent Colors */
-    --accent: 330 78% 66%;
-    --accent-foreground: 0 0% 100%;
+    /* Accent Colors - Ajustado para melhor contraste e profissionalismo */
+    --accent: 268 30% 95%;
+    --accent-foreground: 266 28% 18%;
     
     /* Status Colors */
     --success: 146 70% 42%;

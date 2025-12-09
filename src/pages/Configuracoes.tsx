@@ -378,14 +378,6 @@ const Configuracoes = () => {
                 )}
               </Button>
             </div>
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">Status:</span>
-              {profile?.agendamento_online_ativo ? (
-                <span className="text-green-600 font-medium">Ativo</span>
-              ) : (
-                <span className="text-red-600 font-medium">Desativado</span>
-              )}
-            </div>
           </CardContent>
         </Card>
       )}

@@ -26,7 +26,7 @@ import { StockAlertModal } from '@/components/StockAlertModal';
 import { AppointmentsStatusModal } from '@/components/AppointmentsStatusModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { isThisMonth } from 'date-fns';
+import { isToday, parseISO } from 'date-fns';
 import { getBrazilianDate, convertToSupabaseDate } from '@/utils/timezone';
 
 const Index = () => {
@@ -139,11 +139,12 @@ const Index = () => {
   const todayFinalizedAppointments = todayAppointments.filter(apt => apt.status === 'finalizado');
   const todayCanceledAppointments = todayAppointments.filter(apt => apt.status === 'cancelado');
   
-  const monthlyIncome = transactions
-    .filter(t => t.type === 'income' && isThisMonth(new Date(t.transaction_date)))
+  // Cálculo diário (hoje)
+  const dailyIncome = transactions
+    .filter(t => t.type === 'income' && isToday(parseISO(t.transaction_date)))
     .reduce((sum, t) => sum + Number(t.amount), 0);
-  const monthlyExpenses = transactions
-    .filter(t => t.type === 'expense' && isThisMonth(new Date(t.transaction_date)))
+  const dailyExpenses = transactions
+    .filter(t => t.type === 'expense' && isToday(parseISO(t.transaction_date)))
     .reduce((sum, t) => sum + Number(t.amount), 0);
   const lowStockProducts = products.filter(p => p.quantity <= p.min_quantity);
 
@@ -320,18 +321,18 @@ const Index = () => {
             <div className="space-y-3">
               <div className="flex justify-between items-center py-2">
                 <span className="text-sm font-medium" style={{ color: '#5A4A5E' }}>
-                  Receitas do Mês
+                  Receitas do Dia
                 </span>
                 <span className="text-sm font-semibold" style={{ color: '#10B981' }}>
-                  R$ {monthlyIncome.toFixed(2)}
+                  R$ {dailyIncome.toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between items-center py-2">
                 <span className="text-sm font-medium" style={{ color: '#5A4A5E' }}>
-                  Despesas do Mês
+                  Despesas do Dia
                 </span>
                 <span className="text-sm font-semibold" style={{ color: '#EF4444' }}>
-                  R$ {monthlyExpenses.toFixed(2)}
+                  R$ {dailyExpenses.toFixed(2)}
                 </span>
               </div>
               <div 
@@ -340,15 +341,15 @@ const Index = () => {
               >
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-sm" style={{ color: '#5A2E98' }}>
-                    Saldo do Mês
+                    Saldo do Dia
                   </span>
                   <span 
                     className="font-bold text-base"
                     style={{ 
-                      color: monthlyIncome - monthlyExpenses >= 0 ? '#10B981' : '#EF4444'
+                      color: dailyIncome - dailyExpenses >= 0 ? '#10B981' : '#EF4444'
                     }}
                   >
-                    R$ {(monthlyIncome - monthlyExpenses).toFixed(2)}
+                    R$ {(dailyIncome - dailyExpenses).toFixed(2)}
                   </span>
                 </div>
               </div>
