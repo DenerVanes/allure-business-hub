@@ -76,12 +76,47 @@ export const CategoryServiceSelector = ({
   }, [services]);
 
   const toggleCategory = (category: string) => {
+    const wasOpen = openCategories.includes(category);
     setOpenCategories(prev => 
       prev.includes(category) 
         ? prev.filter(c => c !== category)
         : [...prev, category]
     );
+    
+    // Se está abrindo a categoria, fazer scroll para mostrar o conteúdo expandido abaixo
+    if (!wasOpen && scrollContainerRef.current) {
+      setTimeout(() => {
+        const container = scrollContainerRef.current;
+        if (container) {
+          // Encontrar o elemento da categoria que foi expandida
+          const categoryElement = container.querySelector(`[data-category="${category}"]`) as HTMLElement;
+          if (categoryElement) {
+            // Calcular a posição do elemento e fazer scroll para mostrar o conteúdo abaixo
+            const elementTop = categoryElement.offsetTop;
+            const elementHeight = categoryElement.offsetHeight;
+            const containerHeight = container.clientHeight;
+            
+            // Se o elemento está muito acima ou o conteúdo expandido não está visível
+            // Fazer scroll para mostrar o conteúdo abaixo do botão da categoria
+            const scrollPosition = elementTop - 20; // 20px de margem no topo
+            
+            container.scrollTo({
+              top: Math.max(0, scrollPosition),
+              behavior: 'smooth'
+            });
+          }
+        }
+      }, 150); // Delay para aguardar a animação do Collapsible
+    }
   };
+
+  // Resetar scroll quando o Popover abrir
+  useEffect(() => {
+    if (scrollContainerRef.current && open) {
+      // Resetar scroll para o topo quando abrir
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [open]);
 
   // Garantir que o scroll funcione corretamente quando categorias são expandidas
   useEffect(() => {
@@ -148,18 +183,19 @@ export const CategoryServiceSelector = ({
         sideOffset={4}
         onOpenAutoFocus={(e) => e.preventDefault()}
         side="bottom"
-        avoidCollisions={true}
+        avoidCollisions={false}
         collisionPadding={8}
         style={{ 
           maxWidth: 'calc(100vw - 32px)',
-          width: 'var(--radix-popover-trigger-width)'
+          width: 'var(--radix-popover-trigger-width)',
+          maxHeight: isMobile ? '70vh' : '600px'
         }}
       >
         <div 
           ref={scrollContainerRef}
           className="custom-scrollbar"
           style={{ 
-            maxHeight: isMobile ? '50vh' : '600px',
+            maxHeight: isMobile ? '70vh' : '600px',
             minHeight: isMobile ? '200px' : '300px',
             height: 'auto',
             overflowY: 'auto',
@@ -184,6 +220,7 @@ export const CategoryServiceSelector = ({
                   <CollapsibleTrigger asChild>
                     <Button
                       variant="ghost"
+                      data-category={category}
                       className={cn(
                         "w-full justify-between px-3 py-2.5 h-auto font-medium rounded-lg",
                         "hover:bg-accent/70 transition-all duration-200",
