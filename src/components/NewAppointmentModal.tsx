@@ -174,6 +174,8 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
               .select('*')
               .eq('collaborator_id', selectedCollaboratorId));
 
+            const typedSchedules = schedules as any[] | null;
+
             console.log('🔍 DEBUG - Validação de horário do colaborador:');
             console.log('Data selecionada (string):', formattedDate);
             console.log('Data objeto:', selectedDate);
@@ -184,8 +186,8 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
             console.log('Colaborador ID:', selectedCollaboratorId);
             console.log('Colaborador:', collaboratorData.name);
             console.log('Colaborador ativo:', collaboratorData.active);
-            console.log('Schedules encontrados:', schedules);
-            console.log('Schedules detalhados:', schedules?.map(s => ({
+            console.log('Schedules encontrados:', typedSchedules);
+            console.log('Schedules detalhados:', typedSchedules?.map(s => ({
               id: s.id,
               day_of_week: s.day_of_week,
               enabled: s.enabled,
@@ -193,10 +195,10 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
               end_time: s.end_time
             })));
 
-            if (schedules && schedules.length > 0) {
+            if (typedSchedules && typedSchedules.length > 0) {
               const validation = isCollaboratorAvailable(
                 collaboratorData,
-                schedules as any,
+                typedSchedules,
                 selectedDate,
                 appointmentData.appointment_time
               );
