@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Calendar, CheckCircle } from 'lucide-react';
+import { Calendar, CheckCircle, Eye, EyeOff, Circle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -27,6 +27,9 @@ const Auth = () => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [isSendingReset, setIsSendingReset] = useState(false);
+  const [showSignInPassword, setShowSignInPassword] = useState(false);
+  const [showSignUpPassword, setShowSignUpPassword] = useState(false);
+  const [signUpPassword, setSignUpPassword] = useState('');
 
   // Redirect if already authenticated
   if (user) {
@@ -55,7 +58,7 @@ const Auth = () => {
 
     const formData = new FormData(e.currentTarget);
     const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
+    const password = signUpPassword || (formData.get('password') as string);
     const businessName = formData.get('businessName') as string;
 
     const { error } = await signUp(email, password, businessName);
@@ -67,6 +70,7 @@ const Auth = () => {
       
       // Limpar formulário
       e.currentTarget.reset();
+      setSignUpPassword('');
       
       // Mudar para aba de login após 2 segundos
       setTimeout(() => {
@@ -121,6 +125,11 @@ const Auth = () => {
     });
     setShowForgotPassword(false);
   };
+
+  // Funções de validação de senha
+  const hasNumber = (password: string) => /\d/.test(password);
+  const hasLetter = (password: string) => /[a-zA-Z]/.test(password);
+  const hasSpecialChar = (password: string) => /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-[#FCE7F3] via-[#F9E0FF] to-[#C084FC] flex items-center justify-center px-4 py-6">
@@ -215,14 +224,28 @@ const Auth = () => {
                           <Label htmlFor="signin-password" className="text-sm font-semibold">
                             Senha
                           </Label>
-                          <Input
-                            id="signin-password"
-                            name="password"
-                            type="password"
-                            placeholder="Sua senha secreta"
-                            required
-                            className="h-11 rounded-xl border-[#F9A8D4] focus-visible:ring-[#F472B6]"
-                          />
+                          <div className="relative">
+                            <Input
+                              id="signin-password"
+                              name="password"
+                              type={showSignInPassword ? "text" : "password"}
+                              placeholder="Sua senha secreta"
+                              required
+                              className="h-11 rounded-xl border-[#F9A8D4] focus-visible:ring-[#F472B6] pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowSignInPassword(!showSignInPassword)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9333EA] hover:text-[#7C3AED] transition-colors"
+                              aria-label={showSignInPassword ? "Ocultar senha" : "Mostrar senha"}
+                            >
+                              {showSignInPassword ? (
+                                <EyeOff className="h-5 w-5" />
+                              ) : (
+                                <Eye className="h-5 w-5" />
+                              )}
+                            </button>
+                          </div>
                         </div>
 
                         <div className="flex justify-end">
@@ -288,15 +311,65 @@ const Auth = () => {
                           <Label htmlFor="signup-password" className="text-sm font-semibold">
                             Senha
                           </Label>
-                          <Input
-                            id="signup-password"
-                            name="password"
-                            type="password"
-                            placeholder="Mínimo 8 caracteres"
-                            required
-                            minLength={8}
-                            className="h-11 rounded-xl border-[#F9A8D4] focus-visible:ring-[#F472B6]"
-                          />
+                          <div className="relative">
+                            <Input
+                              id="signup-password"
+                              name="password"
+                              type={showSignUpPassword ? "text" : "password"}
+                              placeholder="Mínimo 8 caracteres"
+                              required
+                              minLength={8}
+                              value={signUpPassword}
+                              onChange={(e) => setSignUpPassword(e.target.value)}
+                              className="h-11 rounded-xl border-[#F9A8D4] focus-visible:ring-[#F472B6] pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowSignUpPassword(!showSignUpPassword)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9333EA] hover:text-[#7C3AED] transition-colors"
+                              aria-label={showSignUpPassword ? "Ocultar senha" : "Mostrar senha"}
+                            >
+                              {showSignUpPassword ? (
+                                <EyeOff className="h-5 w-5" />
+                              ) : (
+                                <Eye className="h-5 w-5" />
+                              )}
+                            </button>
+                          </div>
+                          {signUpPassword && (
+                            <div className="space-y-1.5 mt-2">
+                              <div className={`flex items-center gap-2 text-xs transition-colors ${
+                                hasNumber(signUpPassword) ? 'text-green-600' : 'text-muted-foreground'
+                              }`}>
+                                {hasNumber(signUpPassword) ? (
+                                  <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                                ) : (
+                                  <Circle className="h-3.5 w-3.5 text-muted-foreground" fill="none" />
+                                )}
+                                <span>Contém número</span>
+                              </div>
+                              <div className={`flex items-center gap-2 text-xs transition-colors ${
+                                hasLetter(signUpPassword) ? 'text-green-600' : 'text-muted-foreground'
+                              }`}>
+                                {hasLetter(signUpPassword) ? (
+                                  <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                                ) : (
+                                  <Circle className="h-3.5 w-3.5 text-muted-foreground" fill="none" />
+                                )}
+                                <span>Contém letra</span>
+                              </div>
+                              <div className={`flex items-center gap-2 text-xs transition-colors ${
+                                hasSpecialChar(signUpPassword) ? 'text-green-600' : 'text-muted-foreground'
+                              }`}>
+                                {hasSpecialChar(signUpPassword) ? (
+                                  <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                                ) : (
+                                  <Circle className="h-3.5 w-3.5 text-muted-foreground" fill="none" />
+                                )}
+                                <span>Contém caractere especial</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         <Button
