@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
+import { MarketingMenu } from '@/components/sidebar/MarketingMenu';
 
 const menuItems = [
   {
@@ -152,6 +153,7 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              <MarketingMenu />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

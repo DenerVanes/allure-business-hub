@@ -26,15 +26,24 @@ export const FinalizeAppointmentModal = ({ open, onOpenChange, appointment }: Fi
   const [discountPercent, setDiscountPercent] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'value' | 'percent'>('value');
 
-  const originalAmount = appointment?.total_amount || 0;
+  // Calcular valor original baseado no preço do serviço ou total_amount
+  // Se o serviço tiver preço cadastrado, usa ele; senão usa o total_amount
+  const getOriginalAmount = () => {
+    const servicePrice = appointment?.services?.price || appointment?.service_price || 0;
+    return servicePrice > 0 ? servicePrice : (appointment?.total_amount || 0);
+  };
+
+  const originalAmount = getOriginalAmount();
 
   useEffect(() => {
     if (open && appointment) {
-      setFinalAmount(originalAmount.toString());
+      // Recalcular originalAmount quando o modal abrir, pois o appointment pode ter sido atualizado
+      const currentOriginalAmount = getOriginalAmount();
+      setFinalAmount(currentOriginalAmount.toString());
       setDiscountPercent('');
       setActiveTab('value');
     }
-  }, [open, appointment, originalAmount]);
+  }, [open, appointment]);
 
   // Limpar campo de desconto quando mudar para a aba de desconto
   useEffect(() => {

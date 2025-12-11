@@ -1,6 +1,7 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,8 +27,10 @@ import { CalendarViewModal } from '@/components/CalendarViewModal';
 export default function Agendamentos() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const location = useLocation();
   const [searchTerm, setSearchTerm] = useState('');
   const [showNewModal, setShowNewModal] = useState(false);
+  const [prefillPhone, setPrefillPhone] = useState<string | null>(null);
   const [showCalendarView, setShowCalendarView] = useState(false);
   const [rescheduleAppointment, setRescheduleAppointment] = useState<any>(null);
   const [finalizeAppointment, setFinalizeAppointment] = useState<any>(null);
@@ -35,6 +38,13 @@ export default function Agendamentos() {
     type: 'all',
     label: 'Todos'
   });
+
+  useEffect(() => {
+    if (location.state?.prefillPhone) {
+      setPrefillPhone(location.state.prefillPhone);
+      setShowNewModal(true);
+    }
+  }, [location.state]);
 
   const { data: appointments = [] } = useQuery({
     queryKey: ['appointments', user?.id],
@@ -366,7 +376,15 @@ export default function Agendamentos() {
 
       <NewAppointmentModal
         open={showNewModal}
-        onOpenChange={setShowNewModal}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowNewModal(false);
+            setPrefillPhone(null);
+          } else {
+            setShowNewModal(true);
+          }
+        }}
+        prefillPhone={prefillPhone || undefined}
       />
 
       <CalendarViewModal

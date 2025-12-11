@@ -15,6 +15,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
+// Função para converter minutos em formato HH:MM
+const formatDuration = (minutes: number): string => {
+  if (!minutes || minutes < 0) return '00:00';
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+};
+
 interface TodayAgendaModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -141,7 +149,7 @@ export const TodayAgendaModal = ({ open, onOpenChange }: TodayAgendaModalProps) 
                           {appointment.services?.name || 'Serviço'}
                         </span>
                         <span className="text-sm text-muted-foreground">
-                          ({appointment.services?.duration || 0}min)
+                          ({formatDuration(appointment.services?.duration || 0)})
                         </span>
                       </div>
                       

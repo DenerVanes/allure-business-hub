@@ -17,6 +17,7 @@ import Configuracoes from "./pages/Configuracoes";
 import GestaoClientes from "./pages/GestaoClientes";
 import GerenciarPlanos from "./pages/GerenciarPlanos";
 import FunilLeads from "./pages/FunilLeads";
+import Birthdays from "./pages/Birthdays";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import TermosUso from "./pages/TermosUso";
@@ -61,6 +62,7 @@ const App = () => (
                 <Route path="gestao-clientes" element={<GestaoClientes />} />
                 <Route path="admin/planos" element={<GerenciarPlanos />} />
                 <Route path="funil-leads" element={<FunilLeads />} />
+                <Route path="marketing/aniversariantes" element={<Birthdays />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

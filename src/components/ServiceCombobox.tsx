@@ -17,6 +17,14 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 
+// Função para converter minutos em formato HH:MM
+const formatDuration = (minutes: number): string => {
+  if (!minutes || minutes < 0) return '00:00';
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+};
+
 interface Service {
   id: string;
   name: string;
@@ -62,7 +70,7 @@ export const ServiceCombobox = ({
             <div className="flex justify-between items-center w-full">
               <span>{selectedService.name}</span>
               <span className="text-sm text-muted-foreground ml-2">
-                R$ {selectedService.price} - {selectedService.duration}min
+                R$ {selectedService.price} - {formatDuration(selectedService.duration)}
               </span>
             </div>
           ) : (
@@ -105,7 +113,7 @@ export const ServiceCombobox = ({
                       </span>
                     </div>
                     <span className="text-sm text-muted-foreground ml-2">
-                      R$ {service.price} - {service.duration}min
+                      R$ {service.price} - {formatDuration(service.duration)}
                     </span>
                   </div>
                 </CommandItem>

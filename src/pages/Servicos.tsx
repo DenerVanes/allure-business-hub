@@ -28,6 +28,14 @@ import { ManageCategoriesModal } from '@/components/ManageCategoriesModal';
 import { EditServiceModal } from '@/components/EditServiceModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+
+// Função para converter minutos em formato HH:MM
+const formatDuration = (minutes: number): string => {
+  if (!minutes || minutes < 0) return '00:00';
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+};
 import { toast } from '@/hooks/use-toast';
 
 const Servicos = () => {
@@ -414,7 +422,7 @@ const Servicos = () => {
                         </div>
                         <div className="flex items-center gap-1 text-muted-foreground">
                           <Clock className="h-3 w-3" />
-                          <span>{service.duration}min</span>
+                          <span>{formatDuration(service.duration)}</span>
                         </div>
                       </div>
                       

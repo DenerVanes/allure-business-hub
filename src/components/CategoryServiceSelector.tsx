@@ -15,6 +15,14 @@ import {
 } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 
+// Função para converter minutos em formato HH:MM
+const formatDuration = (minutes: number): string => {
+  if (!minutes || minutes < 0) return '00:00';
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+};
+
 interface Service {
   id: string;
   name: string;
@@ -124,7 +132,7 @@ export const CategoryServiceSelector = ({
             <div className="flex justify-between items-center w-full gap-2 overflow-hidden">
               <span className="truncate font-medium">{selectedService.name}</span>
               <span className="text-sm text-muted-foreground whitespace-nowrap">
-                R$ {Number(selectedService.price).toFixed(2)} • {selectedService.duration}min
+                R$ {Number(selectedService.price).toFixed(2)} • {formatDuration(selectedService.duration)}
               </span>
             </div>
           ) : (
@@ -229,7 +237,7 @@ export const CategoryServiceSelector = ({
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm text-muted-foreground whitespace-nowrap">
-                            R$ {Number(service.price).toFixed(2)} • {service.duration}min
+                            R$ {Number(service.price).toFixed(2)} • {formatDuration(service.duration)}
                           </span>
                           {value === service.id && (
                             <Check className="h-4 w-4 text-primary shrink-0" />

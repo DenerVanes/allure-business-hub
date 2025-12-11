@@ -11,6 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CalendarIcon, Clock, User, Briefcase, CheckCircle, AlertCircle, Scissors } from 'lucide-react';
 import { VisualServiceSelector } from '@/components/VisualServiceSelector';
+import { CouponInput } from '@/components/marketing/CouponInput';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { format, parseISO, isBefore, startOfDay, addDays, getDay } from 'date-fns';
@@ -19,6 +20,7 @@ import { formatPhone, normalizePhone } from '@/utils/phone';
 import { cn } from '@/lib/utils';
 import { generateAvailableTimeSlots, isDayOpen } from '@/hooks/useWorkingHours';
 import { getAvailableTimeSlots, isCollaboratorAvailable } from '@/utils/collaboratorSchedule';
+import { type CupomMes } from '@/utils/promotionStorage';
 
 interface Break {
   start: string;
@@ -60,6 +62,8 @@ export default function AgendamentoPublico() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [phoneError, setPhoneError] = useState<string>('');
+  const [cupomCode, setCupomCode] = useState('');
+  const [appliedCupom, setAppliedCupom] = useState<{ cupom: CupomMes; desconto: number } | null>(null);
 
   // Buscar perfil do salão (público)
   const { data: profile, isLoading: profileLoading, error: profileError } = useQuery({
@@ -291,6 +295,12 @@ export default function AgendamentoPublico() {
   useEffect(() => {
     setErrorMessage('');
   }, [selectedTime]);
+
+  // Limpar cupom aplicado quando serviço ou horário mudar
+  useEffect(() => {
+    setAppliedCupom(null);
+    setCupomCode('');
+  }, [selectedService, selectedTime]);
 
   // Reset collaborator if current selection no longer available for chosen service
   useEffect(() => {
@@ -672,7 +682,43 @@ export default function AgendamentoPublico() {
         }
       }
 
-      const { error } = await supabase
+      // VALIDAÇÃO E APLICAÇÃO DO CUPOM NO BACKEND (apenas se foi aplicado)
+      let valorFinal = service?.price || 0;
+      let cupomValidado = false;
+      let cupomUseId: string | null = null;
+      
+      if (cupomCode && cupomCode.trim() && appliedCupom) {
+        // Validar e registrar uso do cupom no backend APENAS APÓS validar todos os outros dados
+        // (Isso evita marcar cupom como usado se houver erro antes de criar o agendamento)
+        // Converter data de nascimento para formato ISO
+        const isoBirthDateForCoupon = isoBirthDate || null;
+        
+        const { data: cupomValidation, error: cupomError } = await supabase
+          .rpc('validate_and_use_coupon', {
+            p_user_id: profile.user_id,
+            p_codigo_cupom: cupomCode.trim().toUpperCase(),
+            p_cliente_telefone: normalizedPhone,
+            p_valor_original: service?.price || 0,
+            p_cliente_birth_date: isoBirthDateForCoupon,
+            p_appointment_id: null // Será atualizado após criar o agendamento
+          });
+
+        if (cupomError) {
+          throw new Error(cupomError.message || 'Erro ao validar cupom');
+        }
+
+        if (!cupomValidation || !cupomValidation.valid) {
+          throw new Error(cupomValidation?.error || 'Cupom inválido ou expirado');
+        }
+
+        // Usar valores calculados pelo backend
+        valorFinal = parseFloat(cupomValidation.valor_final);
+        cupomValidado = true;
+        cupomUseId = cupomValidation.use_id;
+      }
+
+      // Criar agendamento com valor já calculado (com ou sem desconto)
+      const { data: appointmentData, error } = await supabase
         .from('appointments')
         .insert({
           user_id: profile.user_id,
@@ -683,19 +729,49 @@ export default function AgendamentoPublico() {
           client_phone: normalizedPhone,
           client_id: clientId, // Associar ao cliente criado/encontrado
           collaborator_id: selectedCollaborator,
-          total_amount: service?.price || 0,
+          total_amount: valorFinal,
           status: 'agendado',
-          notes: 'Agendamento realizado via link público'
-        });
+          notes: cupomValidado 
+            ? `Agendamento realizado via link público. Cupom ${cupomCode.trim().toUpperCase()} aplicado.`
+            : 'Agendamento realizado via link público'
+        })
+        .select('id')
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        // Se houver erro ao criar agendamento, tentar reverter o uso do cupom (opcional)
+        // Por enquanto apenas lançar o erro
+        throw error;
+      }
+
+      // Atualizar o appointment_id no registro de uso do cupom (se foi usado)
+      if (cupomValidado && appointmentData?.id && cupomUseId) {
+        const { error: updateError } = await supabase
+          .from('coupon_uses')
+          .update({ appointment_id: appointmentData.id })
+          .eq('id', cupomUseId);
+
+        if (updateError) {
+          console.error('Erro ao atualizar appointment_id no cupom:', updateError);
+          // Não quebrar o fluxo se isso falhar, o cupom já foi validado
+        }
+      }
     },
     onSuccess: () => {
       setShowSuccess(true);
+      // Limpar cupom após sucesso
+      setCupomCode('');
+      setAppliedCupom(null);
+      // Limpar campo de cupom
       // Não limpar campos automaticamente - aguardar botão do usuário
     },
     onError: (error: any) => {
       console.error('Erro ao criar agendamento:', error);
+      // Se o erro for de cupom, limpar o cupom aplicado
+      if (error?.message?.includes('cupom') || error?.message?.includes('Cupom')) {
+        setAppliedCupom(null);
+        setCupomCode('');
+      }
       // Armazenar mensagem de erro para exibir abaixo dos horários
       setErrorMessage(error?.message || 'Erro ao criar agendamento. Tente novamente.');
     }
@@ -1039,7 +1115,7 @@ export default function AgendamentoPublico() {
             {/* Coluna 2: Horários e Dados do Cliente */}
             <div className="space-y-6">
               {/* Seleção de Horário */}
-              {selectedDate && (
+              {selectedDate && selectedService && selectedCollaborator && (
                 <Card className="shadow-md border-0 bg-white/80 backdrop-blur-sm">
                   <CardHeader className="pb-4">
                     <CardTitle className="flex items-center gap-2 text-lg">
@@ -1057,7 +1133,7 @@ export default function AgendamentoPublico() {
                           Profissional Indisponível: {collaboratorBlocks[0]?.reason}
                         </AlertDescription>
                       </Alert>
-                    ) : availableTimeSlots.length === 0 ? (
+                    ) : selectedService && availableTimeSlots.length === 0 ? (
                       <Alert className="border-orange-200 bg-orange-50">
                         <AlertCircle className="h-4 w-4 text-orange-600" />
                         <AlertDescription className="text-orange-800">
@@ -1088,7 +1164,8 @@ export default function AgendamentoPublico() {
                       </ScrollArea>
                     )}
                     
-                    {errorMessage && (
+                    {/* Mostrar apenas erros que NÃO sejam de cupom */}
+                    {errorMessage && !errorMessage.toLowerCase().includes('cupom') && (
                       <Alert variant="destructive" className="mt-4 border-red-200 bg-red-50">
                         <AlertCircle className="h-4 w-4" />
                         <AlertDescription className="text-red-800">{errorMessage}</AlertDescription>
@@ -1163,6 +1240,44 @@ export default function AgendamentoPublico() {
                         </p>
                       )}
                     </div>
+
+                    {/* Campo de Cupom */}
+                    {selectedService && clientPhone && normalizePhone(clientPhone).length >= 10 && profile?.user_id && (() => {
+                      const service = services.find(s => s.id === selectedService);
+                      return service ? (
+                        <CouponInput
+                          value={cupomCode}
+                          onChange={setCupomCode}
+                          onApply={(cupom, desconto) => {
+                            // Se cupom não tem código ou desconto é 0, limpar appliedCupom
+                            if (!cupom.codigo || desconto <= 0) {
+                              setAppliedCupom(null);
+                            } else {
+                              setAppliedCupom({ cupom, desconto });
+                            }
+                          }}
+                          clienteTelefone={clientPhone}
+                          clienteNome={clientName}
+                          clienteBirthDate={clientBirthDate}
+                          valorServico={service.price || 0}
+                          userId={profile.user_id}
+                        />
+                      ) : null;
+                    })()}
+
+                    {appliedCupom && appliedCupom.cupom && appliedCupom.cupom.codigo && appliedCupom.desconto > 0 && (() => {
+                      const service = services.find(s => s.id === selectedService);
+                      return service ? (
+                        <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                          <p className="text-sm font-medium text-green-800">
+                            Desconto aplicado: {appliedCupom.cupom.percentualDesconto}% (-R$ {appliedCupom.desconto.toFixed(2)})
+                          </p>
+                          <p className="text-xs text-green-600 mt-1">
+                            Valor final: R$ {((service?.price || 0) - appliedCupom.desconto).toFixed(2)}
+                          </p>
+                        </div>
+                      ) : null;
+                    })()}
 
                     <Button
                       type="submit"

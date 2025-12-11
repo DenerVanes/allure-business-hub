@@ -30,9 +30,10 @@ interface NewAppointmentModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   appointment?: any;
+  prefillPhone?: string;
 }
 
-export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppointmentModalProps) => {
+export const NewAppointmentModal = ({ open, onOpenChange, appointment, prefillPhone }: NewAppointmentModalProps) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   
@@ -41,10 +42,16 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment }: NewAppo
   );
   const [time, setTime] = useState(appointment?.appointment_time || '');
   const [clientName, setClientName] = useState(appointment?.client_name || '');
-  const [clientPhone, setClientPhone] = useState(formatPhone(appointment?.client_phone || ''));
+  const [clientPhone, setClientPhone] = useState(formatPhone(appointment?.client_phone || prefillPhone || ''));
   const [clientBirthDate, setClientBirthDate] = useState('');
   const [showClientSuggestions, setShowClientSuggestions] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (prefillPhone && open && !appointment) {
+      setClientPhone(formatPhone(prefillPhone));
+    }
+  }, [prefillPhone, open, appointment]);
   const [selectedServices, setSelectedServices] = useState<any[]>(
     appointment ? [{ 
       id: '1', 

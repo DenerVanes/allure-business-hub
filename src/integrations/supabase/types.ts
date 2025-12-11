@@ -309,6 +309,73 @@ export type Database = {
         }
         Relationships: []
       }
+      coupon_uses: {
+        Row: {
+          appointment_id: string | null
+          cliente_id: string | null
+          cliente_telefone: string
+          codigo_cupom: string
+          id: string
+          percentual_desconto: number
+          promotion_id: string
+          usado_em: string | null
+          user_id: string
+          valor_desconto: number
+          valor_final: number
+          valor_original: number
+        }
+        Insert: {
+          appointment_id?: string | null
+          cliente_id?: string | null
+          cliente_telefone: string
+          codigo_cupom: string
+          id?: string
+          percentual_desconto: number
+          promotion_id: string
+          usado_em?: string | null
+          user_id: string
+          valor_desconto: number
+          valor_final: number
+          valor_original: number
+        }
+        Update: {
+          appointment_id?: string | null
+          cliente_id?: string | null
+          cliente_telefone?: string
+          codigo_cupom?: string
+          id?: string
+          percentual_desconto?: number
+          promotion_id?: string
+          usado_em?: string | null
+          user_id?: string
+          valor_desconto?: number
+          valor_final?: number
+          valor_original?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coupon_uses_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupon_uses_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupon_uses_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_subscriptions: {
         Row: {
           admin_id: string
@@ -633,6 +700,57 @@ export type Database = {
         }
         Relationships: []
       }
+      promotions: {
+        Row: {
+          ativa: boolean
+          created_at: string | null
+          data_fim: string
+          data_inicio: string
+          enviar_por_whatsapp: boolean
+          gerar_cupom_automatico: boolean
+          id: string
+          nome_cupom: string
+          percentual_desconto: number
+          prefixo_cupom: string | null
+          um_uso_por_cliente: boolean
+          updated_at: string | null
+          user_id: string
+          valido_apenas_no_mes: boolean
+        }
+        Insert: {
+          ativa?: boolean
+          created_at?: string | null
+          data_fim: string
+          data_inicio: string
+          enviar_por_whatsapp?: boolean
+          gerar_cupom_automatico?: boolean
+          id?: string
+          nome_cupom: string
+          percentual_desconto: number
+          prefixo_cupom?: string | null
+          um_uso_por_cliente?: boolean
+          updated_at?: string | null
+          user_id: string
+          valido_apenas_no_mes?: boolean
+        }
+        Update: {
+          ativa?: boolean
+          created_at?: string | null
+          data_fim?: string
+          data_inicio?: string
+          enviar_por_whatsapp?: boolean
+          gerar_cupom_automatico?: boolean
+          id?: string
+          nome_cupom?: string
+          percentual_desconto?: number
+          prefixo_cupom?: string | null
+          um_uso_por_cliente?: boolean
+          updated_at?: string | null
+          user_id?: string
+          valido_apenas_no_mes?: boolean
+        }
+        Relationships: []
+      }
       service_categories: {
         Row: {
           created_at: string
@@ -835,6 +953,10 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_client_id_by_phone: {
+        Args: { p_telefone: string; p_user_id: string }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -843,6 +965,25 @@ export type Database = {
         Returns: boolean
       }
       update_expired_plans: { Args: never; Returns: undefined }
+      validate_and_use_coupon: {
+        Args: {
+          p_appointment_id?: string
+          p_cliente_telefone: string
+          p_codigo_cupom: string
+          p_user_id: string
+          p_valor_original: number
+        }
+        Returns: Json
+      }
+      validate_coupon_only: {
+        Args: {
+          p_cliente_telefone: string
+          p_codigo_cupom: string
+          p_user_id: string
+          p_valor_original: number
+        }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "user"
