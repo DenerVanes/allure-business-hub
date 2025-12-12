@@ -98,6 +98,8 @@ export default function Agendamentos() {
       queryClient.invalidateQueries({ queryKey: ['today-appointments'] });
       queryClient.invalidateQueries({ queryKey: ['today-appointments-full'] });
       queryClient.invalidateQueries({ queryKey: ['appointments-status'] });
+      // Invalidar query de detalhes do cupom quando status mudar
+      queryClient.invalidateQueries({ queryKey: ['coupon-details'] });
       toast({
         title: 'Agendamento atualizado',
         description: 'Status alterado com sucesso.',

@@ -108,6 +108,8 @@ export const FinalizeAppointmentModal = ({ open, onOpenChange, appointment }: Fi
       queryClient.invalidateQueries({ queryKey: ['today-appointments'] });
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+      // Invalidar query de detalhes do cupom para atualizar status de "Atendido"
+      queryClient.invalidateQueries({ queryKey: ['coupon-details'] });
       
       toast({
         title: 'Serviço finalizado',

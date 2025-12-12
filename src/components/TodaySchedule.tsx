@@ -93,6 +93,8 @@ export const TodaySchedule = () => {
       queryClient.invalidateQueries({ queryKey: ['today-appointments'] });
       queryClient.invalidateQueries({ queryKey: ['today-appointments-full'] });
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      // Invalidar query de detalhes do cupom quando status mudar (especialmente para 'finalizado')
+      queryClient.invalidateQueries({ queryKey: ['coupon-details'] });
       
       const statusMessages = {
         finalizado: 'Serviço finalizado',

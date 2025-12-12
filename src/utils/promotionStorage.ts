@@ -31,8 +31,14 @@ export interface CupomMes {
   }>;
 }
 
-const STORAGE_KEY_PROMOCAO = 'promocao_aniversario';
-const STORAGE_KEY_CUPONS = 'cupons_aniversario_mes';
+// Funções auxiliares para gerar chaves com user_id
+const getPromocaoStorageKey = (userId?: string) => {
+  return userId ? `promocao_aniversario_${userId}` : 'promocao_aniversario';
+};
+
+const getCuponsStorageKey = (userId?: string) => {
+  return userId ? `cupons_aniversario_mes_${userId}` : 'cupons_aniversario_mes';
+};
 
 const defaultPromocao: PromocaoAniversario = {
   ativa: false,
@@ -49,12 +55,14 @@ const defaultPromocao: PromocaoAniversario = {
   limiteCupons: 0
 };
 
-export const getPromocao = (): PromocaoAniversario => {
+export const getPromocao = (userId?: string): PromocaoAniversario => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY_PROMOCAO);
+    const key = getPromocaoStorageKey(userId);
+    const stored = localStorage.getItem(key);
     if (!stored) {
-      savePromocao(defaultPromocao);
-      return defaultPromocao;
+      const defaultPromo = defaultPromocao;
+      savePromocao(defaultPromo, userId);
+      return defaultPromo;
     }
     return JSON.parse(stored);
   } catch {
@@ -62,17 +70,19 @@ export const getPromocao = (): PromocaoAniversario => {
   }
 };
 
-export const savePromocao = (promocao: PromocaoAniversario): void => {
+export const savePromocao = (promocao: PromocaoAniversario, userId?: string): void => {
   try {
-    localStorage.setItem(STORAGE_KEY_PROMOCAO, JSON.stringify(promocao));
+    const key = getPromocaoStorageKey(userId);
+    localStorage.setItem(key, JSON.stringify(promocao));
   } catch (error) {
     console.error('Erro ao salvar promoção:', error);
   }
 };
 
-export const getCupons = (): CupomMes[] => {
+export const getCupons = (userId?: string): CupomMes[] => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY_CUPONS);
+    const key = getCuponsStorageKey(userId);
+    const stored = localStorage.getItem(key);
     if (!stored) return [];
     return JSON.parse(stored);
   } catch {
@@ -80,9 +90,10 @@ export const getCupons = (): CupomMes[] => {
   }
 };
 
-export const saveCupons = (cupons: CupomMes[]): void => {
+export const saveCupons = (cupons: CupomMes[], userId?: string): void => {
   try {
-    localStorage.setItem(STORAGE_KEY_CUPONS, JSON.stringify(cupons));
+    const key = getCuponsStorageKey(userId);
+    localStorage.setItem(key, JSON.stringify(cupons));
   } catch (error) {
     console.error('Erro ao salvar cupons:', error);
   }
@@ -222,9 +233,10 @@ export const validateCupom = (
 export const markCupomAsUsed = (
   codigo: string,
   agendamentoId: string,
-  clienteTelefone: string
+  clienteTelefone: string,
+  userId?: string
 ): void => {
-  const cupons = getCupons();
+  const cupons = getCupons(userId);
   const cupom = cupons.find(c => c.codigo === codigo.toUpperCase());
   if (cupom) {
     // Inicializar array se não existir
@@ -244,17 +256,17 @@ export const markCupomAsUsed = (
     cupom.dataUtilizacao = new Date().toISOString();
     cupom.agendamentoId = agendamentoId;
     
-    saveCupons(cupons);
+    saveCupons(cupons, userId);
   }
 };
 
-export const getCupomByClienteId = (clienteId: string): CupomMes | null => {
-  const cupons = getCupons();
+export const getCupomByClienteId = (clienteId: string, userId?: string): CupomMes | null => {
+  const cupons = getCupons(userId);
   return cupons.find(c => c.clienteId === clienteId) || null;
 };
 
-export const getCupomByClienteTelefone = (telefone: string): CupomMes | null => {
-  const cupons = getCupons();
+export const getCupomByClienteTelefone = (telefone: string, userId?: string): CupomMes | null => {
+  const cupons = getCupons(userId);
   const telefoneNormalizado = telefone.replace(/\D/g, '');
   return cupons.find(c => {
     const cupomTelefoneNormalizado = c.clienteTelefone.replace(/\D/g, '');

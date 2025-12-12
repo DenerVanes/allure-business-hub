@@ -55,8 +55,8 @@ export const PromotionManager = ({ open, onOpenChange }: PromotionManagerProps) 
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { aniversariantes } = useBirthdays();
-  const [promocao, setPromocao] = useState<PromocaoAniversario>(getPromocao());
-  const [cupons, setCupons] = useState<CupomMes[]>(getCupons());
+  const [promocao, setPromocao] = useState<PromocaoAniversario>(getPromocao(user?.id));
+  // Removido: cupons agora vêm do banco de dados via useQuery
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [touched, setTouched] = useState(false);
   const [selectedCupom, setSelectedCupom] = useState<CupomMes | null>(null);
@@ -177,8 +177,50 @@ export const PromotionManager = ({ open, onOpenChange }: PromotionManagerProps) 
   });
 
   // Buscar promoções do backend para obter limites específicos de cada cupom
-  const { data: promotionsFromBackend = [] } = useQuery({
-    queryKey: ['promotions-backend', user?.id],
+  // Buscar cupons do banco de dados (tabela promotions)
+  const { data: cuponsFromBackend = [], refetch: refetchCupons } = useQuery({
+    queryKey: ['cupons-backend', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('promotions')
+        .select('id, nome_cupom, percentual_desconto, data_inicio, data_fim, status, ativa, limite_cupons_ativo, limite_cupons, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Erro ao buscar cupons:', error);
+        return [];
+      }
+      
+      // Converter dados do banco para formato CupomMes
+      return (data || []).map((promo: any) => ({
+        codigo: promo.nome_cupom,
+        clienteId: '',
+        clienteNome: 'Todos os clientes',
+        clienteTelefone: '',
+        percentualDesconto: promo.percentual_desconto,
+        dataGeracao: promo.created_at || new Date().toISOString(),
+        utilizado: false, // Não usado mais, mantido para compatibilidade
+        dataUtilizacao: null,
+        agendamentoId: null,
+        status: promo.status || (promo.ativa ? 'ativo' : 'pausado'),
+        usosPorTelefone: [],
+        promotionId: promo.id // ID do banco para operações
+      }));
+    },
+    enabled: !!user?.id && open,
+  });
+
+  // Usar cupons do banco como fonte principal
+  const cupons = cuponsFromBackend;
+
+  // Criar mapa de limites por código de cupom (dos dados do banco)
+  const limitesPorCupom: Record<string, { ativo: boolean; limite: number }> = {};
+  // Buscar dados completos das promotions para pegar limites
+  const { data: promotionsData = [] } = useQuery({
+    queryKey: ['promotions-limits', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
       
@@ -187,19 +229,13 @@ export const PromotionManager = ({ open, onOpenChange }: PromotionManagerProps) 
         .select('nome_cupom, limite_cupons_ativo, limite_cupons')
         .eq('user_id', user.id);
       
-      if (error) {
-        console.error('Erro ao buscar promoções:', error);
-        return [];
-      }
-      
+      if (error) return [];
       return data || [];
     },
     enabled: !!user?.id && open,
   });
-
-  // Criar mapa de limites por código de cupom
-  const limitesPorCupom: Record<string, { ativo: boolean; limite: number }> = {};
-  promotionsFromBackend.forEach((promo: any) => {
+  
+  promotionsData.forEach((promo: any) => {
     if (promo.nome_cupom) {
       limitesPorCupom[promo.nome_cupom.toUpperCase()] = {
         ativo: promo.limite_cupons_ativo || false,
@@ -209,9 +245,9 @@ export const PromotionManager = ({ open, onOpenChange }: PromotionManagerProps) 
   });
 
   useEffect(() => {
-    if (open) {
+    if (open && user?.id) {
       // Quando abrir o modal, limpar campos de criação de cupom
-      const promocaoAtual = getPromocao();
+      const promocaoAtual = getPromocao(user.id);
       setPromocao({
         ...promocaoAtual,
         nomeCupom: '', // Limpar código do cupom
@@ -219,14 +255,16 @@ export const PromotionManager = ({ open, onOpenChange }: PromotionManagerProps) 
         dataInicio: '', // Limpar data início
         dataFim: '' // Limpar data fim
       });
-      setCupons(getCupons());
       setTouched(false);
+      // Cupons são carregados automaticamente via useQuery quando o modal abre
     }
-  }, [open]);
+  }, [open, user?.id]);
 
   const handleSave = async () => {
-    // Salvar no localStorage sempre
-    savePromocao(promocao);
+    // Salvar no localStorage sempre (com user_id para isolamento)
+    if (user?.id) {
+      savePromocao(promocao, user.id);
+    }
 
     // Só exigir datas se não houver cupons criados e se a promoção estiver ativa
     // Se já existem cupons, não precisa das datas (os cupons já foram criados)
@@ -271,8 +309,10 @@ export const PromotionManager = ({ open, onOpenChange }: PromotionManagerProps) 
       }
     }
 
-    // Salvar no localStorage (para compatibilidade)
-    savePromocao(promocao);
+        // Salvar no localStorage (para compatibilidade, com user_id para isolamento)
+        if (user?.id) {
+          savePromocao(promocao, user.id);
+        }
 
     // Sincronizar com backend se usuário estiver logado
     // Só sincronizar se tiver dados suficientes OU se houver cupons criados
@@ -361,7 +401,7 @@ export const PromotionManager = ({ open, onOpenChange }: PromotionManagerProps) 
       return;
     }
 
-    // Verificar se código já existe
+    // Verificar se código já existe no banco (já está sendo verificado pelo banco também)
     if (cupons.some(c => c.codigo.toUpperCase() === promocao.nomeCupom.toUpperCase())) {
       toast({
         title: 'Erro',
@@ -429,23 +469,9 @@ export const PromotionManager = ({ open, onOpenChange }: PromotionManagerProps) 
       }
     }
 
-    const novoCupom: CupomMes = {
-      codigo: codigoCupom,
-      clienteId: '',
-      clienteNome: 'Todos os clientes',
-      clienteTelefone: '',
-      percentualDesconto: promocao.percentualDesconto,
-      dataGeracao: new Date().toISOString(),
-      utilizado: false,
-      dataUtilizacao: null,
-      agendamentoId: null,
-      status: 'ativo',
-      usosPorTelefone: []
-    };
-
-    const novosCupons = [...cupons, novoCupom];
-    saveCupons(novosCupons);
-    setCupons(novosCupons);
+    // Cupom já foi salvo no banco acima, agora invalidar query para recarregar
+    await queryClient.invalidateQueries({ queryKey: ['cupons-backend', user?.id] });
+    
     setTouched(true);
     
     // Limpar campos para permitir criar novo cupom
@@ -483,12 +509,8 @@ export const PromotionManager = ({ open, onOpenChange }: PromotionManagerProps) 
 
       if (error) throw error;
 
-      // Atualizar localmente
-      const novosCupons = cupons.map(c => 
-        c.codigo === codigo ? { ...c, status: 'pausado' as const } : c
-      );
-      saveCupons(novosCupons);
-      setCupons(novosCupons);
+      // Invalidar query para recarregar cupons do banco
+      await queryClient.invalidateQueries({ queryKey: ['cupons-backend', user?.id] });
       setTouched(true);
       
       toast({
@@ -525,12 +547,8 @@ export const PromotionManager = ({ open, onOpenChange }: PromotionManagerProps) 
 
       if (error) throw error;
 
-      // Atualizar localmente
-      const novosCupons = cupons.map(c => 
-        c.codigo === codigo ? { ...c, status: 'cancelado' as const } : c
-      );
-      saveCupons(novosCupons);
-      setCupons(novosCupons);
+      // Invalidar query para recarregar cupons do banco
+      await queryClient.invalidateQueries({ queryKey: ['cupons-backend', user?.id] });
       setTouched(true);
       
       toast({
@@ -611,10 +629,8 @@ export const PromotionManager = ({ open, onOpenChange }: PromotionManagerProps) 
         if (deletePromocaoError) throw deletePromocaoError;
       }
 
-      // 3. Atualizar localStorage
-      const novosCupons = cupons.filter(c => c.codigo.toUpperCase().trim() !== codigoNormalizado);
-      saveCupons(novosCupons);
-      setCupons(novosCupons);
+      // Invalidar query para recarregar cupons do banco (cupom já foi deletado)
+      await queryClient.invalidateQueries({ queryKey: ['cupons-backend', user?.id] });
       setTouched(true);
       
       // 4. Invalidar queries para atualizar dados
@@ -656,11 +672,8 @@ export const PromotionManager = ({ open, onOpenChange }: PromotionManagerProps) 
 
       if (error) throw error;
 
-      // Atualizar localmente
-      const novosCupons = cupons.map(c => 
-        c.codigo === codigo ? { ...c, status: 'ativo' as const } : c
-      );
-      saveCupons(novosCupons);
+      // Invalidar query para recarregar cupons do banco
+      await queryClient.invalidateQueries({ queryKey: ['cupons-backend', user?.id] });
       setCupons(novosCupons);
       setTouched(true);
       
