@@ -12,32 +12,42 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { Calendar, Plus, Search, MoreVertical, Clock, CheckCircle, XCircle, Edit, Trash2, CalendarDays } from 'lucide-react';
+import { Calendar, Plus, Search, MoreVertical, Clock, CheckCircle, XCircle, Edit, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
-import { format, parseISO, isWithinInterval } from 'date-fns';
+import { format, parseISO, isWithinInterval, addDays, subDays, startOfWeek, addWeeks, subWeeks, addMonths } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { ptBR } from 'date-fns/locale';
 import { NewAppointmentModal } from '@/components/NewAppointmentModal';
 import { RescheduleModal } from '@/components/RescheduleModal';
 import { FinalizeAppointmentModal } from '@/components/FinalizeAppointmentModal';
 import { AppointmentDateFilter, DateFilter } from '@/components/AppointmentDateFilter';
-import { CalendarViewModal } from '@/components/CalendarViewModal';
+import { CalendarHeader, ViewMode } from '@/components/calendar/CalendarHeader';
+import { WeekView } from '@/components/calendar/WeekView';
+import { MonthView } from '@/components/calendar/MonthView';
+import { AppointmentDetailsDrawer } from '@/components/calendar/AppointmentDetailsDrawer';
 
 export default function Agendamentos() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const location = useLocation();
+  const [viewMode, setViewMode] = useState<ViewMode>('week');
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [searchTerm, setSearchTerm] = useState('');
   const [showNewModal, setShowNewModal] = useState(false);
   const [prefillPhone, setPrefillPhone] = useState<string | null>(null);
-  const [showCalendarView, setShowCalendarView] = useState(false);
+  const [prefillDate, setPrefillDate] = useState<Date | undefined>(undefined);
+  const [prefillTime, setPrefillTime] = useState<string | undefined>(undefined);
+  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+  const [showDetailsDrawer, setShowDetailsDrawer] = useState(false);
   const [rescheduleAppointment, setRescheduleAppointment] = useState<any>(null);
   const [finalizeAppointment, setFinalizeAppointment] = useState<any>(null);
   const [dateFilter, setDateFilter] = useState<DateFilter>({
     type: 'all',
     label: 'Todos'
   });
+  const [selectedCollaboratorId, setSelectedCollaboratorId] = useState<string>('all');
 
   useEffect(() => {
     if (location.state?.prefillPhone) {
@@ -76,7 +86,9 @@ export default function Agendamentos() {
       const { data, error } = await supabase
         .from('collaborators')
         .select('*')
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .eq('active', true)
+        .order('name');
       
       if (error) throw error;
       return data || [];
@@ -188,6 +200,51 @@ export default function Agendamentos() {
     }
   };
 
+  // Navegação de datas
+  const handlePrevious = () => {
+    if (viewMode === 'day') {
+      setSelectedDate(subDays(selectedDate, 1));
+    } else if (viewMode === 'week') {
+      setSelectedDate(subWeeks(selectedDate, 1));
+    } else if (viewMode === 'month') {
+      setSelectedDate(addMonths(selectedDate, -1));
+    }
+  };
+
+  const handleNext = () => {
+    if (viewMode === 'day') {
+      setSelectedDate(addDays(selectedDate, 1));
+    } else if (viewMode === 'week') {
+      setSelectedDate(addWeeks(selectedDate, 1));
+    } else if (viewMode === 'month') {
+      setSelectedDate(addMonths(selectedDate, 1));
+    }
+  };
+
+  const handleToday = () => {
+    setSelectedDate(new Date());
+  };
+
+  // Clique em horário vazio
+  const handleTimeSlotClick = (date: Date, time: string) => {
+    setPrefillDate(date);
+    setPrefillTime(time);
+    setShowNewModal(true);
+  };
+
+  // Clique em dia para mudar para visualização semanal (da visualização mensal)
+  const handleDayClickFromMonth = (date: Date) => {
+    setSelectedDate(date);
+    setViewMode('week');
+  };
+
+
+  // Clique no card de agendamento
+  const handleAppointmentClick = (appointment: any) => {
+    setSelectedAppointment(appointment);
+    setShowDetailsDrawer(true);
+  };
+
   // Filtrar agendamentos por data
   const filterAppointmentsByDate = (appointments: any[]) => {
     if (dateFilter.type === 'all') return appointments;
@@ -203,12 +260,44 @@ export default function Agendamentos() {
     });
   };
 
-  const filteredAppointments = filterAppointmentsByDate(appointments).filter(appointment => {
-    const clientName = (appointment.clients?.name || appointment.client_name || '').toLowerCase();
-    const serviceName = (appointment.services?.name || '').toLowerCase();
-    const term = searchTerm.toLowerCase();
-    return clientName.includes(term) || serviceName.includes(term);
-  });
+  // Filtrar agendamentos por busca (apenas na visualização Lista)
+  const filterAppointmentsBySearch = (appointments: any[]) => {
+    if (viewMode !== 'list' || !searchTerm) return appointments;
+    
+    return appointments.filter(appointment => {
+      const clientName = (appointment.clients?.name || appointment.client_name || '').toLowerCase();
+      const serviceName = (appointment.services?.name || '').toLowerCase();
+      const term = searchTerm.toLowerCase();
+      return clientName.includes(term) || serviceName.includes(term);
+    });
+  };
+
+  // Filtrar agendamentos por colaborador
+  const filterAppointmentsByCollaborator = (appointments: any[]) => {
+    if (selectedCollaboratorId === 'all') return appointments;
+    
+    return appointments.filter(appointment => {
+      return appointment.collaborator_id === selectedCollaboratorId;
+    });
+  };
+
+  // Filtrar agendamentos cancelados (não mostrar nas visualizações de calendário)
+  const filterAppointmentsByViewMode = (appointments: any[]) => {
+    if (viewMode === 'list') {
+      // Na visualização lista, mostrar todos incluindo cancelados
+      return appointments;
+    }
+    // Nas visualizações de calendário (week, month), excluir cancelados
+    return appointments.filter(appointment => appointment.status !== 'cancelado');
+  };
+
+  const filteredAppointments = filterAppointmentsByViewMode(
+    filterAppointmentsBySearch(
+      filterAppointmentsByCollaborator(
+        filterAppointmentsByDate(appointments)
+      )
+    )
+  );
 
 
   return (
@@ -220,159 +309,132 @@ export default function Agendamentos() {
             Gerencie todos os seus agendamentos
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setShowCalendarView(true)} variant="outline" className="gap-2">
-            <CalendarDays className="h-4 w-4" />
-            Agenda
-          </Button>
-          <Button onClick={() => setShowNewModal(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Novo Agendamento
-          </Button>
+        <Button onClick={() => {
+          setPrefillDate(undefined);
+          setPrefillTime(undefined);
+          setShowNewModal(true);
+        }} className="gap-2">
+          <Plus className="h-4 w-4" />
+          Novo Agendamento
+        </Button>
+      </div>
+
+      {/* Header com tabs e navegação */}
+      <CalendarHeader
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        currentDate={selectedDate}
+        onDateChange={setSelectedDate}
+        onPrevious={handlePrevious}
+        onNext={handleNext}
+        onToday={handleToday}
+        collaborators={collaborators}
+        selectedCollaboratorId={selectedCollaboratorId}
+        onCollaboratorChange={setSelectedCollaboratorId}
+      />
+
+      {/* Filtro de Datas - apenas na visualização Lista */}
+      {viewMode === 'list' && (
+        <div className="flex items-center gap-4">
+          <AppointmentDateFilter
+            currentFilter={dateFilter}
+            onFilterChange={setDateFilter}
+          />
         </div>
-      </div>
+      )}
 
-      {/* Filtro de Datas */}
-      <div className="flex items-center gap-4">
-        <AppointmentDateFilter
-          currentFilter={dateFilter}
-          onFilterChange={setDateFilter}
-        />
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Lista de Agendamentos
-          </CardTitle>
-          <div className="flex items-center space-x-2">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por cliente ou serviço..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="max-w-sm"
+      {/* Visualizações */}
+      <Card className="min-h-[600px]">
+        <CardContent className="p-6">
+          {viewMode === 'week' && (
+            <WeekView
+              appointments={filteredAppointments}
+              selectedDate={selectedDate}
+              onAppointmentClick={handleAppointmentClick}
+              onTimeSlotClick={handleTimeSlotClick}
             />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {filteredAppointments.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>Nenhum agendamento encontrado</p>
-              </div>
-            ) : (
-              filteredAppointments.map((appointment) => {
-                const statusConfig = getStatusConfig(appointment.status);
-                const StatusIcon = statusConfig.icon;
-                
-                return (
-                  <div 
-                    key={appointment.id} 
-                    className="flex items-center justify-between p-4 bg-surface/50 rounded-lg border border-border/30 hover:shadow-soft transition-all duration-200"
-                  >
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className="text-center min-w-[80px]">
-                        <div className="text-sm font-medium text-muted-foreground">
-                          {format(parseISO(appointment.appointment_date), "dd/MM/yyyy")}
-                        </div>
-                        <div className="text-lg font-semibold text-primary">
-                          {appointment.appointment_time}
-                        </div>
-                      </div>
-                      
-                      <div className="flex-1 space-y-1">
-                        <div className="font-medium text-foreground">
-                          {appointment.client_name || appointment.clients?.name}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {appointment.client_phone || appointment.clients?.phone}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {appointment.services?.name}
-                        </div>
-                        {appointment.collaborator_id && (
-                          <div className="text-sm text-muted-foreground">
-                            Profissional: {getCollaboratorName(appointment.collaborator_id)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3">
-                      <Badge 
-                        variant="outline" 
-                        className={`${statusConfig.color} flex items-center gap-1`}
-                      >
-                        <StatusIcon className="h-3 w-3" />
-                        {statusConfig.label}
-                      </Badge>
-                      
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {appointment.status === 'agendado' && (
-                            <DropdownMenuItem
-                              onClick={() => updateAppointmentMutation.mutate({ 
-                                id: appointment.id, 
-                                status: 'confirmado' 
-                              })}
-                            >
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              Confirmar
-                            </DropdownMenuItem>
-                          )}
-                          
-                          {appointment.status === 'confirmado' && (
-                            <DropdownMenuItem
-                              onClick={() => setFinalizeAppointment(appointment)}
-                            >
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              Finalizar
-                            </DropdownMenuItem>
-                          )}
-                          
-                          <DropdownMenuItem
-                            onClick={() => setRescheduleAppointment(appointment)}
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Reagendar
-                          </DropdownMenuItem>
-                          
-                          {appointment.status !== 'cancelado' && appointment.status !== 'finalizado' && (
-                            <DropdownMenuItem
-                              onClick={() => updateAppointmentMutation.mutate({ 
-                                id: appointment.id, 
-                                status: 'cancelado' 
-                              })}
-                              className="text-red-600"
-                            >
-                              <XCircle className="h-4 w-4 mr-2" />
-                              Cancelar
-                            </DropdownMenuItem>
-                          )}
+          )}
 
-                          <DropdownMenuItem
-                            onClick={() => handleDeleteAppointment(appointment.id)}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+          {viewMode === 'month' && (
+            <MonthView
+              appointments={filteredAppointments}
+              selectedDate={selectedDate}
+              onAppointmentClick={handleAppointmentClick}
+              onDayClick={handleDayClickFromMonth}
+            />
+          )}
+
+          {viewMode === 'list' && (
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2 mb-4">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por cliente ou serviço..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="max-w-sm"
+                />
+              </div>
+
+              {filteredAppointments.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>Nenhum agendamento encontrado</p>
+                </div>
+              ) : (
+                filteredAppointments.map((appointment) => {
+                  const statusConfig = getStatusConfig(appointment.status);
+                  const StatusIcon = statusConfig.icon;
+                  
+                  return (
+                    <div 
+                      key={appointment.id} 
+                      className="flex items-center justify-between p-4 bg-surface/50 rounded-lg border border-border/30 hover:shadow-soft transition-all duration-200 cursor-pointer"
+                      onClick={() => handleAppointmentClick(appointment)}
+                    >
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="text-center min-w-[80px]">
+                          <div className="text-sm font-medium text-muted-foreground">
+                            {format(parseISO(appointment.appointment_date), "dd/MM/yyyy")}
+                          </div>
+                          <div className="text-lg font-semibold text-primary">
+                            {appointment.appointment_time}
+                          </div>
+                        </div>
+                        
+                        <div className="flex-1 space-y-1">
+                          <div className="font-medium text-foreground">
+                            {appointment.client_name || appointment.clients?.name}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {appointment.client_phone || appointment.clients?.phone}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {appointment.services?.name}
+                          </div>
+                          {appointment.collaborator_id && (
+                            <div className="text-sm text-muted-foreground">
+                              Profissional: {getCollaboratorName(appointment.collaborator_id)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        <Badge 
+                          variant="outline" 
+                          className={`${statusConfig.color} flex items-center gap-1`}
+                        >
+                          <StatusIcon className="h-3 w-3" />
+                          {statusConfig.label}
+                        </Badge>
+                      </div>
                     </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+                  );
+                })
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -382,16 +444,26 @@ export default function Agendamentos() {
           if (!open) {
             setShowNewModal(false);
             setPrefillPhone(null);
+            setPrefillDate(undefined);
+            setPrefillTime(undefined);
           } else {
             setShowNewModal(true);
           }
         }}
         prefillPhone={prefillPhone || undefined}
+        prefillDate={prefillDate}
+        prefillTime={prefillTime}
       />
 
-      <CalendarViewModal
-        open={showCalendarView}
-        onOpenChange={setShowCalendarView}
+      <AppointmentDetailsDrawer
+        open={showDetailsDrawer}
+        onOpenChange={setShowDetailsDrawer}
+        appointment={selectedAppointment}
+        onConfirm={(id) => updateAppointmentMutation.mutate({ id, status: 'confirmado' })}
+        onFinalize={(appointment) => setFinalizeAppointment(appointment)}
+        onReschedule={(appointment) => setRescheduleAppointment(appointment)}
+        onCancel={(id) => updateAppointmentMutation.mutate({ id, status: 'cancelado' })}
+        onDelete={handleDeleteAppointment}
       />
 
       {rescheduleAppointment && (

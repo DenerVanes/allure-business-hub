@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { format } from 'date-fns';
+import { format, parseISO, subDays, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Clock, User, Check, Eye, CheckCircle, X, Calendar, Trash2, MoreVertical } from 'lucide-react';
+import { Clock, User, Check, Eye, CheckCircle, X, Calendar, Trash2, MoreVertical, MessageSquare } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,8 +23,11 @@ import { toast } from '@/hooks/use-toast';
 import { TodayAgendaModal } from './TodayAgendaModal';
 import { RescheduleModal } from './RescheduleModal';
 import { FinalizeAppointmentModal } from './FinalizeAppointmentModal';
+import { ConfirmWithClientModal } from './ConfirmWithClientModal';
 
 type AppointmentWithCollaborator = any & { collaborator_name?: string };
+
+const SENT_MESSAGES_KEY = 'whatsapp_confirmation_sent_';
 
 export const TodaySchedule = () => {
   const { user } = useAuth();
@@ -34,7 +37,21 @@ export const TodaySchedule = () => {
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
+  const [showConfirmWithClientModal, setShowConfirmWithClientModal] = useState(false);
+  const [appointmentForWhatsApp, setAppointmentForWhatsApp] = useState<any>(null);
   const today = new Date();
+  
+  // Verificar se mensagem foi enviada anteriormente para um agendamento
+  // Retorna true se JÁ foi enviada (e portanto NÃO deve mostrar o botão)
+  const wasMessageSentPreviously = (appointmentId: string): boolean => {
+    if (!user?.id) return false;
+    
+    const sentMessagesKey = `${SENT_MESSAGES_KEY}${user.id}`;
+    const sentMessages = JSON.parse(localStorage.getItem(sentMessagesKey) || '[]');
+    
+    // Se o ID está na lista, significa que já foi enviada antes
+    return sentMessages.includes(appointmentId);
+  };
 
   const { data: appointments = [], isLoading } = useQuery<AppointmentWithCollaborator[]>({
     queryKey: ['today-appointments', user?.id, format(today, 'yyyy-MM-dd')],
@@ -314,16 +331,20 @@ export const TodaySchedule = () => {
                         </PopoverTrigger>
                         <PopoverContent className="w-48 p-1">
                           <div className="space-y-1">
-                            {appointment.status === 'agendado' && (
+                            {/* Botão "Confirmar com Cliente" - só aparece se não foi enviado anteriormente e status é agendado */}
+                            {appointment.status === 'agendado' && !wasMessageSentPreviously(appointment.id) && (
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 className="w-full justify-start"
-                                onClick={() => handleAction(appointment.id, 'confirmado')}
-                                disabled={updateAppointmentMutation.isPending}
+                                onClick={() => {
+                                  setAppointmentForWhatsApp(appointment);
+                                  setShowConfirmWithClientModal(true);
+                                  setOpenPopoverId(null);
+                                }}
                               >
-                                <CheckCircle className="h-3 w-3 mr-2" />
-                                Confirmar
+                                <MessageSquare className="h-3 w-3 mr-2" />
+                                Confirmar com Cliente
                               </Button>
                             )}
                             
@@ -401,6 +422,28 @@ export const TodaySchedule = () => {
         onOpenChange={setShowFinalizeModal}
         appointment={selectedAppointment}
       />
+
+      {/* Modal de Confirmar com Cliente */}
+      {showConfirmWithClientModal && appointmentForWhatsApp && (
+        <ConfirmWithClientModal
+          open={showConfirmWithClientModal}
+          onOpenChange={setShowConfirmWithClientModal}
+          clientName={appointmentForWhatsApp.client_name || 'Cliente não informado'}
+          clientPhone={appointmentForWhatsApp.client_phone || appointmentForWhatsApp.clients?.phone || ''}
+          appointmentDate={appointmentForWhatsApp.appointment_date}
+          appointmentTime={appointmentForWhatsApp.appointment_time?.split(':').slice(0, 2).join(':') || ''}
+          serviceName={appointmentForWhatsApp.services?.name || 'Serviço não informado'}
+          appointmentId={appointmentForWhatsApp.id}
+          defaultMessage={`Oi, {cliente}! 🌷
+Tudo bem? Estou passando rapidinho para confirmar seu atendimento hoje às {horário}, para {serviço}.
+Já está tudo prontinho por aqui 💕 Pode me confirmar sua presença, por favor? 😊`}
+          storageKeySuffix="today_"
+          onMessageSent={() => {
+            // Mensagem enviada, não precisa fazer nada especial aqui
+            // O localStorage já foi atualizado pelo modal
+          }}
+        />
+      )}
     </>
   );
 };

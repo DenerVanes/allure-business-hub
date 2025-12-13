@@ -18,19 +18,26 @@ import {
   Download,
   Scissors,
   Sparkle,
-  FolderOpen
+  FolderOpen,
+  CreditCard,
+  Banknote,
+  Smartphone,
+  Receipt
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { FinanceModal } from '@/components/FinanceModal';
 import { ManageExpenseCategoriesModal } from '@/components/ManageExpenseCategoriesModal';
 import TransactionsModal from '@/components/TransactionsModal';
+import { PaymentMethodFeesModal } from '@/components/PaymentMethodFeesModal';
+import { AppointmentDetailsViewModal } from '@/components/AppointmentDetailsViewModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subWeeks, subMonths, isThisMonth, isSameMonth } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subDays, subWeeks, subMonths, subYears, isThisMonth, isSameMonth, startOfDay, endOfDay } from 'date-fns';
 import { formatTransactionDate, getBrazilianDate } from '@/utils/timezone';
 import type { Database } from '@/integrations/supabase/types';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
@@ -49,6 +56,12 @@ const Financeiro = () => {
   const [showManageCategories, setShowManageCategories] = useState(false);
   const [showTransactionsModal, setShowTransactionsModal] = useState(false);
   const [transactionsModalType, setTransactionsModalType] = useState<'income' | 'expense' | 'all'>('all');
+  const [showPaymentFeesModal, setShowPaymentFeesModal] = useState(false);
+  const [showAppointmentDetailsModal, setShowAppointmentDetailsModal] = useState(false);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+  const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
 
   const getDateRange = (filter: string) => {
     const now = getBrazilianDate();
@@ -68,6 +81,15 @@ const Financeiro = () => {
       case 'lastMonth':
         const lastMonth = subMonths(now, 1);
         return { start: format(startOfMonth(lastMonth), 'yyyy-MM-dd'), end: format(endOfMonth(lastMonth), 'yyyy-MM-dd') };
+      case 'lastYear':
+        const lastYear = subYears(now, 1);
+        return { start: format(startOfYear(lastYear), 'yyyy-MM-dd'), end: format(endOfYear(lastYear), 'yyyy-MM-dd') };
+      case 'custom':
+        if (customStartDate && customEndDate) {
+          return { start: customStartDate, end: customEndDate };
+        }
+        // Fallback para hoje se não tiver datas customizadas
+        return { start: format(now, 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd') };
       default:
         return { start: format(now, 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd') };
     }
@@ -93,7 +115,7 @@ const Financeiro = () => {
 
   // Buscar transações filtradas
   const { data: transactions = [], isLoading } = useQuery<TransactionRow[]>({
-    queryKey: ['financial-transactions', user?.id, dateFilter],
+    queryKey: ['financial-transactions', user?.id, dateFilter, customStartDate, customEndDate],
     queryFn: async () => {
       if (!user?.id) return [];
       
@@ -110,6 +132,10 @@ const Financeiro = () => {
               name,
               service_categories (name)
             )
+          ),
+          products!left (
+            name,
+            category
           )
         `)
         .eq('user_id', user.id)
@@ -139,21 +165,291 @@ const Financeiro = () => {
     enabled: !!user?.id
   });
 
-  // Buscar agendamentos finalizados do mês para cálculo correto do ticket médio
-  const { data: finalizedAppointments = [] } = useQuery({
-    queryKey: ['finalized-appointments-month', user?.id],
+  // Função auxiliar para agrupar pagamentos por método
+  const groupPaymentsByMethod = (payments: any[]) => {
+    return payments.reduce((acc: any, payment: any) => {
+      const methodName = payment.payment_methods?.name || 'Não informado';
+      const methodId = payment.payment_methods?.id || 'unknown';
+      
+      if (!acc[methodId]) {
+        acc[methodId] = {
+          method_id: methodId,
+          method_name: methodName,
+          has_fee: payment.payment_methods?.has_fee || false,
+          total_amount: 0,
+          total_fees: 0,
+          total_net: 0,
+          count: 0
+        };
+      }
+      
+      acc[methodId].total_amount += Number(payment.amount) || 0;
+      acc[methodId].total_fees += Number(payment.fee_amount) || 0;
+      acc[methodId].total_net += Number(payment.net_amount) || 0;
+      acc[methodId].count += 1;
+      
+      return acc;
+    }, {});
+  };
+
+  // Buscar pagamentos agrupados por método de pagamento no período atual e anterior
+  const { data: paymentSummary = [] } = useQuery({
+    queryKey: ['payment-summary-comparison', user?.id, dateFilter, customStartDate, customEndDate],
     queryFn: async () => {
       if (!user?.id) return [];
-      const monthStart = startOfMonth(new Date());
-      const monthEnd = endOfMonth(new Date());
+      
+      let { start, end } = getDateRange(dateFilter);
+      
+      // Se o filtro for "month", ajustar o período atual para ir apenas até hoje (não até o fim do mês)
+      if (dateFilter === 'month') {
+        const now = getBrazilianDate();
+        const today = format(now, 'yyyy-MM-dd');
+        // Se hoje for antes do fim do mês, usar hoje como fim do período
+        if (today < end) {
+          end = today;
+        }
+      }
+      
+      // Buscar agendamentos do período atual
+      const { data: appointmentsInPeriod, error: appointmentsError } = await supabase
+        .from('appointments')
+        .select('id')
+        .eq('user_id', user.id)
+        .gte('appointment_date', start)
+        .lte('appointment_date', end)
+        .eq('status', 'finalizado');
+      
+      if (appointmentsError) throw appointmentsError;
+      
+      const appointmentIds = (appointmentsInPeriod || []).map(a => a.id);
+      
+      // Buscar pagamentos do período atual (de agendamentos)
+      let currentAppointmentPayments: any[] = [];
+      if (appointmentIds.length > 0) {
+        const { data: payments, error: paymentsError } = await supabase
+          .from('appointment_payments')
+          .select(`
+            *,
+            payment_methods (
+              id,
+              name,
+              has_fee
+            )
+          `)
+          .in('appointment_id', appointmentIds);
+        
+        if (paymentsError) throw paymentsError;
+        currentAppointmentPayments = payments || [];
+      }
+
+      // Buscar pagamentos do período atual (de receitas manuais)
+      const { data: transactionsInPeriod, error: transactionsError } = await supabase
+        .from('financial_transactions')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('type', 'income')
+        .gte('transaction_date', start)
+        .lte('transaction_date', end);
+      
+      if (transactionsError) throw transactionsError;
+      
+      let currentTransactionPayments: any[] = [];
+      const transactionIds = (transactionsInPeriod || []).map(t => t.id);
+      if (transactionIds.length > 0) {
+        const { data: transactionPayments, error: transactionPaymentsError } = await supabase
+          .from('transaction_payments')
+          .select(`
+            *,
+            payment_methods (
+              id,
+              name,
+              has_fee
+            )
+          `)
+          .in('transaction_id', transactionIds);
+        
+        if (transactionPaymentsError) throw transactionPaymentsError;
+        currentTransactionPayments = transactionPayments || [];
+      }
+
+      // Combinar pagamentos de agendamentos e receitas manuais
+      const currentPayments = [...currentAppointmentPayments, ...currentTransactionPayments];
+      
+      // Calcular período equivalente do mês anterior
+      // Se o filtro for "month", comparar primeiros N dias do mês atual com primeiros N dias do mês anterior
+      let previousStart: string;
+      let previousEnd: string;
+      
+      if (dateFilter === 'month') {
+        const now = getBrazilianDate();
+        const endDateObj = new Date(end + 'T00:00:00');
+        const currentDay = endDateObj.getDate(); // Dia atual do período (ex: 13)
+        
+        // Período atual: do dia 1 até o dia atual do mês atual
+        // Período anterior: do dia 1 até o mesmo dia do mês anterior (ou último dia se o mês anterior tiver menos dias)
+        const previousMonthDate = subMonths(endDateObj, 1);
+        const previousMonthStart = startOfMonth(previousMonthDate);
+        const previousMonthEnd = endOfMonth(previousMonthDate);
+        
+        // Se o dia atual for maior que os dias do mês anterior, usar o último dia do mês anterior
+        const daysInPreviousMonth = previousMonthEnd.getDate();
+        const comparisonDay = Math.min(currentDay, daysInPreviousMonth);
+        
+        previousStart = format(previousMonthStart, 'yyyy-MM-dd');
+        // Criar data do dia de comparação do mês anterior
+        const previousEndDate = new Date(previousMonthDate);
+        previousEndDate.setDate(comparisonDay);
+        previousEnd = format(previousEndDate, 'yyyy-MM-dd');
+      } else {
+        // Para outros filtros, usar lógica de subtração de dias
+        const endDate = new Date(end + 'T23:59:59');
+        const startDate = new Date(start + 'T00:00:00');
+        const daysInCurrentPeriod = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        
+        const previousStartDate = subDays(startDate, daysInCurrentPeriod);
+        const previousEndDate = subDays(endDate, daysInCurrentPeriod);
+        
+        previousStart = format(previousStartDate, 'yyyy-MM-dd');
+        previousEnd = format(previousEndDate, 'yyyy-MM-dd');
+      }
+      
+      // Buscar agendamentos do período anterior
+      const { data: appointmentsPrevious, error: appointmentsPreviousError } = await supabase
+        .from('appointments')
+        .select('id')
+        .eq('user_id', user.id)
+        .gte('appointment_date', previousStart)
+        .lte('appointment_date', previousEnd)
+        .eq('status', 'finalizado');
+      
+      if (appointmentsPreviousError) throw appointmentsPreviousError;
+      
+      const previousAppointmentIds = (appointmentsPrevious || []).map(a => a.id);
+      
+      // Buscar pagamentos do período anterior (de agendamentos)
+      let previousAppointmentPayments: any[] = [];
+      if (previousAppointmentIds.length > 0) {
+        const { data: previousPaymentsData, error: previousPaymentsError } = await supabase
+          .from('appointment_payments')
+          .select(`
+            *,
+            payment_methods (
+              id,
+              name,
+              has_fee
+            )
+          `)
+          .in('appointment_id', previousAppointmentIds);
+        
+        if (previousPaymentsError) throw previousPaymentsError;
+        previousAppointmentPayments = previousPaymentsData || [];
+      }
+
+      // Buscar pagamentos do período anterior (de receitas manuais)
+      const { data: transactionsPreviousPeriod, error: transactionsPreviousError } = await supabase
+        .from('financial_transactions')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('type', 'income')
+        .gte('transaction_date', previousStart)
+        .lte('transaction_date', previousEnd);
+      
+      if (transactionsPreviousError) throw transactionsPreviousError;
+      
+      let previousTransactionPayments: any[] = [];
+      const previousTransactionIds = (transactionsPreviousPeriod || []).map(t => t.id);
+      if (previousTransactionIds.length > 0) {
+        const { data: previousTransactionPaymentsData, error: previousTransactionPaymentsError } = await supabase
+          .from('transaction_payments')
+          .select(`
+            *,
+            payment_methods (
+              id,
+              name,
+              has_fee
+            )
+          `)
+          .in('transaction_id', previousTransactionIds);
+        
+        if (previousTransactionPaymentsError) throw previousTransactionPaymentsError;
+        previousTransactionPayments = previousTransactionPaymentsData || [];
+      }
+
+      // Combinar pagamentos anteriores de agendamentos e receitas manuais
+      const previousPayments = [...previousAppointmentPayments, ...previousTransactionPayments];
+      
+      // Agrupar pagamentos atuais
+      const currentGrouped = groupPaymentsByMethod(currentPayments);
+      
+      // Agrupar pagamentos anteriores
+      const previousGrouped = groupPaymentsByMethod(previousPayments);
+      
+      // Combinar dados com comparação
+      const allMethodIds = new Set([
+        ...Object.keys(currentGrouped),
+        ...Object.keys(previousGrouped)
+      ]);
+      
+      const result = Array.from(allMethodIds).map(methodId => {
+        const current = currentGrouped[methodId] || {
+          total_amount: 0,
+          total_fees: 0,
+          total_net: 0,
+          count: 0
+        };
+        const previous = previousGrouped[methodId] || {
+          total_amount: 0,
+          total_fees: 0,
+          total_net: 0,
+          count: 0
+        };
+        
+        const currentAmount = current.total_amount || 0;
+        const previousAmount = previous.total_amount || 0;
+        
+        // Calcular variação percentual
+        let percentageChange = 0;
+        if (currentAmount === previousAmount) {
+          // Valores iguais = 0% de variação
+          percentageChange = 0;
+        } else if (previousAmount > 0) {
+          percentageChange = ((currentAmount - previousAmount) / previousAmount) * 100;
+        } else if (currentAmount > 0) {
+          percentageChange = 100; // 100% de aumento quando não havia valor anterior
+        }
+        
+        return {
+          method_id: methodId,
+          method_name: current.method_name || previous.method_name || 'Não informado',
+          has_fee: current.has_fee || previous.has_fee || false,
+          total_amount: currentAmount,
+          total_fees: current.total_fees || 0,
+          total_net: current.total_net || 0,
+          count: current.count || 0,
+          previous_amount: previousAmount,
+          percentage_change: percentageChange
+        };
+      });
+      
+      return result;
+    },
+    enabled: !!user?.id
+  });
+
+  // Buscar agendamentos finalizados do período selecionado para cálculo correto do ticket médio
+  const { data: finalizedAppointments = [] } = useQuery({
+    queryKey: ['finalized-appointments', user?.id, dateFilter, customStartDate, customEndDate],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { start, end } = getDateRange(dateFilter);
       
       const { data, error } = await supabase
         .from('appointments')
         .select('*, clients (id, name)')
         .eq('user_id', user.id)
         .eq('status', 'finalizado')
-        .gte('appointment_date', format(monthStart, 'yyyy-MM-dd'))
-        .lte('appointment_date', format(monthEnd, 'yyyy-MM-dd'));
+        .gte('appointment_date', start)
+        .lte('appointment_date', end);
       
       if (error) throw error;
       return data || [];
@@ -172,21 +468,7 @@ const Financeiro = () => {
 
   const balance = totalIncome - totalExpense;
 
-  // Métricas do mês atual
-  const currentMonth = new Date();
-  const lastMonth = subMonths(currentMonth, 1);
-  
-  const currentMonthIncome = allTransactions
-    .filter(t => t.type === 'income' && isSameMonth(new Date(t.transaction_date), currentMonth))
-    .reduce((sum, t) => sum + Number(t.amount), 0);
-
-  const lastMonthIncome = allTransactions
-    .filter(t => t.type === 'income' && isSameMonth(new Date(t.transaction_date), lastMonth))
-    .reduce((sum, t) => sum + Number(t.amount), 0);
-
-  const incomeChange = lastMonthIncome > 0 
-    ? ((currentMonthIncome - lastMonthIncome) / lastMonthIncome) * 100 
-    : 0;
+  // Nota: Removido cálculos de comparação com mês anterior, pois agora tudo reflete o período filtrado
 
   // Clientes atendidos no período selecionado (apenas receitas)
   const uniqueClientsInPeriod = useMemo(() => {
@@ -398,7 +680,14 @@ const Financeiro = () => {
               <Filter className="h-4 w-4" />
               <span className="text-sm font-medium">Período:</span>
             </div>
-            <Select value={dateFilter} onValueChange={setDateFilter}>
+            <Select value={dateFilter} onValueChange={(value) => {
+              setDateFilter(value);
+              // Resetar datas customizadas se mudar para outro filtro
+              if (value !== 'custom') {
+                setCustomStartDate('');
+                setCustomEndDate('');
+              }
+            }}>
               <SelectTrigger className="w-[200px] border-[#F7D5E8] focus:border-[#C9A7FD]" style={{ borderRadius: '12px' }}>
                 <SelectValue />
               </SelectTrigger>
@@ -409,16 +698,48 @@ const Financeiro = () => {
                 <SelectItem value="lastWeek">Semana passada</SelectItem>
                 <SelectItem value="month">Este mês</SelectItem>
                 <SelectItem value="lastMonth">Mês passado</SelectItem>
+                <SelectItem value="lastYear">Ano passado</SelectItem>
+                <SelectItem value="custom">Personalizado</SelectItem>
               </SelectContent>
             </Select>
+            {dateFilter === 'custom' && (
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="w-[150px] border-[#F7D5E8] focus:border-[#C9A7FD]"
+                  style={{ borderRadius: '12px' }}
+                />
+                <span className="text-sm text-[#5A4A5E]">até</span>
+                <Input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="w-[150px] border-[#F7D5E8] focus:border-[#C9A7FD]"
+                  style={{ borderRadius: '12px' }}
+                />
+              </div>
+            )}
+            {user?.email === 'dennervanes@hotmail.com' && (
+              <Button
+                onClick={() => setShowManageCategories(true)}
+                variant="outline"
+                className="rounded-full"
+                style={{ borderColor: '#F7D5E8' }}
+              >
+                <FolderOpen className="h-4 w-4 mr-2" style={{ color: '#8E44EC' }} />
+                Gerenciar Categorias
+              </Button>
+            )}
             <Button
-              onClick={() => setShowManageCategories(true)}
+              onClick={() => setShowPaymentFeesModal(true)}
               variant="outline"
               className="rounded-full"
               style={{ borderColor: '#F7D5E8' }}
             >
-              <FolderOpen className="h-4 w-4 mr-2" style={{ color: '#8E44EC' }} />
-              Gerenciar Categorias
+              <CreditCard className="h-4 w-4 mr-2" style={{ color: '#8E44EC' }} />
+              Taxas de Cartão
             </Button>
           </div>
         </CardContent>
@@ -563,83 +884,323 @@ const Financeiro = () => {
         </Card>
       </div>
 
-      {/* Métricas Inteligentes */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="border-0 shadow-sm" style={{ borderRadius: '20px', backgroundColor: 'white' }}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-[#5A4A5E] mb-1">Receita do Mês</p>
-                <p className="text-xl font-bold" style={{ color: '#8E44EC' }}>
-                  {formatCurrency(currentMonthIncome)}
-                </p>
-              </div>
-              <Sparkles className="h-5 w-5" style={{ color: '#C9A7FD' }} />
-            </div>
-            {incomeChange !== 0 && (
-              <div className="flex items-center gap-1 mt-2">
-                {incomeChange > 0 ? (
-                  <ArrowUpRight className="h-3 w-3" style={{ color: '#8E44EC' }} />
-                ) : (
-                  <ArrowDownRight className="h-3 w-3" style={{ color: '#EB67A3' }} />
-                )}
-                <span 
-                  className="text-xs font-medium"
-                  style={{ color: incomeChange > 0 ? '#8E44EC' : '#EB67A3' }}
+      {/* Cards de Formas de Pagamento */}
+      <Card className="border-0 shadow-sm" style={{ borderRadius: '20px', backgroundColor: 'white' }}>
+        <CardHeader>
+          <CardTitle className="text-xl" style={{ color: '#5A2E98' }}>Formas de Pagamento</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 overflow-x-auto pb-2">
+            {/* Dinheiro */}
+            {(() => {
+              const dinheiroData = paymentSummary.find((p: any) => p.method_name?.toLowerCase() === 'dinheiro');
+              const total = dinheiroData?.total_amount || 0;
+              return (
+                <Card 
+                  className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                  style={{ borderRadius: '15px', backgroundColor: '#F0FDF4' }}
+                  onClick={() => {
+                    setTransactionsModalType('all');
+                    setShowTransactionsModal(true);
+                  }}
                 >
-                  {incomeChange > 0 ? '+' : ''}{incomeChange.toFixed(1)}%
-                </span>
-                <span className="text-xs text-[#5A4A5E]">vs mês anterior</span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: '#86EFAC' }}>
+                        <Banknote className="h-5 w-5" style={{ color: '#16A34A' }} />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-1">Dinheiro</p>
+                    <p className="text-xl font-bold" style={{ color: '#16A34A' }}>
+                      {formatCurrency(total)}
+                    </p>
+                    {(() => {
+                      const percentageChange = dinheiroData?.percentage_change || 0;
+                      const previousAmount = dinheiroData?.previous_amount || 0;
+                      // Mostrar se houver comparação (valores anteriores ou atuais > 0) ou se for 0% (valores iguais)
+                      if (previousAmount > 0 || dinheiroData?.total_amount > 0) {
+                        return (
+                          <div className="flex items-center gap-1 mt-2">
+                            {percentageChange > 0 ? (
+                              <ArrowUpRight className="h-3 w-3" style={{ color: '#16A34A' }} />
+                            ) : percentageChange < 0 ? (
+                              <ArrowDownRight className="h-3 w-3" style={{ color: '#DC2626' }} />
+                            ) : (
+                              <span className="h-3 w-3" /> // Espaçador quando for 0%
+                            )}
+                            <span 
+                              className="text-xs font-medium"
+                              style={{ 
+                                color: percentageChange > 0 ? '#16A34A' : percentageChange < 0 ? '#DC2626' : '#6B7280'
+                              }}
+                            >
+                              {percentageChange > 0 ? '+' : ''}{percentageChange.toFixed(1)}%
+                            </span>
+                            <span className="text-xs text-muted-foreground">vs mês anterior</span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </CardContent>
+                </Card>
+              );
+            })()}
 
-        <Card className="border-0 shadow-sm" style={{ borderRadius: '20px', backgroundColor: 'white' }}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-[#5A4A5E] mb-1">Ticket Médio</p>
-                <p className="text-xl font-bold" style={{ color: '#8E44EC' }}>
-                  {formatCurrency(averageTicket)}
-                </p>
-              </div>
-              <Users className="h-5 w-5" style={{ color: '#C9A7FD' }} />
-            </div>
-            <p className="text-xs text-[#5A4A5E] mt-2">No período selecionado</p>
-          </CardContent>
-        </Card>
+            {/* Pix */}
+            {(() => {
+              const pixData = paymentSummary.find((p: any) => p.method_name?.toLowerCase() === 'pix');
+              const total = pixData?.total_amount || 0;
+              return (
+                <Card 
+                  className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                  style={{ borderRadius: '15px', backgroundColor: '#EFF6FF' }}
+                  onClick={() => {
+                    setTransactionsModalType('all');
+                    setShowTransactionsModal(true);
+                  }}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: '#93C5FD' }}>
+                        <Smartphone className="h-5 w-5" style={{ color: '#2563EB' }} />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-1">Pix</p>
+                    <p className="text-xl font-bold" style={{ color: '#2563EB' }}>
+                      {formatCurrency(total)}
+                    </p>
+                    {(() => {
+                      const percentageChange = pixData?.percentage_change || 0;
+                      const previousAmount = pixData?.previous_amount || 0;
+                      // Mostrar se houver comparação (valores anteriores ou atuais > 0) ou se for 0% (valores iguais)
+                      if (previousAmount > 0 || pixData?.total_amount > 0) {
+                        return (
+                          <div className="flex items-center gap-1 mt-2">
+                            {percentageChange > 0 ? (
+                              <ArrowUpRight className="h-3 w-3" style={{ color: '#2563EB' }} />
+                            ) : percentageChange < 0 ? (
+                              <ArrowDownRight className="h-3 w-3" style={{ color: '#DC2626' }} />
+                            ) : (
+                              <span className="h-3 w-3" /> // Espaçador quando for 0%
+                            )}
+                            <span 
+                              className="text-xs font-medium"
+                              style={{ 
+                                color: percentageChange > 0 ? '#2563EB' : percentageChange < 0 ? '#DC2626' : '#6B7280'
+                              }}
+                            >
+                              {percentageChange > 0 ? '+' : ''}{percentageChange.toFixed(1)}%
+                            </span>
+                            <span className="text-xs text-muted-foreground">vs mês anterior</span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </CardContent>
+                </Card>
+              );
+            })()}
 
-        <Card className="border-0 shadow-sm" style={{ borderRadius: '20px', backgroundColor: 'white' }}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-[#5A4A5E] mb-1">Clientes Atendidos</p>
-                <p className="text-xl font-bold" style={{ color: '#8E44EC' }}>
-                  {uniqueClientsInPeriod}
-                </p>
-              </div>
-              <Users className="h-5 w-5" style={{ color: '#C9A7FD' }} />
-            </div>
-            <p className="text-xs text-[#5A4A5E] mt-2">No período selecionado</p>
-          </CardContent>
-        </Card>
+            {/* Débito */}
+            {(() => {
+              const debitoData = paymentSummary.find((p: any) => 
+                p.method_name?.toLowerCase().includes('débito') || 
+                p.method_name?.toLowerCase().includes('debito')
+              );
+              const total = debitoData?.total_amount || 0;
+              const fees = debitoData?.total_fees || 0;
+              return (
+                <Card 
+                  className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                  style={{ borderRadius: '15px', backgroundColor: '#FAF5FF' }}
+                  onClick={() => {
+                    setTransactionsModalType('all');
+                    setShowTransactionsModal(true);
+                  }}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: '#E9D5FF' }}>
+                        <CreditCard className="h-5 w-5" style={{ color: '#9333EA' }} />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-1">Cartão de Débito</p>
+                    <p className="text-xl font-bold" style={{ color: '#9333EA' }}>
+                      {formatCurrency(total)}
+                    </p>
+                    {fees > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Taxas: {formatCurrency(fees)}
+                      </p>
+                    )}
+                    {(() => {
+                      const percentageChange = debitoData?.percentage_change || 0;
+                      const previousAmount = debitoData?.previous_amount || 0;
+                      // Mostrar se houver comparação (valores anteriores ou atuais > 0) ou se for 0% (valores iguais)
+                      if (previousAmount > 0 || debitoData?.total_amount > 0) {
+                        return (
+                          <div className="flex items-center gap-1 mt-2">
+                            {percentageChange > 0 ? (
+                              <ArrowUpRight className="h-3 w-3" style={{ color: '#9333EA' }} />
+                            ) : percentageChange < 0 ? (
+                              <ArrowDownRight className="h-3 w-3" style={{ color: '#DC2626' }} />
+                            ) : (
+                              <span className="h-3 w-3" /> // Espaçador quando for 0%
+                            )}
+                            <span 
+                              className="text-xs font-medium"
+                              style={{ 
+                                color: percentageChange > 0 ? '#9333EA' : percentageChange < 0 ? '#DC2626' : '#6B7280'
+                              }}
+                            >
+                              {percentageChange > 0 ? '+' : ''}{percentageChange.toFixed(1)}%
+                            </span>
+                            <span className="text-xs text-muted-foreground">vs mês anterior</span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </CardContent>
+                </Card>
+              );
+            })()}
 
-        <Card className="border-0 shadow-sm" style={{ borderRadius: '20px', backgroundColor: 'white' }}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-[#5A4A5E] mb-1">Transações</p>
-                <p className="text-xl font-bold" style={{ color: '#8E44EC' }}>
-                  {transactions.length}
-                </p>
-              </div>
-              <FileText className="h-5 w-5" style={{ color: '#C9A7FD' }} />
-            </div>
-            <p className="text-xs text-[#5A4A5E] mt-2">No período selecionado</p>
-          </CardContent>
-        </Card>
-      </div>
+            {/* Crédito */}
+            {(() => {
+              const creditoData = paymentSummary.find((p: any) => 
+                p.method_name?.toLowerCase().includes('crédito') || 
+                p.method_name?.toLowerCase().includes('credito')
+              );
+              const total = creditoData?.total_amount || 0;
+              const fees = creditoData?.total_fees || 0;
+              return (
+                <Card 
+                  className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                  style={{ borderRadius: '15px', backgroundColor: '#F3E8FF' }}
+                  onClick={() => {
+                    setTransactionsModalType('all');
+                    setShowTransactionsModal(true);
+                  }}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: '#DDD6FE' }}>
+                        <CreditCard className="h-5 w-5" style={{ color: '#7C3AED' }} />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-1">Cartão de Crédito</p>
+                    <p className="text-xl font-bold" style={{ color: '#7C3AED' }}>
+                      {formatCurrency(total)}
+                    </p>
+                    {fees > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Taxas: {formatCurrency(fees)}
+                      </p>
+                    )}
+                    {(() => {
+                      const percentageChange = creditoData?.percentage_change || 0;
+                      const previousAmount = creditoData?.previous_amount || 0;
+                      // Mostrar se houver comparação (valores anteriores ou atuais > 0) ou se for 0% (valores iguais)
+                      if (previousAmount > 0 || creditoData?.total_amount > 0) {
+                        return (
+                          <div className="flex items-center gap-1 mt-2">
+                            {percentageChange > 0 ? (
+                              <ArrowUpRight className="h-3 w-3" style={{ color: '#7C3AED' }} />
+                            ) : percentageChange < 0 ? (
+                              <ArrowDownRight className="h-3 w-3" style={{ color: '#DC2626' }} />
+                            ) : (
+                              <span className="h-3 w-3" /> // Espaçador quando for 0%
+                            )}
+                            <span 
+                              className="text-xs font-medium"
+                              style={{ 
+                                color: percentageChange > 0 ? '#7C3AED' : percentageChange < 0 ? '#DC2626' : '#6B7280'
+                              }}
+                            >
+                              {percentageChange > 0 ? '+' : ''}{percentageChange.toFixed(1)}%
+                            </span>
+                            <span className="text-xs text-muted-foreground">vs mês anterior</span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </CardContent>
+                </Card>
+              );
+            })()}
+
+            {/* Taxas de Maquininha */}
+            {(() => {
+              const totalFees = paymentSummary.reduce((sum: number, p: any) => sum + (p.total_fees || 0), 0);
+              return (
+                <Card 
+                  className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                  style={{ borderRadius: '15px', backgroundColor: '#FEF2F2' }}
+                  onClick={() => {
+                    setTransactionsModalType('expense');
+                    setShowTransactionsModal(true);
+                  }}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: '#FECACA' }}>
+                        <Receipt className="h-5 w-5" style={{ color: '#DC2626' }} />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-1">Taxas de Maquininha</p>
+                    <p className="text-xl font-bold" style={{ color: '#DC2626' }}>
+                      - {formatCurrency(totalFees)}
+                    </p>
+                    {(() => {
+                      // Calcular variação percentual das taxas
+                      const currentFees = totalFees;
+                      const previousFees = paymentSummary.reduce((sum: number, p: any) => sum + (p.previous_fees || 0), 0);
+                      let percentageChange = 0;
+                      if (currentFees === previousFees && previousFees > 0) {
+                        // Valores iguais = 0% de variação
+                        percentageChange = 0;
+                      } else if (previousFees > 0) {
+                        percentageChange = ((currentFees - previousFees) / previousFees) * 100;
+                      } else if (currentFees > 0) {
+                        percentageChange = 100;
+                      }
+                      
+                      // Mostrar se houver comparação (valores anteriores ou atuais > 0) ou se for 0% (valores iguais)
+                      if (previousFees > 0 || currentFees > 0) {
+                        return (
+                          <div className="flex items-center gap-1 mt-2">
+                            {percentageChange < 0 ? (
+                              <ArrowDownRight className="h-3 w-3" style={{ color: '#16A34A' }} />
+                            ) : percentageChange > 0 ? (
+                              <ArrowUpRight className="h-3 w-3" style={{ color: '#DC2626' }} />
+                            ) : (
+                              <span className="h-3 w-3" /> // Espaçador quando for 0%
+                            )}
+                            <span 
+                              className="text-xs font-medium"
+                              style={{ 
+                                color: percentageChange < 0 ? '#16A34A' : percentageChange > 0 ? '#DC2626' : '#6B7280'
+                              }}
+                            >
+                              {percentageChange > 0 ? '+' : ''}{percentageChange.toFixed(1)}%
+                            </span>
+                            <span className="text-xs text-muted-foreground">vs mês anterior</span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </CardContent>
+                </Card>
+              );
+            })()}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Gráficos */}
       {transactions.length > 0 && (
@@ -804,14 +1365,50 @@ const Financeiro = () => {
               {transactions.slice(0, 10).map((transaction) => {
                 const isIncome = transaction.type === 'income';
                 const appointment = (transaction as any).appointments;
+                const product = (transaction as any).products;
                 const serviceCategory = appointment?.services?.service_categories?.name;
                 const serviceName = appointment?.services?.name;
-                // Montar display: categoria - nome do serviço (se houver serviço)
-                let displayCategory = serviceCategory || transaction.category;
-                if (serviceName && serviceCategory) {
-                  displayCategory = `${serviceCategory} - ${serviceName}`;
-                } else if (serviceName && !serviceCategory) {
-                  displayCategory = `${transaction.category} - ${serviceName}`;
+                
+                // Lógica de exibição baseada no tipo de transação
+                let displayPrimary = '';
+                let displaySecondary = '';
+                const clientName = appointment?.client_name;
+                
+                const isCardFee = !isIncome && transaction.category === 'Taxas' && transaction.description?.includes('Taxa da maquininha');
+                
+                if (product) {
+                  // Transação de produto: nome do produto como principal
+                  displayPrimary = product.name;
+                  // Categoria como secundário: "Produtos - [categoria do produto]"
+                  const productCategory = product.category || 'Geral';
+                  displaySecondary = `Produtos - ${productCategory}`;
+                } else if (isCardFee && appointment && clientName) {
+                  // Despesa de taxa de maquininha: cliente - Taxa de maquininha como principal
+                  displayPrimary = `${clientName} - Taxa de maquininha`;
+                  // Sem secundário necessário
+                } else if (isIncome && appointment && clientName) {
+                  // Receita de agendamento finalizado: cliente - serviço como principal
+                  if (serviceName) {
+                    displayPrimary = `${clientName} - ${serviceName}`;
+                  } else {
+                    displayPrimary = clientName;
+                  }
+                  // Secundário: "Atendimento finalizado - [categoria do serviço]"
+                  const finalCategory = serviceCategory || transaction.category;
+                  displaySecondary = `Atendimento finalizado - ${finalCategory}`;
+                } else {
+                  // Transação normal ou receita manual: categoria como principal
+                  let displayCategory = serviceCategory || transaction.category;
+                  if (serviceName && serviceCategory) {
+                    displayCategory = `${serviceCategory} - ${serviceName}`;
+                  } else if (serviceName && !serviceCategory) {
+                    displayCategory = `${transaction.category} - ${serviceName}`;
+                  }
+                  displayPrimary = displayCategory;
+                  // Descrição como secundário (se existir)
+                  if (transaction.description) {
+                    displaySecondary = transaction.description;
+                  }
                 }
 
                 return (
@@ -820,7 +1417,24 @@ const Financeiro = () => {
                     className="flex items-center justify-between p-4 rounded-xl hover:shadow-md transition-all border border-transparent hover:border-[#F7D5E8]"
                     style={{ backgroundColor: '#FCFCFD' }}
                   >
-                    <div className="flex items-center gap-4 flex-1">
+                    <div 
+                      className="flex items-center gap-4 flex-1"
+                      onClick={() => {
+                        // Abrir modal de detalhes para qualquer transação de receita
+                        if (transaction.type === 'income') {
+                          if (transaction.appointment_id) {
+                            setSelectedAppointmentId(transaction.appointment_id);
+                            setShowAppointmentDetailsModal(true);
+                          } else {
+                            // Para receitas manuais, usar o modal de detalhes com transaction_id
+                            setSelectedAppointmentId(null);
+                            setSelectedTransactionId(transaction.id);
+                            setShowAppointmentDetailsModal(true);
+                          }
+                        }
+                      }}
+                      style={{ cursor: transaction.type === 'income' ? 'pointer' : 'default' }}
+                    >
                       <div 
                         className="p-2 rounded-xl"
                         style={{ 
@@ -834,8 +1448,10 @@ const Financeiro = () => {
                         )}
                       </div>
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="font-semibold text-[#5A2E98]">{transaction.description}</p>
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <p className="font-semibold text-[#5A2E98]">
+                            {(isIncome && appointment && clientName) || (isCardFee && appointment && clientName) ? displayPrimary : displayPrimary.toUpperCase()}
+                          </p>
                           <Badge 
                             className="text-xs px-2 py-0.5 rounded-full"
                             style={{ 
@@ -845,14 +1461,37 @@ const Financeiro = () => {
                           >
                             {isIncome ? 'Receita' : 'Despesa'}
                           </Badge>
+                          {(transaction as any).is_variable_cost && (
+                            <Badge 
+                              className="text-xs px-2 py-0.5 rounded-full"
+                              style={{ 
+                                backgroundColor: '#FEF3C7',
+                                color: '#D97706'
+                              }}
+                            >
+                              Custo Variável
+                            </Badge>
+                          )}
+                          {(transaction as any).is_fixed_cost && (
+                            <Badge 
+                              className="text-xs px-2 py-0.5 rounded-full"
+                              style={{ 
+                                backgroundColor: '#E0E7FF',
+                                color: '#6366F1'
+                              }}
+                            >
+                              Custo Fixo
+                            </Badge>
+                          )}
                         </div>
                         <div className="flex items-center gap-3 text-sm text-[#5A4A5E]">
                           <span>{formatTransactionDate(transaction.transaction_date)}</span>
-                          <span>•</span>
-                          <span className="flex items-center gap-1">
-                            <Scissors className="h-3 w-3" />
-                            {displayCategory}
-                          </span>
+                          {displaySecondary && (
+                            <>
+                              <span>•</span>
+                              <span>{displaySecondary}</span>
+                            </>
+                          )}
                         </div>
                       </div>
                       <div className="text-right">
@@ -863,7 +1502,10 @@ const Financeiro = () => {
                           {isIncome ? '+' : '-'} {formatCurrency(Number(transaction.amount))}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div 
+                        className="flex items-center gap-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <Button
                           variant="ghost"
                           size="sm"
@@ -936,6 +1578,18 @@ const Financeiro = () => {
         onDelete={(transaction) => {
           handleDeleteTransaction(transaction);
         }}
+      />
+
+      <PaymentMethodFeesModal
+        open={showPaymentFeesModal}
+        onOpenChange={setShowPaymentFeesModal}
+      />
+
+      <AppointmentDetailsViewModal
+        open={showAppointmentDetailsModal}
+        onOpenChange={setShowAppointmentDetailsModal}
+        appointmentId={selectedAppointmentId}
+        transactionId={selectedTransactionId}
       />
     </div>
   );

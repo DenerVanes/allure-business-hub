@@ -100,6 +100,10 @@ const TransactionsModal = ({
               name,
               service_categories (name)
             )
+          ),
+          products!left (
+            name,
+            category
           )
         `)
         .eq('user_id', user.id)
@@ -318,14 +322,50 @@ const TransactionsModal = ({
                 {filteredTransactions.map((transaction) => {
                   const isIncome = transaction.type === 'income';
                   const appointment = (transaction as any).appointments;
+                  const product = (transaction as any).products;
                   const serviceCategory = appointment?.services?.service_categories?.name;
                   const serviceName = appointment?.services?.name;
                   
-                  let displayCategory = serviceCategory || transaction.category;
-                  if (serviceName && serviceCategory) {
-                    displayCategory = `${serviceCategory} - ${serviceName}`;
-                  } else if (serviceName && !serviceCategory) {
-                    displayCategory = `${transaction.category} - ${serviceName}`;
+                  // Lógica de exibição baseada no tipo de transação
+                  let displayPrimary = '';
+                  let displaySecondary = '';
+                  const clientName = appointment?.client_name;
+                  
+                  const isCardFee = !isIncome && transaction.category === 'Taxas' && transaction.description?.includes('Taxa da maquininha');
+                  
+                  if (product) {
+                    // Transação de produto: nome do produto como principal
+                    displayPrimary = product.name;
+                    // Categoria como secundário: "Produtos - [categoria do produto]"
+                    const productCategory = product.category || 'Geral';
+                    displaySecondary = `Produtos - ${productCategory}`;
+                  } else if (isCardFee && appointment && clientName) {
+                    // Despesa de taxa de maquininha: cliente - Taxa de maquininha como principal
+                    displayPrimary = `${clientName} - Taxa de maquininha`;
+                    // Sem secundário necessário
+                  } else if (isIncome && appointment && clientName) {
+                    // Receita de agendamento finalizado: cliente - serviço como principal
+                    if (serviceName) {
+                      displayPrimary = `${clientName} - ${serviceName}`;
+                    } else {
+                      displayPrimary = clientName;
+                    }
+                    // Secundário: "Atendimento finalizado - [categoria do serviço]"
+                    const finalCategory = serviceCategory || transaction.category;
+                    displaySecondary = `Atendimento finalizado - ${finalCategory}`;
+                  } else {
+                    // Transação normal ou receita manual: categoria como principal
+                    let displayCategory = serviceCategory || transaction.category;
+                    if (serviceName && serviceCategory) {
+                      displayCategory = `${serviceCategory} - ${serviceName}`;
+                    } else if (serviceName && !serviceCategory) {
+                      displayCategory = `${transaction.category} - ${serviceName}`;
+                    }
+                    displayPrimary = displayCategory;
+                    // Descrição como secundário (se existir)
+                    if (transaction.description) {
+                      displaySecondary = transaction.description;
+                    }
                   }
 
                   return (
@@ -348,8 +388,10 @@ const TransactionsModal = ({
                           )}
                         </div>
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="font-semibold text-[#5A2E98]">{transaction.description}</p>
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <p className="font-semibold text-[#5A2E98]">
+                              {(isIncome && appointment && clientName) || (isCardFee && appointment && clientName) ? displayPrimary : displayPrimary.toUpperCase()}
+                            </p>
                             <Badge 
                               className="text-xs px-2 py-0.5 rounded-full"
                               style={{ 
@@ -359,14 +401,37 @@ const TransactionsModal = ({
                             >
                               {isIncome ? 'Receita' : 'Despesa'}
                             </Badge>
+                            {(transaction as any).is_variable_cost && (
+                              <Badge 
+                                className="text-xs px-2 py-0.5 rounded-full"
+                                style={{ 
+                                  backgroundColor: '#FEF3C7',
+                                  color: '#D97706'
+                                }}
+                              >
+                                Custo Variável
+                              </Badge>
+                            )}
+                            {(transaction as any).is_fixed_cost && (
+                              <Badge 
+                                className="text-xs px-2 py-0.5 rounded-full"
+                                style={{ 
+                                  backgroundColor: '#E0E7FF',
+                                  color: '#6366F1'
+                                }}
+                              >
+                                Custo Fixo
+                              </Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-3 text-sm text-[#5A4A5E]">
                             <span>{formatTransactionDate(transaction.transaction_date)}</span>
-                            <span>•</span>
-                            <span className="flex items-center gap-1">
-                              <Scissors className="h-3 w-3" />
-                              {displayCategory}
-                            </span>
+                            {displaySecondary && (
+                              <>
+                                <span>•</span>
+                                <span>{displaySecondary}</span>
+                              </>
+                            )}
                           </div>
                         </div>
                         <div className="text-right">

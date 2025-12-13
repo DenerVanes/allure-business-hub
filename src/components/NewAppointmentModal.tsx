@@ -31,16 +31,18 @@ interface NewAppointmentModalProps {
   onOpenChange: (open: boolean) => void;
   appointment?: any;
   prefillPhone?: string;
+  prefillDate?: Date;
+  prefillTime?: string;
 }
 
-export const NewAppointmentModal = ({ open, onOpenChange, appointment, prefillPhone }: NewAppointmentModalProps) => {
+export const NewAppointmentModal = ({ open, onOpenChange, appointment, prefillPhone, prefillDate, prefillTime }: NewAppointmentModalProps) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   
   const [date, setDate] = useState<Date | undefined>(
-    appointment ? new Date(appointment.appointment_date) : undefined
+    appointment ? new Date(appointment.appointment_date) : prefillDate
   );
-  const [time, setTime] = useState(appointment?.appointment_time || '');
+  const [time, setTime] = useState(appointment?.appointment_time || prefillTime || '');
   const [clientName, setClientName] = useState(appointment?.client_name || '');
   const [clientPhone, setClientPhone] = useState(formatPhone(appointment?.client_phone || prefillPhone || ''));
   const [clientBirthDate, setClientBirthDate] = useState('');
@@ -51,7 +53,13 @@ export const NewAppointmentModal = ({ open, onOpenChange, appointment, prefillPh
     if (prefillPhone && open && !appointment) {
       setClientPhone(formatPhone(prefillPhone));
     }
-  }, [prefillPhone, open, appointment]);
+    if (prefillDate && open && !appointment) {
+      setDate(prefillDate);
+    }
+    if (prefillTime && open && !appointment) {
+      setTime(prefillTime);
+    }
+  }, [prefillPhone, prefillDate, prefillTime, open, appointment]);
   const [selectedServices, setSelectedServices] = useState<any[]>(
     appointment ? [{ 
       id: '1', 

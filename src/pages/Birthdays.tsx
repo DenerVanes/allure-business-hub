@@ -5,22 +5,13 @@ import { getMonthName } from '@/utils/formatBirthday';
 import { BirthdayTable } from '@/components/marketing/BirthdayTable';
 import { TemplateManager } from '@/components/marketing/TemplateManager';
 import { PromotionManager } from '@/components/marketing/PromotionManager';
-import { useNavigate } from 'react-router-dom';
-import { formatPhone } from '@/utils/phone';
 import { Button } from '@/components/ui/button';
 
 const Birthdays = () => {
   const { aniversariantes, loading } = useBirthdays();
   const monthName = getMonthName();
-  const navigate = useNavigate();
   const [templateManagerOpen, setTemplateManagerOpen] = useState(false);
   const [promotionManagerOpen, setPromotionManagerOpen] = useState(false);
-
-  const handleAgendar = (phone: string) => {
-    navigate('/agendamentos', { 
-      state: { prefillPhone: formatPhone(phone) } 
-    });
-  };
 
   return (
     <div className="space-y-6">
@@ -59,7 +50,6 @@ const Birthdays = () => {
           aniversariantes={aniversariantes} 
           loading={loading}
           onClose={() => {}}
-          onAgendar={handleAgendar}
         />
       </div>
 

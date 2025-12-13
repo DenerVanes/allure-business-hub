@@ -77,7 +77,7 @@ export function StockInModal({ open, onOpenChange, product }: StockInModalProps)
 
       if (productError) throw productError;
 
-      // Criar transação financeira de despesa
+      // Criar transação financeira de despesa (marcar como custo variável)
       const { error: transactionError } = await supabase
         .from('financial_transactions')
         .insert({
@@ -87,6 +87,8 @@ export function StockInModal({ open, onOpenChange, product }: StockInModalProps)
           description: `Compra de produto - ${product.name} (${quantityIn} un)`,
           category: 'Produtos',
           transaction_date: new Date().toISOString().split('T')[0],
+          product_id: product.id,
+          is_variable_cost: true, // Marcar como custo variável
         });
 
       if (transactionError) throw transactionError;
