@@ -18,6 +18,7 @@ import GestaoClientes from "./pages/GestaoClientes";
 import GerenciarPlanos from "./pages/GerenciarPlanos";
 import FunilLeads from "./pages/FunilLeads";
 import Birthdays from "./pages/Birthdays";
+import RelatorioFiscal from "./pages/RelatorioFiscal";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import TermosUso from "./pages/TermosUso";
@@ -63,6 +64,7 @@ const App = () => (
                 <Route path="admin/planos" element={<GerenciarPlanos />} />
                 <Route path="funil-leads" element={<FunilLeads />} />
                 <Route path="marketing/aniversariantes" element={<Birthdays />} />
+                <Route path="relatorios/fiscal" element={<RelatorioFiscal />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

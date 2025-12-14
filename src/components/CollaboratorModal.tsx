@@ -8,6 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Textarea } from '@/components/ui/textarea';
 import { Calendar, Upload, Shield } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -26,6 +29,79 @@ import {
 const collaboratorSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   phone: z.string().optional(),
+  contractType: z.enum(['Proprietário', 'CLT', 'PJ'], {
+    errorMap: () => ({ message: 'Tipo de vínculo é obrigatório' })
+  }).optional(),
+  // Campos CLT
+  cltContractType: z.enum(['CLT', 'Estágio', 'Outro']).optional(),
+  salary: z.string().optional(),
+  workHours: z.string().optional(),
+  startDate: z.string().optional(),
+  internalNotes: z.string().optional(),
+  // Campos PJ
+  companyName: z.string().optional(),
+  cnpj: z.string().optional(),
+  legalName: z.string().optional(),
+  pixKey: z.string().optional(),
+  contractNotes: z.string().optional(),
+  // Comissão (PJ)
+  commissionModel: z.enum(['percentage', 'fixed']).optional(),
+  commissionValue: z.string().optional(),
+}).superRefine((data, ctx) => {
+  // Validar tipo de vínculo
+  if (!data.contractType) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Tipo de vínculo é obrigatório',
+      path: ['contractType'],
+    });
+  }
+
+  // Validações para CLT
+  if (data.contractType === 'CLT') {
+    if (!data.cltContractType) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Tipo de contrato é obrigatório para CLT',
+        path: ['cltContractType'],
+      });
+    }
+  }
+
+  // Proprietário não precisa de validações adicionais
+  // Validações para PJ
+  if (data.contractType === 'PJ') {
+    if (!data.commissionModel) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Modelo de comissão é obrigatório para PJ',
+        path: ['commissionModel'],
+      });
+    }
+    if (!data.commissionValue || data.commissionValue.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Valor da comissão é obrigatório',
+        path: ['commissionValue'],
+      });
+    } else {
+      const numValue = parseFloat(data.commissionValue);
+      if (isNaN(numValue) || numValue < 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Valor da comissão deve ser um número válido',
+          path: ['commissionValue'],
+        });
+      }
+      if (data.commissionModel === 'percentage' && (numValue < 0 || numValue > 100)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Percentual deve estar entre 0 e 100',
+          path: ['commissionValue'],
+        });
+      }
+    }
+  }
 });
 
 type CollaboratorFormData = z.infer<typeof collaboratorSchema>;
@@ -62,14 +138,93 @@ export function CollaboratorModal({ open, onOpenChange, collaborator }: Collabor
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<CollaboratorFormData>({
     resolver: zodResolver(collaboratorSchema),
     defaultValues: {
       name: collaborator?.name || '',
       phone: collaborator?.phone || '',
+      contractType: collaborator?.contract_type || undefined,
+      cltContractType: collaborator?.clt_contract_type || undefined,
+      salary: collaborator?.salary ? collaborator.salary.toString() : '',
+      workHours: collaborator?.work_hours || '',
+      startDate: collaborator?.start_date || '',
+      internalNotes: collaborator?.internal_notes || '',
+      companyName: collaborator?.company_name || '',
+      cnpj: collaborator?.cnpj || '',
+      legalName: collaborator?.legal_name || '',
+      pixKey: collaborator?.pix_key || '',
+      contractNotes: collaborator?.contract_notes || '',
+      commissionModel: collaborator?.commission_model || undefined,
+      commissionValue: collaborator?.commission_value?.toString() || '',
     },
   });
+
+  const contractType = watch('contractType');
+  const commissionModel = watch('commissionModel');
+  const [salaryDisplay, setSalaryDisplay] = useState<string>('');
+
+  // Sincronizar salaryDisplay com o valor do formulário ao carregar/criar
+  useEffect(() => {
+    if (collaborator?.salary) {
+      const formatted = parseFloat(collaborator.salary.toString()).toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      setSalaryDisplay(formatted);
+    } else {
+      setSalaryDisplay('');
+    }
+  }, [collaborator?.salary, open]);
+
+  // Handler para mudança no campo de salário
+  const handleSalaryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Remove tudo exceto números
+    const rawValue = e.target.value.replace(/\D/g, '');
+    
+    if (!rawValue) {
+      setSalaryDisplay('');
+      setValue('salary', '', { shouldValidate: true });
+      return;
+    }
+    
+    // Converte para número e divide por 100 para ter centavos
+    const amount = parseFloat(rawValue) / 100;
+    
+    // Formata para exibição
+    const formatted = amount.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    
+    setSalaryDisplay(formatted);
+    // Salva o valor numérico como string (para o schema)
+    setValue('salary', amount.toString(), { shouldValidate: true });
+  };
+
+  // Função para formatar CNPJ: XX.XXX.XXX/XXXX-XX
+  const formatCNPJ = (value: string): string => {
+    // Remove tudo exceto números
+    const numbers = value.replace(/\D/g, '');
+    
+    // Limita a 14 dígitos
+    const limitedNumbers = numbers.slice(0, 14);
+    
+    // Aplica a máscara progressivamente
+    if (limitedNumbers.length <= 2) {
+      return limitedNumbers;
+    } else if (limitedNumbers.length <= 5) {
+      return `${limitedNumbers.slice(0, 2)}.${limitedNumbers.slice(2)}`;
+    } else if (limitedNumbers.length <= 8) {
+      return `${limitedNumbers.slice(0, 2)}.${limitedNumbers.slice(2, 5)}.${limitedNumbers.slice(5)}`;
+    } else if (limitedNumbers.length <= 12) {
+      return `${limitedNumbers.slice(0, 2)}.${limitedNumbers.slice(2, 5)}.${limitedNumbers.slice(5, 8)}/${limitedNumbers.slice(8)}`;
+    } else {
+      return `${limitedNumbers.slice(0, 2)}.${limitedNumbers.slice(2, 5)}.${limitedNumbers.slice(5, 8)}/${limitedNumbers.slice(8, 12)}-${limitedNumbers.slice(12, 14)}`;
+    }
+  };
 
   // Carregar horários existentes quando estiver editando
   const { data: existingSchedules = [] } = useQuery({
@@ -245,15 +400,69 @@ export function CollaboratorModal({ open, onOpenChange, collaborator }: Collabor
 
       let collaboratorId: string;
 
+      // Preparar dados para salvamento
+      const collaboratorData: any = {
+        name: data.name,
+        phone: data.phone || null,
+        specialty: specialties.length > 0 ? specialties : null,
+        photo_url: photoUrl,
+        contract_type: data.contractType || null,
+      };
+
+      // Campos CLT
+      if (data.contractType === 'CLT') {
+        collaboratorData.clt_contract_type = data.cltContractType || null;
+        collaboratorData.salary = data.salary ? parseFloat(data.salary) : null;
+        collaboratorData.work_hours = data.workHours || null;
+        collaboratorData.start_date = data.startDate || null;
+        collaboratorData.internal_notes = data.internalNotes || null;
+        // Limpar campos PJ se existirem
+        collaboratorData.company_name = null;
+        collaboratorData.cnpj = null;
+        collaboratorData.legal_name = null;
+        collaboratorData.pix_key = null;
+        collaboratorData.contract_notes = null;
+        collaboratorData.commission_model = null;
+        collaboratorData.commission_value = null;
+      }
+
+      // Proprietário - limpar todos os campos específicos de CLT e PJ
+      if (data.contractType === 'Proprietário') {
+        collaboratorData.clt_contract_type = null;
+        collaboratorData.salary = null;
+        collaboratorData.work_hours = null;
+        collaboratorData.start_date = null;
+        collaboratorData.internal_notes = null;
+        collaboratorData.company_name = null;
+        collaboratorData.cnpj = null;
+        collaboratorData.legal_name = null;
+        collaboratorData.pix_key = null;
+        collaboratorData.contract_notes = null;
+        collaboratorData.commission_model = null;
+        collaboratorData.commission_value = null;
+      }
+
+      // Campos PJ
+      if (data.contractType === 'PJ') {
+        collaboratorData.company_name = data.companyName || null;
+        collaboratorData.cnpj = data.cnpj || null;
+        collaboratorData.legal_name = data.legalName || null;
+        collaboratorData.pix_key = data.pixKey || null;
+        collaboratorData.contract_notes = data.contractNotes || null;
+        collaboratorData.commission_model = data.commissionModel || null;
+        collaboratorData.commission_value = data.commissionValue ? parseFloat(data.commissionValue) : null;
+        // Limpar campos CLT se existirem
+        collaboratorData.clt_contract_type = null;
+        collaboratorData.salary = null;
+        collaboratorData.work_hours = null;
+        collaboratorData.start_date = null;
+        collaboratorData.internal_notes = null;
+      }
+
       if (isEditing) {
         const { error, data: updateData } = await supabase
           .from('collaborators')
-          .update({
-            name: data.name,
-            phone: data.phone || null,
-            specialty: specialties.length > 0 ? specialties : null,
-            photo_url: photoUrl,
-          })
+          .update(collaboratorData)
           .eq('id', collaborator.id)
           .select();
 
@@ -268,15 +477,10 @@ export function CollaboratorModal({ open, onOpenChange, collaborator }: Collabor
         
         collaboratorId = collaborator.id;
       } else {
+        collaboratorData.user_id = user.id;
         const { data: newCollaborator, error } = await supabase
           .from('collaborators')
-          .insert({
-            user_id: user.id,
-            name: data.name,
-            phone: data.phone || null,
-            specialty: specialties.length > 0 ? specialties : null,
-            photo_url: photoUrl,
-          })
+          .insert(collaboratorData)
           .select()
           .single();
 
@@ -331,7 +535,24 @@ export function CollaboratorModal({ open, onOpenChange, collaborator }: Collabor
         title: isEditing ? 'Colaborador atualizado' : 'Colaborador cadastrado',
         description: `Colaborador foi ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso.`,
       });
-      reset();
+      reset({
+        name: '',
+        phone: '',
+        contractType: undefined,
+        cltContractType: undefined,
+        salary: '',
+        workHours: '',
+        startDate: '',
+        internalNotes: '',
+        companyName: '',
+        cnpj: '',
+        legalName: '',
+        pixKey: '',
+        contractNotes: '',
+        commissionModel: undefined,
+        commissionValue: '',
+      });
+      setSalaryDisplay('');
       setSpecialties([]);
       setPhotoFile(null);
       setPhotoPreview('');
@@ -367,6 +588,24 @@ export function CollaboratorModal({ open, onOpenChange, collaborator }: Collabor
 
   const handleClose = () => {
     if (!isEditing) {
+      reset({
+        name: '',
+        phone: '',
+        contractType: undefined,
+        cltContractType: undefined,
+        salary: '',
+        workHours: '',
+        startDate: '',
+        internalNotes: '',
+        companyName: '',
+        cnpj: '',
+        legalName: '',
+        pixKey: '',
+        contractNotes: '',
+        commissionModel: undefined,
+        commissionValue: '',
+      });
+      setSalaryDisplay('');
       setSpecialties([]);
       setPhotoFile(null);
       setPhotoPreview('');
@@ -457,6 +696,292 @@ export function CollaboratorModal({ open, onOpenChange, collaborator }: Collabor
                 style={{ borderRadius: '12px', borderColor: '#F7D5E8' }}
               />
             </div>
+
+            {/* Tipo de Vínculo */}
+            <div>
+              <Label className="text-sm font-medium" style={{ color: '#5A4A5E' }}>
+                Tipo de Vínculo *
+              </Label>
+              <RadioGroup
+                value={contractType || ''}
+                onValueChange={(value: 'Proprietário' | 'CLT' | 'PJ') => setValue('contractType', value)}
+                className="mt-2"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="Proprietário" id="contract-proprietario" />
+                  <Label htmlFor="contract-proprietario" className="cursor-pointer font-normal">
+                    Proprietário
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="CLT" id="contract-clt" />
+                  <Label htmlFor="contract-clt" className="cursor-pointer font-normal">
+                    CLT (Funcionário registrado)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="PJ" id="contract-pj" />
+                  <Label htmlFor="contract-pj" className="cursor-pointer font-normal">
+                    PJ / Parceiro (Comissionado)
+                  </Label>
+                </div>
+              </RadioGroup>
+              {errors.contractType && (
+                <p className="text-sm text-red-500 mt-1">{errors.contractType.message}</p>
+              )}
+            </div>
+
+            {/* Campos CLT */}
+            {contractType === 'CLT' && (
+              <div className="space-y-4 p-4 rounded-lg" style={{ backgroundColor: '#FAF5FF', border: '1px solid #F7D5E8' }}>
+                <h3 className="text-sm font-semibold" style={{ color: '#5A2E98' }}>Dados CLT</h3>
+                
+                {/* Tipo de Contrato */}
+                <div>
+                  <Label htmlFor="cltContractType" className="text-sm font-medium" style={{ color: '#5A4A5E' }}>
+                    Tipo de contrato *
+                  </Label>
+                  <Select
+                    value={watch('cltContractType') || ''}
+                    onValueChange={(value) => setValue('cltContractType', value as 'CLT' | 'Estágio' | 'Outro')}
+                  >
+                    <SelectTrigger className="mt-1" style={{ borderRadius: '12px', borderColor: '#F7D5E8' }}>
+                      <SelectValue placeholder="Selecione o tipo de contrato" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CLT">CLT</SelectItem>
+                      <SelectItem value="Estágio">Estágio</SelectItem>
+                      <SelectItem value="Outro">Outro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {errors.cltContractType && (
+                    <p className="text-sm text-red-500 mt-1">{errors.cltContractType.message}</p>
+                  )}
+                </div>
+
+                {/* Salário Fixo Mensal */}
+                <div>
+                  <Label htmlFor="salary" className="text-sm font-medium" style={{ color: '#5A4A5E' }}>
+                    Salário fixo mensal
+                  </Label>
+                  <div className="relative mt-1">
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#5A4A5E] font-medium">R$</span>
+                    <Input
+                      id="salary"
+                      type="text"
+                      value={salaryDisplay}
+                      onChange={handleSalaryChange}
+                      placeholder="0,00"
+                      className="pl-12"
+                      style={{ borderRadius: '12px', borderColor: '#F7D5E8' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Carga Horária */}
+                <div>
+                  <Label htmlFor="workHours" className="text-sm font-medium" style={{ color: '#5A4A5E' }}>
+                    Carga horária
+                  </Label>
+                  <Input
+                    id="workHours"
+                    {...register('workHours')}
+                    placeholder="Ex: 44h semanais"
+                    className="mt-1"
+                    style={{ borderRadius: '12px', borderColor: '#F7D5E8' }}
+                  />
+                </div>
+
+                {/* Data de Início */}
+                <div>
+                  <Label htmlFor="startDate" className="text-sm font-medium" style={{ color: '#5A4A5E' }}>
+                    Data de início
+                  </Label>
+                  <Input
+                    id="startDate"
+                    {...register('startDate')}
+                    type="date"
+                    className="mt-1"
+                    style={{ borderRadius: '12px', borderColor: '#F7D5E8' }}
+                  />
+                </div>
+
+                {/* Observações Internas */}
+                <div>
+                  <Label htmlFor="internalNotes" className="text-sm font-medium" style={{ color: '#5A4A5E' }}>
+                    Observações internas
+                  </Label>
+                  <Textarea
+                    id="internalNotes"
+                    {...register('internalNotes')}
+                    placeholder="Notas internas sobre o colaborador CLT..."
+                    className="mt-1"
+                    style={{ borderRadius: '12px', borderColor: '#F7D5E8' }}
+                    rows={3}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Colaboradores CLT devem ser tratados como despesa fixa nos relatórios financeiros.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Campos PJ */}
+            {contractType === 'PJ' && (
+              <div className="space-y-4">
+                {/* Dados do Prestador (PJ) */}
+                <div className="p-4 rounded-lg" style={{ backgroundColor: '#FAF5FF', border: '1px solid #F7D5E8' }}>
+                  <h3 className="text-sm font-semibold mb-4" style={{ color: '#5A2E98' }}>📄 Dados do prestador (PJ)</h3>
+                  
+                  {/* Nome Fantasia / Nome do Prestador */}
+                  <div className="mb-4">
+                    <Label htmlFor="companyName" className="text-sm font-medium" style={{ color: '#5A4A5E' }}>
+                      Nome fantasia / Nome do prestador
+                    </Label>
+                    <Input
+                      id="companyName"
+                      {...register('companyName')}
+                      placeholder="Nome da empresa ou prestador"
+                      className="mt-1"
+                      style={{ borderRadius: '12px', borderColor: '#F7D5E8' }}
+                    />
+                  </div>
+
+                  {/* CNPJ */}
+                  <div className="mb-4">
+                    <Label htmlFor="cnpj" className="text-sm font-medium" style={{ color: '#5A4A5E' }}>
+                      CNPJ
+                    </Label>
+                    <Input
+                      id="cnpj"
+                      {...register('cnpj')}
+                      onChange={(e) => {
+                        const formatted = formatCNPJ(e.target.value);
+                        e.target.value = formatted;
+                        setValue('cnpj', formatted, { shouldValidate: true });
+                      }}
+                      placeholder="00.000.000/0000-00"
+                      maxLength={18}
+                      className="mt-1"
+                      style={{ borderRadius: '12px', borderColor: '#F7D5E8' }}
+                    />
+                  </div>
+
+                  {/* Razão Social */}
+                  <div className="mb-4">
+                    <Label htmlFor="legalName" className="text-sm font-medium" style={{ color: '#5A4A5E' }}>
+                      Razão social
+                    </Label>
+                    <Input
+                      id="legalName"
+                      {...register('legalName')}
+                      placeholder="Razão social da empresa"
+                      className="mt-1"
+                      style={{ borderRadius: '12px', borderColor: '#F7D5E8' }}
+                    />
+                  </div>
+
+                  {/* Chave Pix */}
+                  <div className="mb-4">
+                    <Label htmlFor="pixKey" className="text-sm font-medium" style={{ color: '#5A4A5E' }}>
+                      Chave Pix para repasse (opcional)
+                    </Label>
+                    <Input
+                      id="pixKey"
+                      {...register('pixKey')}
+                      placeholder="Chave Pix para pagamento de comissões"
+                      className="mt-1"
+                      style={{ borderRadius: '12px', borderColor: '#F7D5E8' }}
+                    />
+                  </div>
+
+                  {/* Observações Contratuais */}
+                  <div>
+                    <Label htmlFor="contractNotes" className="text-sm font-medium" style={{ color: '#5A4A5E' }}>
+                      Observações contratuais
+                    </Label>
+                    <Textarea
+                      id="contractNotes"
+                      {...register('contractNotes')}
+                      placeholder="Notas sobre o contrato..."
+                      className="mt-1"
+                      style={{ borderRadius: '12px', borderColor: '#F7D5E8' }}
+                      rows={3}
+                    />
+                  </div>
+                </div>
+
+                {/* Modelo de Comissão */}
+                <div className="p-4 rounded-lg" style={{ backgroundColor: '#F0FDF4', border: '1px solid #86EFAC' }}>
+                  <h3 className="text-sm font-semibold mb-4" style={{ color: '#5A2E98' }}>💰 Modelo de Comissão *</h3>
+                  
+                  <RadioGroup
+                    value={commissionModel || ''}
+                    onValueChange={(value) => setValue('commissionModel', value as 'percentage' | 'fixed')}
+                    className="mb-4"
+                  >
+                    <div className="flex items-center space-x-2 mb-2">
+                      <RadioGroupItem value="percentage" id="commission-percentage" />
+                      <Label htmlFor="commission-percentage" className="cursor-pointer font-normal">
+                        Percentual sobre o serviço
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="fixed" id="commission-fixed" />
+                      <Label htmlFor="commission-fixed" className="cursor-pointer font-normal">
+                        Valor fixo por serviço
+                      </Label>
+                    </div>
+                  </RadioGroup>
+
+                  {commissionModel === 'percentage' && (
+                    <div>
+                      <Label htmlFor="commissionValue" className="text-sm font-medium" style={{ color: '#5A4A5E' }}>
+                        Percentual de comissão (%) *
+                      </Label>
+                      <Input
+                        id="commissionValue"
+                        {...register('commissionValue')}
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        placeholder="Ex: 40"
+                        className="mt-1"
+                        style={{ borderRadius: '12px', borderColor: '#F7D5E8' }}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        O percentual será aplicado sobre o valor bruto do serviço realizado.
+                      </p>
+                      {errors.commissionValue && (
+                        <p className="text-sm text-red-500 mt-1">{errors.commissionValue.message}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {commissionModel === 'fixed' && (
+                    <div>
+                      <Label htmlFor="commissionValue" className="text-sm font-medium" style={{ color: '#5A4A5E' }}>
+                        Valor fixo por atendimento *
+                      </Label>
+                      <Input
+                        id="commissionValue"
+                        {...register('commissionValue')}
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="Ex: 30,00"
+                        className="mt-1"
+                        style={{ borderRadius: '12px', borderColor: '#F7D5E8' }}
+                      />
+                      {errors.commissionValue && (
+                        <p className="text-sm text-red-500 mt-1">{errors.commissionValue.message}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Especialidades */}
             <SpecialtySelector

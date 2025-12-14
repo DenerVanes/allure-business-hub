@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
 import { MarketingMenu } from '@/components/sidebar/MarketingMenu';
+import { RelatoriosMenu } from '@/components/sidebar/RelatoriosMenu';
 
 const menuItems = [
   {
@@ -154,6 +155,7 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
               <MarketingMenu />
+              <RelatoriosMenu />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
