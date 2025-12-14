@@ -398,6 +398,7 @@ export const FinalizeAppointmentModal = ({ open, onOpenChange, appointment }: Fi
                 min="0"
                 value={finalAmount}
                 onChange={(e) => setFinalAmount(e.target.value)}
+                onWheel={(e) => e.currentTarget.blur()} // Prevenir mudança de valor ao fazer scroll
                 placeholder="0,00"
               />
             </TabsContent>
@@ -529,8 +530,22 @@ export const FinalizeAppointmentModal = ({ open, onOpenChange, appointment }: Fi
                               min="0"
                               value={row.amount}
                               onChange={(e) => updatePaymentRow(row.id, 'amount', e.target.value)}
+                              onWheel={(e) => e.currentTarget.blur()} // Prevenir mudança de valor ao fazer scroll
                               placeholder="0,00"
                             />
+                            {(() => {
+                              const finalValue = parseFloat(finalAmount) || 0;
+                              const remaining = finalValue - splitTotals.totalPaid;
+                              // Mostrar apenas se houver valor faltando (diferença maior que 0.01)
+                              if (remaining > 0.01) {
+                                return (
+                                  <p className="text-sm text-muted-foreground">
+                                    Falta: R$ {remaining.toFixed(2).replace('.', ',')}
+                                  </p>
+                                );
+                              }
+                              return null;
+                            })()}
                           </div>
 
                           {row.paymentMethodId && row.amount && (() => {
