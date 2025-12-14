@@ -521,7 +521,7 @@ const RelatorioFiscal = () => {
     
     const currentYear = new Date().getFullYear();
     const today = getBrazilianDate();
-    const currentMonth = today.getMonth(); // 0-11
+    const currentMonth = today.getMonth(); // 0-11 (0 = janeiro, 11 = dezembro)
     
     if (projectionYear === 'current') {
       // Projeção do ano atual
@@ -536,23 +536,50 @@ const RelatorioFiscal = () => {
       
       // Separar meses fechados e abertos do ano atual
       const currentYearClosed: Record<string, number> = {};
-      const currentYearOpen: Record<string, number> = {};
       
       Object.entries(currentYearRevenue).forEach(([monthKey, value]) => {
         if (isMonthClosed(monthKey)) {
           currentYearClosed[monthKey] = value;
-        } else {
-          currentYearOpen[monthKey] = value;
         }
       });
       
       // Total já faturado apenas nos meses fechados
       const totalBilledClosed = Object.values(currentYearClosed).reduce((sum, val) => sum + val, 0);
       
-      // Calcular meses restantes do ano atual
-      // Contar quantos meses do ano atual já foram completamente fechados
-      const closedMonthsCount = Object.keys(currentYearClosed).length;
-      const monthsRemaining = 12 - closedMonthsCount;
+      // Encontrar o último mês fechado para calcular meses restantes
+      const monthNames = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+        'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+      
+      let lastClosedMonthIndex = -1;
+      Object.keys(currentYearClosed).forEach((monthKey) => {
+        const [monthName, year] = monthKey.split(' ');
+        const monthIndex = monthNames.indexOf(monthName.toLowerCase());
+        if (monthIndex > lastClosedMonthIndex) {
+          lastClosedMonthIndex = monthIndex;
+        }
+      });
+      
+      // Se não há meses fechados, retornar apenas o faturamento atual
+      if (lastClosedMonthIndex === -1) {
+        return totalBilledClosed;
+      }
+      
+      // Se já estamos em dezembro (mês 11) ou depois, a projeção é apenas: média + faturamento já realizado
+      if (currentMonth >= 11) {
+        return totalBilledClosed + monthlyAverage;
+      }
+      
+      // Calcular meses restantes até dezembro (dezembro = índice 11)
+      // Se o último mês fechado foi novembro (índice 10), falta 1 mês (dezembro)
+      // Se o último mês fechado foi outubro (índice 9), faltam 2 meses (novembro e dezembro)
+      // Se o último mês fechado foi março (índice 2), faltam 9 meses (abril a dezembro)
+      const monthsRemaining = 11 - lastClosedMonthIndex; // 11 é o índice de dezembro
+      
+      // Se não há meses restantes (já fechamos todos os meses até dezembro), 
+      // a projeção é apenas: média + faturamento já realizado
+      if (monthsRemaining <= 0) {
+        return totalBilledClosed + monthlyAverage;
+      }
       
       // Projeção = faturamento já realizado (meses fechados) + (média * meses restantes)
       return totalBilledClosed + (monthlyAverage * monthsRemaining);
@@ -564,7 +591,7 @@ const RelatorioFiscal = () => {
       // Projeção = média * 12 meses
       return averageToUse * 12;
     }
-  }, [projectionYear, monthlyAverage, last12MonthsAverage, monthlyRevenue, taxRegime]);
+  }, [projectionYear, monthlyAverage, last12MonthsAverage, monthlyRevenue, taxRegime, isMonthClosed]);
 
   // Mensagem inteligente baseada no percentual
   const getMEIAlertMessage = () => {
@@ -1537,42 +1564,6 @@ const RelatorioFiscal = () => {
             </CardContent>
           </Card>
 
-          {/* Card - O que entra no cálculo do MEI (Educativo) */}
-          <Card className="border-0 shadow-sm" style={{ borderRadius: '20px', backgroundColor: '#F0FDF4', border: '1px solid #86EFAC' }}>
-            <CardHeader>
-              <CardTitle className="text-xl flex items-center gap-2" style={{ color: '#5A2E98' }}>
-                <Info className="h-5 w-5" />
-                O que conta para o limite do MEI?
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="font-medium mb-2" style={{ color: '#166534' }}>✔️ O que conta:</p>
-                <ul className="list-disc list-inside space-y-1 text-sm" style={{ color: '#166534' }}>
-                  <li>Serviços realizados</li>
-                  <li>Serviços pagos com desconto</li>
-                  <li>Serviços pagos com cartão (valor cheio)</li>
-                  <li>Valores pagos a parceiros (comissão não desconta do limite)</li>
-                </ul>
-              </div>
-              <div>
-                <p className="font-medium mb-2" style={{ color: '#991B1B' }}>❌ O que NÃO reduz o limite:</p>
-                <ul className="list-disc list-inside space-y-1 text-sm" style={{ color: '#991B1B' }}>
-                  <li>Taxa da maquininha</li>
-                  <li>Comissão paga a parceiros</li>
-                  <li>Despesas do salão</li>
-                  <li>DAS MEI</li>
-                  <li>Pró-labore</li>
-                </ul>
-              </div>
-              <div className="mt-4 p-3 rounded-lg" style={{ backgroundColor: '#DCFCE7', border: '1px solid #86EFAC' }}>
-                <p className="text-sm font-medium" style={{ color: '#166534' }}>
-                  O limite do MEI é calculado sobre o faturamento bruto, independentemente das despesas.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Card - Projeção */}
           {monthlyAverage > 0 && (
             <Card className="border-0 shadow-sm" style={{ borderRadius: '20px', backgroundColor: 'white' }}>
@@ -1632,6 +1623,42 @@ const RelatorioFiscal = () => {
               </CardContent>
             </Card>
           )}
+
+          {/* Card - O que entra no cálculo do MEI (Educativo) */}
+          <Card className="border-0 shadow-sm" style={{ borderRadius: '20px', backgroundColor: '#F0FDF4', border: '1px solid #86EFAC' }}>
+            <CardHeader>
+              <CardTitle className="text-xl flex items-center gap-2" style={{ color: '#5A2E98' }}>
+                <Info className="h-5 w-5" />
+                O que conta para o limite do MEI?
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="font-medium mb-2" style={{ color: '#166534' }}>✔️ O que conta:</p>
+                <ul className="list-disc list-inside space-y-1 text-sm" style={{ color: '#166534' }}>
+                  <li>Serviços realizados</li>
+                  <li>Serviços pagos com desconto</li>
+                  <li>Serviços pagos com cartão (valor cheio)</li>
+                  <li>Valores pagos a parceiros (comissão não desconta do limite)</li>
+                </ul>
+              </div>
+              <div>
+                <p className="font-medium mb-2" style={{ color: '#991B1B' }}>❌ O que NÃO reduz o limite:</p>
+                <ul className="list-disc list-inside space-y-1 text-sm" style={{ color: '#991B1B' }}>
+                  <li>Taxa da maquininha</li>
+                  <li>Comissão paga a parceiros</li>
+                  <li>Despesas do salão</li>
+                  <li>DAS MEI</li>
+                  <li>Pró-labore</li>
+                </ul>
+              </div>
+              <div className="mt-4 p-3 rounded-lg" style={{ backgroundColor: '#DCFCE7', border: '1px solid #86EFAC' }}>
+                <p className="text-sm font-medium" style={{ color: '#166534' }}>
+                  O limite do MEI é calculado sobre o faturamento bruto, independentemente das despesas.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </>
       )}
 
