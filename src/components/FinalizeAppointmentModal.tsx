@@ -90,6 +90,29 @@ export const FinalizeAppointmentModal = ({ open, onOpenChange, appointment }: Fi
     enabled: !!user?.id && open
   });
 
+  // Buscar dados do colaborador para calcular comissão
+  const { data: collaborator } = useQuery({
+    queryKey: ['collaborator-commission', appointment?.collaborator_id],
+    queryFn: async () => {
+      if (!appointment?.collaborator_id) return null;
+      
+      const { data, error } = await supabase
+        .from('collaborators')
+        .select('id, name, commission_model, commission_value, contract_type')
+        .eq('id', appointment.collaborator_id)
+        .single();
+      
+      if (error) {
+        // Se não encontrar, retornar null (não é erro crítico)
+        if (error.code === 'PGRST116') return null;
+        throw error;
+      }
+      
+      return data;
+    },
+    enabled: !!appointment?.collaborator_id && open
+  });
+
   // Calcular valor original
   const getOriginalAmount = () => {
     const servicePrice = appointment?.services?.price || appointment?.service_price || 0;
@@ -188,6 +211,32 @@ export const FinalizeAppointmentModal = ({ open, onOpenChange, appointment }: Fi
     return { fee, net, method };
   }, [simplePaymentMethodId, finalAmount, paymentMethods]);
 
+  // Calcular comissão do colaborador (baseado no valor bruto original, não no valor final)
+  const collaboratorCommission = useMemo(() => {
+    if (!collaborator || !collaborator.commission_model || !collaborator.commission_value) {
+      return null;
+    }
+
+    // Comissão é calculada sobre o valor bruto original do serviço
+    const grossValue = originalAmount;
+    let commissionAmount = 0;
+
+    if (collaborator.commission_model === 'percentage') {
+      // Comissão percentual
+      commissionAmount = grossValue * (Number(collaborator.commission_value) / 100);
+    } else if (collaborator.commission_model === 'fixed') {
+      // Comissão fixa
+      commissionAmount = Number(collaborator.commission_value);
+    }
+
+    return {
+      amount: commissionAmount,
+      model: collaborator.commission_model,
+      value: collaborator.commission_value,
+      collaboratorName: collaborator.name
+    };
+  }, [collaborator, originalAmount]);
+
   // Adicionar nova linha de pagamento
   const addPaymentRow = () => {
     const newId = Date.now().toString();
@@ -237,6 +286,9 @@ export const FinalizeAppointmentModal = ({ open, onOpenChange, appointment }: Fi
         .eq('id', appointment.id);
       
       if (updateError) throw updateError;
+
+      // A receita e a despesa de comissão são criadas automaticamente pelo trigger do banco
+      // quando o status muda para 'finalizado'
 
       // Salvar pagamentos
       if (paymentType === 'simple') {
@@ -433,6 +485,20 @@ export const FinalizeAppointmentModal = ({ open, onOpenChange, appointment }: Fi
             <div className="p-3 bg-green-50 rounded-lg border border-green-200">
               <p className="text-sm font-medium text-green-800">
                 Desconto: R$ {discountAmount.toFixed(2).replace('.', ',')}
+              </p>
+            </div>
+          )}
+
+          {/* Comissão do Colaborador */}
+          {collaboratorCommission && (
+            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <p className="text-sm font-medium text-blue-800">
+                Comissão {collaboratorCommission.collaboratorName}: R$ {collaboratorCommission.amount.toFixed(2).replace('.', ',')}
+                {collaboratorCommission.model === 'percentage' && (
+                  <span className="text-xs text-blue-600 ml-2">
+                    ({collaboratorCommission.value}% sobre R$ {originalAmount.toFixed(2).replace('.', ',')})
+                  </span>
+                )}
               </p>
             </div>
           )}

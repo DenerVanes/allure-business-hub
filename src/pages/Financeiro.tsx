@@ -128,9 +128,13 @@ const Financeiro = () => {
           appointments!left (
             client_name,
             client_id,
+            collaborator_id,
             services (
               name,
               service_categories (name)
+            ),
+            collaborators (
+              name
             )
           ),
           products!left (
@@ -1375,8 +1379,59 @@ const Financeiro = () => {
                 const clientName = appointment?.client_name;
                 
                 const isCardFee = !isIncome && transaction.category === 'Taxas' && transaction.description?.includes('Taxa da maquininha');
+                const isCommission = !isIncome && transaction.category === 'Comissões';
+                const isSalary = !isIncome && transaction.category === 'Salários' && transaction.description?.includes('Salário -');
                 
-                if (product) {
+                if (isSalary && transaction.description) {
+                  // Transação de salário: "Salário - [Nome do colaborador]"
+                  displayPrimary = transaction.description; // "Salário - [Nome do colaborador]"
+                  displaySecondary = formatCurrency(Number(transaction.amount)); // Valor do salário
+                } else if (isCommission && transaction.description) {
+                  // Transação de comissão: dividir descrição no separador " | "
+                  const parts = transaction.description.split(' | ');
+                  
+                  // Se tem o separador, usar o formato novo
+                  if (parts.length > 1) {
+                    displayPrimary = parts[0] || transaction.description; // "Comissão - [Nome do colaborador]"
+                    displaySecondary = parts[1] || ''; // "[Nome do serviço] - [Nome do cliente]"
+                  } else {
+                    // Formato antigo: tentar extrair informações da descrição
+                    // Exemplo: "Comissão colaborador - Cliente: Rosa de Jesus Vanes"
+                    const desc = transaction.description;
+                    
+                    // Tentar extrair nome do colaborador e cliente do formato antigo
+                    if (desc.includes(' - Cliente: ')) {
+                      const oldParts = desc.split(' - Cliente: ');
+                      const collaboratorPart = oldParts[0].replace('Comissão colaborador', '').replace('Comissão', '').trim();
+                      const clientName = oldParts[1] || '';
+                      
+                      // Se tem appointment, buscar nome do colaborador e serviço
+                      if (appointment) {
+                        // Buscar nome do colaborador do appointment se disponível
+                        const collaboratorName = (appointment as any).collaborators?.name || collaboratorPart || 'Colaborador';
+                        displayPrimary = `Comissão - ${collaboratorName}`;
+                        
+                        // Montar texto secundário com serviço e cliente
+                        if (serviceName && clientName) {
+                          displaySecondary = `${serviceName} - ${clientName}`;
+                        } else if (serviceName) {
+                          displaySecondary = serviceName;
+                        } else if (clientName) {
+                          displaySecondary = clientName;
+                        } else {
+                          displaySecondary = '';
+                        }
+                      } else {
+                        displayPrimary = collaboratorPart ? `Comissão - ${collaboratorPart}` : 'Comissão';
+                        displaySecondary = clientName || '';
+                      }
+                    } else {
+                      // Formato desconhecido, usar como está
+                      displayPrimary = desc;
+                      displaySecondary = '';
+                    }
+                  }
+                } else if (product) {
                   // Transação de produto: nome do produto como principal
                   displayPrimary = product.name;
                   // Categoria como secundário: "Produtos - [categoria do produto]"

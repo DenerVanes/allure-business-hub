@@ -37,18 +37,48 @@ export function StockOutModal({ open, onOpenChange, product }: StockOutModalProp
 
   const stockOutMutation = useMutation({
     mutationFn: async (data: StockOutFormData) => {
-      const quantityOut = parseInt(data.quantity);
-      const newQuantity = Math.max(0, product.quantity - quantityOut);
+      // REGRA: Usuário sempre digita em UNIDADES (frascos/caixas/unidades)
+      const quantityOutUnits = parseFloat(data.quantity);
+      
+      // Obter valores atuais usando os novos campos ou campos antigos (compatibilidade)
+      const estoqueUnidadesAtual = product.estoque_unidades !== null && product.estoque_unidades !== undefined
+        ? product.estoque_unidades
+        : (product.quantity_per_unit && product.quantity_per_unit > 0 && product.unit !== 'unidade'
+          ? (product.quantity || 0) / product.quantity_per_unit
+          : product.quantity || 0);
+      
+      const estoqueTotalAtual = product.estoque_total !== null && product.estoque_total !== undefined
+        ? product.estoque_total
+        : product.quantity || 0;
+      
+      // Calcular novos valores
+      const novoEstoqueUnidades = Math.max(0, estoqueUnidadesAtual - quantityOutUnits);
+      
+      // Calcular novo estoque_total (ml/g/unidade)
+      let novoEstoqueTotal = 0;
+      if (product.unit === 'unidade' || !product.quantity_per_unit || product.quantity_per_unit === 0) {
+        // Para unidades, subtrair diretamente
+        novoEstoqueTotal = novoEstoqueUnidades;
+      } else {
+        // Para ml/g: subtrair (quantidade em unidades × quantidade por unidade)
+        novoEstoqueTotal = Math.max(0, estoqueTotalAtual - (quantityOutUnits * product.quantity_per_unit));
+      }
 
+      // Atualizar produto com os novos campos
       const { error } = await supabase
         .from('products')
-        .update({ quantity: newQuantity })
+        .update({ 
+          estoque_unidades: novoEstoqueUnidades,
+          estoque_total: novoEstoqueTotal,
+          quantity: novoEstoqueTotal, // Manter compatibilidade
+        })
         .eq('id', product.id);
 
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.refetchQueries({ queryKey: ['products'] });
       toast({
         title: 'Baixa realizada',
         description: 'Quantidade removida do estoque com sucesso.',
@@ -66,8 +96,16 @@ export function StockOutModal({ open, onOpenChange, product }: StockOutModalProp
   });
 
   const onSubmit = (data: StockOutFormData) => {
-    const quantityOut = parseInt(data.quantity);
-    if (quantityOut > product.quantity) {
+    const quantityOutUnits = parseFloat(data.quantity);
+    
+    // Calcular estoque atual em unidades para validação usando os novos campos
+    const estoqueUnidadesAtual = product.estoque_unidades !== null && product.estoque_unidades !== undefined
+      ? product.estoque_unidades
+      : (product.quantity_per_unit && product.quantity_per_unit > 0 && product.unit !== 'unidade'
+        ? (product.quantity || 0) / product.quantity_per_unit
+        : product.quantity || 0);
+    
+    if (quantityOutUnits > estoqueUnidadesAtual) {
       toast({
         title: 'Erro',
         description: 'Quantidade não pode ser maior que o estoque atual.',
@@ -89,20 +127,39 @@ export function StockOutModal({ open, onOpenChange, product }: StockOutModalProp
           <div className="p-4 bg-muted rounded-lg">
             <p className="font-medium">{product?.name}</p>
             <p className="text-sm text-muted-foreground">
-              Estoque atual: {product?.quantity}
+              Estoque atual: {(() => {
+                // Usar estoque_unidades se disponível, senão calcular
+                const estoqueUnidades = product?.estoque_unidades !== null && product?.estoque_unidades !== undefined
+                  ? product.estoque_unidades
+                  : (product?.quantity_per_unit && product?.quantity_per_unit > 0 && product?.unit !== 'unidade'
+                    ? Math.floor((product?.quantity || 0) / product.quantity_per_unit)
+                    : product?.quantity || 0);
+                
+                const estoqueTotal = product?.estoque_total !== null && product?.estoque_total !== undefined
+                  ? product.estoque_total
+                  : product?.quantity || 0;
+                
+                if (product?.unit === 'unidade' || !product?.quantity_per_unit || product?.quantity_per_unit === 0) {
+                  return `${estoqueUnidades} ${product?.unit === 'unidade' ? 'un' : product?.unit || ''}`;
+                } else {
+                  return `${Math.floor(estoqueUnidades)} ${product?.unit === 'ml' ? 'frascos' : 'pacotes'} (${estoqueTotal} ${product?.unit})`;
+                }
+              })()}
             </p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
-              <Label htmlFor="quantity">Quantidade a remover</Label>
+              <Label htmlFor="quantity">
+                Quantidade a remover ({product?.unit === 'unidade' ? 'unidades' : product?.unit === 'ml' ? 'frascos' : 'pacotes'})
+              </Label>
               <Input
                 id="quantity"
                 type="number"
-                min="1"
-                max={product?.quantity || 0}
+                step="0.01"
+                min="0.01"
                 {...register('quantity')}
-                placeholder="Ex: 5"
+                placeholder={product?.unit === 'ml' ? 'Ex: 1 frasco' : product?.unit === 'g' ? 'Ex: 1 pacote' : 'Ex: 5'}
               />
               {errors.quantity && (
                 <p className="text-sm text-red-500">{errors.quantity.message}</p>

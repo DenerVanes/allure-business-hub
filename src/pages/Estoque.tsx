@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { NewProductModal } from '@/components/NewProductModal';
-import { EditProductModal } from '@/components/EditProductModal';
 import { StockOutModal } from '@/components/StockOutModal';
 import { StockInModal } from '@/components/StockInModal';
 import { ManageProductCategoriesModal } from '@/components/ManageProductCategoriesModal';
@@ -32,7 +31,14 @@ const Estoque = () => {
       
       const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select(`
+          *,
+          service_products (
+            consumption_type,
+            consumption_per_client,
+            yield_clients
+          )
+        `)
         .eq('user_id', user.id)
         .order('name');
       
@@ -67,15 +73,123 @@ const Estoque = () => {
     }
   });
 
-  const getStockStatus = (quantity: number, minQuantity: number) => {
-    if (quantity === 0) {
+  // Calcular unidades restantes baseado na quantidade atual e quantidade por unidade
+  const calculateUnitsRemaining = (quantity: number, quantityPerUnit: number | null, unit: string | null) => {
+    if (unit === 'unidade' || !quantityPerUnit || quantityPerUnit === 0) {
+      return quantity; // Se for unidade ou não tiver quantity_per_unit, retorna direto
+    }
+    return quantity / quantityPerUnit; // Calcula quantas unidades restam
+  };
+
+  const getStockStatus = (quantity: number, minQuantity: number, quantityPerUnit: number | null, unit: string | null) => {
+    const unitsRemaining = calculateUnitsRemaining(quantity, quantityPerUnit, unit);
+    
+    if (quantity === 0 || unitsRemaining <= 0) {
       return { status: 'Sem estoque', variant: 'destructive' as const, icon: AlertTriangle, color: '#EB67A3' };
-    } else if (quantity <= minQuantity) {
+    } else if (unitsRemaining <= minQuantity) {
       return { status: 'Estoque baixo', variant: 'secondary' as const, icon: AlertTriangle, color: '#F7A500' };
     }
     return { status: 'Em estoque', variant: 'default' as const, icon: Package, color: '#8E44EC' };
   };
 
+  // Função para formatar quantidade com conversão
+  const formatQuantity = (value: number, unit?: string) => {
+    if (!unit || unit === 'unidade') {
+      return `${value.toFixed(0)} un`;
+    }
+    
+    if (unit === 'ml' && value >= 1000) {
+      // Usar 3 casas decimais para litros para maior precisão
+      const liters = value / 1000;
+      // Se o valor é muito próximo de um número inteiro, mostrar menos casas
+      if (Math.abs(liters - Math.round(liters)) < 0.001) {
+        return `${liters.toFixed(1)} L`;
+      }
+      return `${liters.toFixed(3)} L`;
+    }
+    
+    if (unit === 'g' && value >= 1000) {
+      const kg = value / 1000;
+      if (Math.abs(kg - Math.round(kg)) < 0.001) {
+        return `${kg.toFixed(1)} kg`;
+      }
+      return `${kg.toFixed(3)} kg`;
+    }
+    
+    return `${value.toFixed(2)} ${unit}`;
+  };
+
+  // Função para formatar estoque mostrando frascos inteiros + resto
+  // Usa estoque_unidades (frascos) e estoque_total (ml/g total)
+  const formatStockDisplay = (estoqueUnidades: number | null, estoqueTotal: number | null, quantityPerUnit: number | null, unit: string | null) => {
+    const unidades = estoqueUnidades || 0;
+    const total = estoqueTotal || 0;
+
+    if (!unit || unit === 'unidade' || !quantityPerUnit || quantityPerUnit === 0) {
+      // Para produtos em unidades, mostrar direto
+      return {
+        main: `${Math.floor(unidades)} ${unidades === 1 ? 'unidade' : 'unidades'}`,
+        secondary: null,
+        total: formatQuantity(total, unit)
+      };
+    }
+
+    // Para ml ou g: calcular frascos inteiros + resto
+    const fullUnits = Math.floor(unidades); // Frascos/pacotes inteiros fechados
+    const totalInMlG = total;
+    const remainder = totalInMlG % quantityPerUnit; // Resto em ml/g do frasco aberto
+
+    const unitLabel = unit === 'ml' ? 'frasco' : 'pacote';
+    const unitLabelPlural = unit === 'ml' ? 'frascos' : 'pacotes';
+
+    let main = '';
+    let secondary: string | null = null;
+
+    if (fullUnits > 0 && remainder > 0) {
+      // Tem frascos inteiros E resto
+      main = `${fullUnits} ${fullUnits === 1 ? unitLabel : unitLabelPlural} inteiros`;
+      secondary = `+ ${remainder.toFixed(0)} ${unit} do ${unitLabel} aberto`;
+    } else if (fullUnits > 0) {
+      // Só frascos inteiros
+      main = `${fullUnits} ${fullUnits === 1 ? unitLabel : unitLabelPlural} inteiros`;
+    } else if (remainder > 0) {
+      // Só resto (frasco aberto)
+      main = `${remainder.toFixed(0)} ${unit} do ${unitLabel} aberto`;
+    } else {
+      // Sem estoque
+      main = '0 unidades';
+    }
+
+    // Total em ml/g (convertido para L/kg se >= 1000)
+    const totalFormatted = formatQuantity(totalInMlG, unit);
+
+    return { main, secondary, total: totalFormatted };
+  };
+
+  // Calcular consumo médio do produto
+  const calculateAverageConsumption = (product: any) => {
+    if (!product.service_products || product.service_products.length === 0) {
+      return null;
+    }
+
+    const consumptions: number[] = [];
+    
+    product.service_products.forEach((sp: any) => {
+      if (sp.consumption_type === 'per_client' && sp.consumption_per_client) {
+        consumptions.push(sp.consumption_per_client);
+      } else if (sp.consumption_type === 'yield' && sp.yield_clients && product.total_quantity) {
+        // Calcular consumo: total_quantity / yield_clients
+        const consumption = product.total_quantity / sp.yield_clients;
+        consumptions.push(consumption);
+      }
+    });
+
+    if (consumptions.length === 0) return null;
+
+    // Calcular média dos consumos
+    const average = consumptions.reduce((sum, val) => sum + val, 0) / consumptions.length;
+    return average;
+  };
 
   // Filtrar produtos
   const filteredProducts = useMemo(() => {
@@ -364,8 +478,25 @@ const Estoque = () => {
                   {/* Grid de Produtos da Categoria */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                     {groupedFilteredProducts[category].map((product) => {
-                      const stockInfo = getStockStatus(product.quantity, product.min_quantity);
+                      // Usar estoque_unidades se disponível, senão usar quantity (compatibilidade)
+                      const estoqueUnidades = product.estoque_unidades !== null && product.estoque_unidades !== undefined 
+                        ? product.estoque_unidades 
+                        : (product.quantity_per_unit && product.quantity_per_unit > 0 && product.unit !== 'unidade'
+                          ? (product.quantity || 0) / product.quantity_per_unit
+                          : product.quantity || 0);
+                      
+                      const stockInfo = getStockStatus(
+                        product.estoque_total !== null && product.estoque_total !== undefined ? product.estoque_total : product.quantity, 
+                        product.min_quantity, 
+                        product.quantity_per_unit,
+                        product.unit
+                      );
                       const StatusIcon = stockInfo.icon;
+                      const unitsRemaining = calculateUnitsRemaining(
+                        product.estoque_total !== null && product.estoque_total !== undefined ? product.estoque_total : product.quantity, 
+                        product.quantity_per_unit, 
+                        product.unit
+                      );
                       
                       return (
                         <div
@@ -417,22 +548,74 @@ const Estoque = () => {
 
                           {/* Informações do Produto */}
                           <div className="space-y-2 mb-3">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-[#5A4A5E]">Quantidade:</span>
-                              <span className="font-medium" style={{ color: '#5A2E98' }}>
-                                {product.quantity}
-                              </span>
+                            <div className="space-y-1">
+                              {(() => {
+                                const stockDisplay = formatStockDisplay(
+                                  product.estoque_unidades,
+                                  product.estoque_total !== null && product.estoque_total !== undefined ? product.estoque_total : product.quantity,
+                                  product.quantity_per_unit,
+                                  product.unit
+                                );
+                                return (
+                                  <>
+                                    <div className="flex items-center justify-between text-xs">
+                                      <span className="text-[#5A4A5E]">Estoque:</span>
+                                      <span className="font-medium" style={{ color: '#5A2E98' }}>
+                                        {stockDisplay.main}
+                                      </span>
+                                    </div>
+                                    {stockDisplay.secondary && (
+                                      <div className="flex items-center justify-end text-xs">
+                                        <span className="text-[#5A4A5E] text-[10px]">
+                                          {stockDisplay.secondary}
+                                        </span>
+                                      </div>
+                                    )}
+                                    <div className="flex items-center justify-between text-xs">
+                                      <span className="text-[#5A4A5E]">Total:</span>
+                                      <span className="text-[#5A4A5E]">
+                                        {stockDisplay.total}
+                                      </span>
+                                    </div>
+                                  </>
+                                );
+                              })()}
                             </div>
                             <div className="flex items-center justify-between text-xs">
                               <span className="text-[#5A4A5E]">Estoque Mín.:</span>
-                              <span className="text-[#5A4A5E]">{product.min_quantity}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-[#5A4A5E]">Preço Custo:</span>
                               <span className="text-[#5A4A5E]">
-                                {formatCurrency(product.cost_price)}
+                                {product.min_quantity} {product.unit === 'unidade' ? 'un' : 'unidades'}
                               </span>
                             </div>
+                            {product.unit && product.unit !== 'unidade' && (
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-[#5A4A5E]">Unidades Restantes:</span>
+                                <span className="font-medium" style={{ color: '#5A2E98' }}>
+                                  {unitsRemaining.toFixed(1)} un
+                                </span>
+                              </div>
+                            )}
+                            {product.cost_price && product.cost_price > 0 && (
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-[#5A4A5E]">Preço Médio:</span>
+                                <span className="font-medium" style={{ color: '#5A2E98' }}>
+                                  {formatCurrency(product.preco_medio_atual !== null && product.preco_medio_atual !== undefined 
+                                    ? product.preco_medio_atual 
+                                    : product.cost_price)} / {product.unit === 'unidade' ? 'un' : product.unit === 'ml' ? 'frasco' : 'pacote'}
+                                </span>
+                              </div>
+                            )}
+                            {(() => {
+                              const avgConsumption = calculateAverageConsumption(product);
+                              return avgConsumption && (
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-[#5A4A5E]">Consumo Médio:</span>
+                                  <span className="text-[#5A4A5E]">
+                                    {avgConsumption.toFixed(2)} {product.unit} por cliente
+                                  </span>
+                                </div>
+                              );
+                            })()}
                           </div>
 
                           {/* Status */}
@@ -466,7 +649,14 @@ const Estoque = () => {
                               size="sm"
                               variant="outline"
                               onClick={() => setStockOutProduct(product)}
-                              disabled={product.quantity === 0}
+                              disabled={(() => {
+                                const estoque = (product.estoque_unidades !== null && product.estoque_unidades !== undefined) 
+                                  ? product.estoque_unidades 
+                                  : (product.quantity_per_unit && product.quantity_per_unit > 0 && product.unit !== 'unidade' 
+                                    ? (product.quantity || 0) / product.quantity_per_unit 
+                                    : product.quantity || 0);
+                                return estoque === 0;
+                              })()}
                               className="flex-1 text-xs h-8"
                               style={{ borderColor: '#F7A500', color: '#F7A500' }}
                             >
@@ -491,10 +681,10 @@ const Estoque = () => {
       />
 
       {editingProduct && (
-        <EditProductModal
+        <NewProductModal
           open={!!editingProduct}
           onOpenChange={(open) => !open && setEditingProduct(null)}
-          product={editingProduct}
+          editingProduct={editingProduct}
         />
       )}
 
