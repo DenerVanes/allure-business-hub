@@ -11,7 +11,7 @@ export const MarketingMenu = () => {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
 
-  const isActive = location.pathname === '/marketing/aniversariantes';
+  const isActive = location.pathname === '/marketing/aniversariantes' || location.pathname === '/marketing/upsell-downsell';
 
   const handleClick = () => {
     if (!collapsed) {
@@ -21,6 +21,10 @@ export const MarketingMenu = () => {
 
   const handleAniversariantesClick = () => {
     navigate('/marketing/aniversariantes');
+  };
+
+  const handleUpsellDownsellClick = () => {
+    navigate('/marketing/upsell-downsell');
   };
 
   return (
@@ -50,12 +54,25 @@ export const MarketingMenu = () => {
                 onClick={handleAniversariantesClick}
                 className={cn(
                   "pl-8 transition-all duration-200 rounded-lg cursor-pointer py-2",
-                  isActive 
+                  location.pathname === '/marketing/aniversariantes'
                     ? "bg-primary-light text-primary font-medium" 
                     : "hover:bg-accent hover:text-accent-foreground"
                 )}
               >
                 <span className="text-sm">Aniversariantes</span>
+              </SidebarMenuSubButton>
+            </SidebarMenuSubItem>
+            <SidebarMenuSubItem>
+              <SidebarMenuSubButton
+                onClick={handleUpsellDownsellClick}
+                className={cn(
+                  "pl-8 transition-all duration-200 rounded-lg cursor-pointer py-2",
+                  location.pathname === '/marketing/upsell-downsell'
+                    ? "bg-primary-light text-primary font-medium" 
+                    : "hover:bg-accent hover:text-accent-foreground"
+                )}
+              >
+                <span className="text-sm">Upsell / Downsell</span>
               </SidebarMenuSubButton>
             </SidebarMenuSubItem>
           </SidebarMenuSub>

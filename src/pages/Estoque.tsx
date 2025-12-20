@@ -34,6 +34,7 @@ const Estoque = () => {
         .select(`
           *,
           service_products (
+            service_id,
             consumption_type,
             consumption_per_client,
             yield_clients
@@ -639,30 +640,32 @@ const Estoque = () => {
                               size="sm"
                               variant="outline"
                               onClick={() => setStockInProduct(product)}
-                              className="flex-1 text-xs h-8"
+                              className={product.auto_deduct ? "w-full text-xs h-8" : "flex-1 text-xs h-8"}
                               style={{ borderColor: '#8E44EC', color: '#8E44EC' }}
                             >
                               <Plus className="h-3 w-3 mr-1" />
                               Entrada
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setStockOutProduct(product)}
-                              disabled={(() => {
-                                const estoque = (product.estoque_unidades !== null && product.estoque_unidades !== undefined) 
-                                  ? product.estoque_unidades 
-                                  : (product.quantity_per_unit && product.quantity_per_unit > 0 && product.unit !== 'unidade' 
-                                    ? (product.quantity || 0) / product.quantity_per_unit 
-                                    : product.quantity || 0);
-                                return estoque === 0;
-                              })()}
-                              className="flex-1 text-xs h-8"
-                              style={{ borderColor: '#F7A500', color: '#F7A500' }}
-                            >
-                              <Minus className="h-3 w-3 mr-1" />
-                              Saída
-                            </Button>
+                            {!product.auto_deduct && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setStockOutProduct(product)}
+                                disabled={(() => {
+                                  const estoque = (product.estoque_unidades !== null && product.estoque_unidades !== undefined) 
+                                    ? product.estoque_unidades 
+                                    : (product.quantity_per_unit && product.quantity_per_unit > 0 && product.unit !== 'unidade' 
+                                      ? (product.quantity || 0) / product.quantity_per_unit 
+                                      : product.quantity || 0);
+                                  return estoque === 0;
+                                })()}
+                                className="flex-1 text-xs h-8"
+                                style={{ borderColor: '#F7A500', color: '#F7A500' }}
+                              >
+                                <Minus className="h-3 w-3 mr-1" />
+                                Saída
+                              </Button>
+                            )}
                           </div>
                         </div>
                       );
@@ -709,6 +712,9 @@ const Estoque = () => {
         onOpenChange={setShowManageCategories}
         onCategoryAdded={() => {
           queryClient.invalidateQueries({ queryKey: ['products'] });
+          // Forçar atualização das categorias nos modais abertos
+          const event = new Event('storage');
+          window.dispatchEvent(event);
         }}
       />
     </div>

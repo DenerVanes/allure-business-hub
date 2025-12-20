@@ -165,7 +165,9 @@ export function getAvailableTimeSlots(
     // Verificar se não conflita com agendamentos existentes
     const hasConflict = existingAppointments.some(apt => {
       const aptTime = timeToMinutes(apt.appointment_time);
-      const aptEndTime = aptTime + (apt.duration || serviceDuration);
+      // Aceita tanto apt.duration quanto apt.services.duration (formato do banco)
+      const aptDuration = apt.duration || (apt.services as any)?.duration || serviceDuration;
+      const aptEndTime = aptTime + aptDuration;
       const slotEndTime = currentTime + serviceDuration;
 
       // Conflito se: slot começa antes do fim do agendamento E slot termina depois do início do agendamento

@@ -73,8 +73,8 @@ export function NewProductModal({ open, onOpenChange, editingProduct }: NewProdu
     auto_deduct: false,
   });
 
-  // Categorias padrão
-  const defaultCategories = [
+  // Categorias padrão antigas (para filtrar do localStorage se existirem)
+  const oldDefaultCategories = [
     'Cabelo',
     'Unha',
     'Pele',
@@ -86,20 +86,58 @@ export function NewProductModal({ open, onOpenChange, editingProduct }: NewProdu
     'Geral'
   ];
 
-  // Buscar categorias disponíveis (padrão + customizadas)
-  const [availableCategories, setAvailableCategories] = useState<string[]>(defaultCategories);
+  // Buscar categorias disponíveis (apenas as cadastradas pelo usuário)
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   
   useEffect(() => {
     if (user?.id && open) {
       const stored = localStorage.getItem(`product-categories-${user.id}`);
-      const customCategories = stored ? JSON.parse(stored) : [];
-      const storedExcluded = localStorage.getItem(`excluded-product-categories-${user.id}`);
-      const excludedCategories = storedExcluded ? JSON.parse(storedExcluded) : [];
-      
-      const visibleDefault = defaultCategories.filter(cat => !excludedCategories.includes(cat));
-      const visibleCustom = customCategories.filter((cat: string) => !excludedCategories.includes(cat));
-      setAvailableCategories([...visibleDefault, ...visibleCustom]);
+      if (stored) {
+        const customCategories = JSON.parse(stored);
+        // Filtrar categorias padrão antigas caso ainda existam no localStorage
+        const filteredCategories = customCategories.filter((cat: string) => 
+          !oldDefaultCategories.includes(cat)
+        );
+        setAvailableCategories(filteredCategories);
+        // Se foram filtradas, atualizar o localStorage
+        if (filteredCategories.length !== customCategories.length) {
+          localStorage.setItem(`product-categories-${user.id}`, JSON.stringify(filteredCategories));
+        }
+      } else {
+        setAvailableCategories([]);
+      }
     }
+  }, [user?.id, open]);
+
+  // Atualizar categorias quando o modal de gerenciamento adicionar uma nova
+  useEffect(() => {
+    const handleCategoryUpdate = () => {
+      if (user?.id && open) {
+        const stored = localStorage.getItem(`product-categories-${user.id}`);
+        if (stored) {
+          const customCategories = JSON.parse(stored);
+          const filteredCategories = customCategories.filter((cat: string) => 
+            !oldDefaultCategories.includes(cat)
+          );
+          setAvailableCategories(filteredCategories);
+        } else {
+          setAvailableCategories([]);
+        }
+      }
+    };
+
+    // Listener para mudanças no localStorage (entre abas)
+    window.addEventListener('storage', handleCategoryUpdate);
+    // Listener customizado para mudanças na mesma aba
+    window.addEventListener('categoryUpdated', handleCategoryUpdate);
+    // Também verificar periodicamente (para mudanças na mesma aba)
+    const interval = setInterval(handleCategoryUpdate, 1000);
+
+    return () => {
+      window.removeEventListener('storage', handleCategoryUpdate);
+      window.removeEventListener('categoryUpdated', handleCategoryUpdate);
+      clearInterval(interval);
+    };
   }, [user?.id, open]);
 
   // Buscar produtos existentes para autocomplete
@@ -152,7 +190,7 @@ export function NewProductModal({ open, onOpenChange, editingProduct }: NewProdu
     resolver: zodResolver(productSchema),
     defaultValues: {
       unit: 'unidade',
-      category: 'Geral',
+      category: '',
       auto_deduct: false,
       quantity_existing: '',
       quantity_purchased: '',
@@ -243,7 +281,7 @@ export function NewProductModal({ open, onOpenChange, editingProduct }: NewProdu
     setValue('quantity_per_unit', product.quantity_per_unit?.toString() || '');
     setValue('min_quantity', product.min_quantity?.toString() || '');
     setValue('cost_price', product.cost_price?.toString() || '');
-    setValue('category', product.category || 'Geral');
+    setValue('category', product.category || '');
     setValue('auto_deduct', product.auto_deduct || false);
     setProductNameOpen(false);
     setProductNameSearch('');
@@ -298,8 +336,10 @@ export function NewProductModal({ open, onOpenChange, editingProduct }: NewProdu
       setValue('name', product.name || '');
       setValue('brand', product.brand || '');
       setValue('unit', product.unit || 'unidade');
-      setValue('category', product.category || 'Geral');
-      setValue('auto_deduct', product.auto_deduct || false);
+      setValue('category', product.category || '');
+      // IMPORTANTE: Carregar auto_deduct corretamente (pode ser true, false ou null)
+      const autoDeductValue = product.auto_deduct === true;
+      setValue('auto_deduct', autoDeductValue);
       
       // Calcular quantidade existente em unidades
       let quantityExisting = '';
@@ -336,15 +376,25 @@ export function NewProductModal({ open, onOpenChange, editingProduct }: NewProdu
       if (product.service_products && product.service_products.length > 0) {
         const servicesMap: Record<string, ServiceConsumption> = {};
         product.service_products.forEach((sp: any) => {
-          servicesMap[sp.service_id] = {
-            serviceId: sp.service_id,
-            consumptionType: sp.consumption_type === 'per_client' ? 'per_client' : 'yield',
-            consumptionPerClient: sp.consumption_per_client,
-            yieldClients: sp.yield_clients,
-          };
+          if (sp.service_id) {
+            servicesMap[sp.service_id] = {
+              serviceId: sp.service_id,
+              consumptionType: sp.consumption_type === 'per_client' ? 'per_client' : 'yield',
+              consumptionPerClient: sp.consumption_per_client || 0,
+              yieldClients: sp.yield_clients || 0,
+            };
+          }
         });
         setSelectedServices(servicesMap);
+        // Mostrar seção de serviços se tiver serviços vinculados OU se auto_deduct estiver ativado
+        setShowServiceSection(autoDeductValue || Object.keys(servicesMap).length > 0);
+      } else if (autoDeductValue) {
+        // Se auto_deduct está ativo mas não tem serviços vinculados ainda, mostrar seção
         setShowServiceSection(true);
+        setSelectedServices({});
+      } else {
+        setShowServiceSection(false);
+        setSelectedServices({});
       }
     }
   }, [open, editingProduct, setValue]);
@@ -998,15 +1048,27 @@ export function NewProductModal({ open, onOpenChange, editingProduct }: NewProdu
                     <SelectValue placeholder="Selecione a categoria" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableCategories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
+                    {availableCategories.length === 0 ? (
+                      <div className="px-2 py-6 text-center text-sm text-gray-500">
+                        <p className="mb-2">Nenhuma categoria cadastrada.</p>
+                        <p>Cadastre categorias em "Gerenciar Categorias" primeiro.</p>
+                      </div>
+                    ) : (
+                      availableCategories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
                 {errors.category && (
                   <p className="text-sm text-red-500">{errors.category.message}</p>
+                )}
+                {availableCategories.length === 0 && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    ⚠️ Você precisa cadastrar pelo menos uma categoria antes de criar um produto.
+                  </p>
                 )}
               </div>
 

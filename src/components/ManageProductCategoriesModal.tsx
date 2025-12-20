@@ -45,19 +45,6 @@ interface ManageProductCategoriesModalProps {
   onCategoryAdded?: (category: string) => void;
 }
 
-// Categorias padrão comuns para produtos de salão
-const defaultCategories = [
-  'Cabelo',
-  'Unha',
-  'Pele',
-  'Maquiagem',
-  'Acessórios',
-  'Equipamentos',
-  'Produtos Químicos',
-  'Higiene',
-  'Geral'
-];
-
 export const ManageProductCategoriesModal = ({ 
   open, 
   onOpenChange,
@@ -79,32 +66,42 @@ export const ManageProductCategoriesModal = ({
   const editForm = useForm<CategoryForm>({
     resolver: zodResolver(categorySchema),
   });
-
-  // Buscar categorias excluídas (padrão ou customizadas)
-  const [excludedCategories, setExcludedCategories] = useState<string[]>([]);
   
+  // Categorias padrão antigas (para filtrar do localStorage se existirem)
+  const oldDefaultCategories = [
+    'Cabelo',
+    'Unha',
+    'Pele',
+    'Maquiagem',
+    'Acessórios',
+    'Equipamentos',
+    'Produtos Químicos',
+    'Higiene',
+    'Geral'
+  ];
+
   useEffect(() => {
     if (user?.id && open) {
       const stored = localStorage.getItem(`product-categories-${user.id}`);
       if (stored) {
-        setCustomCategories(JSON.parse(stored));
+        const categories = JSON.parse(stored);
+        // Filtrar categorias padrão antigas caso ainda existam no localStorage
+        const filteredCategories = categories.filter((cat: string) => 
+          !oldDefaultCategories.includes(cat)
+        );
+        setCustomCategories(filteredCategories);
+        // Se foram filtradas, atualizar o localStorage
+        if (filteredCategories.length !== categories.length) {
+          localStorage.setItem(`product-categories-${user.id}`, JSON.stringify(filteredCategories));
+        }
       } else {
         setCustomCategories([]);
-      }
-      
-      const storedExcluded = localStorage.getItem(`excluded-product-categories-${user.id}`);
-      if (storedExcluded) {
-        setExcludedCategories(JSON.parse(storedExcluded));
-      } else {
-        setExcludedCategories([]);
       }
     }
   }, [user?.id, open]);
 
-  // Filtrar categorias excluídas e combinar todas
-  const visibleDefaultCategories = defaultCategories.filter(cat => !excludedCategories.includes(cat));
-  const visibleCustomCategories = customCategories.filter(cat => !excludedCategories.includes(cat));
-  const allCategories = [...visibleDefaultCategories, ...visibleCustomCategories];
+  // Usar apenas categorias customizadas
+  const allCategories = customCategories;
 
   const handleSubmit = (data: CategoryForm) => {
     if (!user?.id) return;
@@ -121,6 +118,8 @@ export const ManageProductCategoriesModal = ({
     const newCategories = [...customCategories, data.name];
     setCustomCategories(newCategories);
     localStorage.setItem(`product-categories-${user.id}`, JSON.stringify(newCategories));
+    // Disparar evento customizado para atualizar outros componentes
+    window.dispatchEvent(new Event('categoryUpdated'));
     
     toast({
       title: 'Categoria adicionada',
@@ -140,31 +139,26 @@ export const ManageProductCategoriesModal = ({
   const handleSaveEdit = (data: CategoryForm) => {
     if (!editingCategory || !user?.id) return;
 
-    const isDefault = defaultCategories.includes(editingCategory);
-    let updatedCustomCategories = [...customCategories];
-    let updatedExcluded = [...excludedCategories];
-    
-    if (isDefault) {
-      // Se for padrão, excluir da lista padrão e adicionar como customizada com novo nome
-      if (!updatedExcluded.includes(editingCategory)) {
-        updatedExcluded.push(editingCategory);
-      }
-      // Adicionar nova categoria customizada
-      if (!updatedCustomCategories.includes(data.name)) {
-        updatedCustomCategories.push(data.name);
-      }
-    } else {
-      // Se já for customizada, atualizar na lista
-      const index = updatedCustomCategories.indexOf(editingCategory);
-      if (index !== -1) {
-        updatedCustomCategories[index] = data.name;
-      }
+    // Verificar se o novo nome já existe
+    if (data.name !== editingCategory && allCategories.includes(data.name)) {
+      toast({
+        title: 'Categoria já existe',
+        description: 'Esta categoria já está cadastrada.',
+        variant: 'destructive',
+      });
+      return;
     }
-    
-    setCustomCategories(updatedCustomCategories);
-    setExcludedCategories(updatedExcluded);
-    localStorage.setItem(`product-categories-${user.id}`, JSON.stringify(updatedCustomCategories));
-    localStorage.setItem(`excluded-product-categories-${user.id}`, JSON.stringify(updatedExcluded));
+
+    // Atualizar na lista de customizadas
+    const index = customCategories.indexOf(editingCategory);
+    if (index !== -1) {
+      const updatedCustomCategories = [...customCategories];
+      updatedCustomCategories[index] = data.name;
+      setCustomCategories(updatedCustomCategories);
+      localStorage.setItem(`product-categories-${user.id}`, JSON.stringify(updatedCustomCategories));
+      // Disparar evento customizado para atualizar outros componentes
+      window.dispatchEvent(new Event('categoryUpdated'));
+    }
     
     toast({
       title: 'Categoria atualizada',
@@ -178,25 +172,12 @@ export const ManageProductCategoriesModal = ({
   const handleDelete = (category: string) => {
     if (!user?.id) return;
 
-    const isDefault = defaultCategories.includes(category);
-    let updatedExcluded = [...excludedCategories];
-    let updatedCustomCategories = [...customCategories];
-    
-    if (isDefault) {
-      // Se for padrão, adicionar à lista de excluídas
-      if (!updatedExcluded.includes(category)) {
-        updatedExcluded.push(category);
-      }
-    } else {
-      // Se for customizada, remover da lista de customizadas
-      updatedCustomCategories = updatedCustomCategories.filter(c => c !== category);
-      setCustomCategories(updatedCustomCategories);
-      localStorage.setItem(`product-categories-${user.id}`, JSON.stringify(updatedCustomCategories));
-    }
-    
-    // Atualizar lista de excluídas
-    setExcludedCategories(updatedExcluded);
-    localStorage.setItem(`excluded-product-categories-${user.id}`, JSON.stringify(updatedExcluded));
+    // Remover da lista de customizadas
+    const updatedCustomCategories = customCategories.filter(c => c !== category);
+    setCustomCategories(updatedCustomCategories);
+    localStorage.setItem(`product-categories-${user.id}`, JSON.stringify(updatedCustomCategories));
+    // Disparar evento customizado para atualizar outros componentes
+    window.dispatchEvent(new Event('categoryUpdated'));
     
     toast({
       title: 'Categoria excluída',

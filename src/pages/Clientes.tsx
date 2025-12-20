@@ -25,6 +25,7 @@ const Clientes = () => {
   const [selectedClient, setSelectedClient] = useState<ClientRow | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeLetter, setActiveLetter] = useState<string | null>(null);
+  const [showUnbookedOnly, setShowUnbookedOnly] = useState(false);
 
   const { data: clients = [], isLoading } = useQuery<ClientRow[]>({
     queryKey: ['clients', user?.id],
@@ -42,6 +43,29 @@ const Clientes = () => {
     },
     enabled: !!user?.id
   });
+
+  // Buscar agendamentos para identificar clientes com agendamentos
+  const { data: appointments = [] } = useQuery({
+    queryKey: ['appointments-for-clients', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('client_id')
+        .eq('user_id', user.id)
+        .not('client_id', 'is', null);
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id
+  });
+
+  // IDs de clientes que têm agendamentos
+  const clientIdsWithAppointments = useMemo(() => {
+    return new Set(appointments.map(apt => apt.client_id).filter(Boolean));
+  }, [appointments]);
 
   const deleteClientMutation = useMutation({
     mutationFn: async (clientId: string) => {
@@ -101,12 +125,18 @@ const Clientes = () => {
 
       if (!matchesSearch) return false;
 
+      // Filtro de "Não agendados"
+      if (showUnbookedOnly) {
+        const hasAppointment = clientIdsWithAppointments.has(client.id);
+        if (hasAppointment) return false;
+      }
+
       if (!activeLetter) return true;
 
       const firstLetter = normalizeLetter(name);
       return firstLetter === activeLetter;
     });
-  }, [sortedClients, normalizedQuery, digitsQuery, activeLetter, normalizeLetter]);
+  }, [sortedClients, normalizedQuery, digitsQuery, activeLetter, normalizeLetter, showUnbookedOnly, clientIdsWithAppointments]);
 
   const availableLetters = useMemo(() => {
     const letters = new Set<string>();
@@ -170,6 +200,13 @@ const Clientes = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+        <Button
+          variant={showUnbookedOnly ? 'default' : 'outline'}
+          onClick={() => setShowUnbookedOnly(!showUnbookedOnly)}
+          className="whitespace-nowrap"
+        >
+          {showUnbookedOnly ? '✓ ' : ''}Não Agendados
+        </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -200,7 +237,7 @@ const Clientes = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            Clientes Cadastrados ({filteredClients.length})
+            {showUnbookedOnly ? 'Clientes Não Agendados' : 'Clientes Cadastrados'} ({filteredClients.length})
           </CardTitle>
         </CardHeader>
         <CardContent>

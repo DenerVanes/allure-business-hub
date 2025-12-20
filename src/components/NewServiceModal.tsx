@@ -168,22 +168,8 @@ export const NewServiceModal = ({ open, onOpenChange, onServiceCreated }: NewSer
     enabled: !!user?.id
   });
 
-  // Categorias padrão
-  const defaultCategories = [
-    'Cabelo',
-    'Unha',
-    'Sobrancelha',
-    'Depilação',
-    'Massagem',
-    'Estética',
-    'Outros'
-  ];
-
-  // Combinar categorias padrão com as personalizadas
-  const allCategories = [
-    ...defaultCategories,
-    ...customCategories.map(cat => cat.name)
-  ];
+  // Usar apenas categorias cadastradas pelo usuário no banco de dados
+  const allCategories = customCategories.map(cat => cat.name);
 
   const form = useForm<ServiceFormData>({
     resolver: zodResolver(serviceSchema),
@@ -368,13 +354,25 @@ export const NewServiceModal = ({ open, onOpenChange, onServiceCreated }: NewSer
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {allCategories.map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {category}
-                        </SelectItem>
-                      ))}
+                      {allCategories.length === 0 ? (
+                        <div className="px-2 py-6 text-center text-sm text-gray-500">
+                          <p className="mb-2">Nenhuma categoria cadastrada.</p>
+                          <p>Cadastre categorias em "Gerenciar Categorias" primeiro.</p>
+                        </div>
+                      ) : (
+                        allCategories.map((category) => (
+                          <SelectItem key={category} value={category}>
+                            {category}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
+                  {allCategories.length === 0 && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      ⚠️ Você precisa cadastrar pelo menos uma categoria antes de criar um serviço.
+                    </p>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}

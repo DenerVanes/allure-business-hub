@@ -55,32 +55,14 @@ export function EditProductModal({ open, onOpenChange, product }: EditProductMod
   const [selectedServices, setSelectedServices] = useState<Record<string, ServiceConsumption>>({});
   const [showServiceSection, setShowServiceSection] = useState(false);
 
-  // Categorias padrão
-  const defaultCategories = [
-    'Cabelo',
-    'Unha',
-    'Pele',
-    'Maquiagem',
-    'Acessórios',
-    'Equipamentos',
-    'Produtos Químicos',
-    'Higiene',
-    'Geral'
-  ];
-
-  // Buscar categorias disponíveis (padrão + customizadas)
-  const [availableCategories, setAvailableCategories] = useState<string[]>(defaultCategories);
+  // Buscar categorias disponíveis (apenas as cadastradas pelo usuário)
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   
   useEffect(() => {
     if (user?.id && open) {
       const stored = localStorage.getItem(`product-categories-${user.id}`);
       const customCategories = stored ? JSON.parse(stored) : [];
-      const storedExcluded = localStorage.getItem(`excluded-product-categories-${user.id}`);
-      const excludedCategories = storedExcluded ? JSON.parse(storedExcluded) : [];
-      
-      const visibleDefault = defaultCategories.filter(cat => !excludedCategories.includes(cat));
-      const visibleCustom = customCategories.filter((cat: string) => !excludedCategories.includes(cat));
-      setAvailableCategories([...visibleDefault, ...visibleCustom]);
+      setAvailableCategories(customCategories);
     }
   }, [user?.id, open]);
 

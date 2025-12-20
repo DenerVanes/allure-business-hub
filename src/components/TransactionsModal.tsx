@@ -340,8 +340,45 @@ const TransactionsModal = ({
                     const productCategory = product.category || 'Geral';
                     displaySecondary = `Produtos - ${productCategory}`;
                   } else if (isCardFee && appointment && clientName) {
-                    // Despesa de taxa de maquininha: cliente - Taxa de maquininha como principal
-                    displayPrimary = `${clientName} - Taxa de maquininha`;
+                    // Despesa de taxa de maquininha: extrair método de pagamento da descrição
+                    // Formato da descrição: "Taxa da maquininha\nDébito – Agendamento [Cliente]"
+                    // ou "Taxa da maquininha\nCrédito – Agendamento [Cliente]"
+                    let paymentMethod = '';
+                    if (transaction.description) {
+                      // Tentar extrair de múltiplas formas
+                      const desc = transaction.description;
+                      
+                      // Formato novo: "Taxa da maquininha\nDébito – Agendamento [Cliente]"
+                      const lines = desc.split('\n');
+                      if (lines.length > 1) {
+                        const secondLine = lines[1] || '';
+                        if (secondLine.includes('Débito')) {
+                          paymentMethod = 'Débito';
+                        } else if (secondLine.includes('Crédito')) {
+                          paymentMethod = 'Crédito';
+                        } else if (secondLine.includes('Cartão')) {
+                          paymentMethod = 'Cartão';
+                        }
+                      }
+                      
+                      // Se não encontrou, tentar buscar diretamente na descrição completa
+                      if (!paymentMethod) {
+                        if (desc.includes('Débito')) {
+                          paymentMethod = 'Débito';
+                        } else if (desc.includes('Crédito')) {
+                          paymentMethod = 'Crédito';
+                        } else if (desc.includes('Cartão')) {
+                          paymentMethod = 'Cartão';
+                        }
+                      }
+                    }
+                    
+                    // Montar texto principal com método de pagamento
+                    if (paymentMethod) {
+                      displayPrimary = `${clientName} - Taxa de maquininha (${paymentMethod})`;
+                    } else {
+                      displayPrimary = `${clientName} - Taxa de maquininha`;
+                    }
                     // Sem secundário necessário
                   } else if (isIncome && appointment && clientName) {
                     // Receita de agendamento finalizado: cliente - serviço como principal
