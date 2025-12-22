@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Settings, User, Building, Save, Share2, Copy, Check, Clock } from 'lucide-react';
+import { Settings, User, Building, Save, Share2, Copy, Check, Clock, Sparkles, ExternalLink } from 'lucide-react';
 import { BusinessHoursConfig } from '@/components/BusinessHoursConfig';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +14,8 @@ import { toast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { generateSlug } from '@/utils/slugUtils';
+import { useNavigate } from 'react-router-dom';
 
 const profileSchema = z.object({
   business_name: z.string().min(1, 'Nome da empresa é obrigatório'),
@@ -45,8 +47,10 @@ interface ExtendedProfile {
 const Configuracoes = () => {
   const { user, signOut } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [copiedLink, setCopiedLink] = useState(false);
   const [publicLink, setPublicLink] = useState('');
+  const [presentationLink, setPresentationLink] = useState('');
 
   const { data: profile } = useQuery({
     queryKey: ['user-profile', user?.id],
@@ -99,22 +103,71 @@ const Configuracoes = () => {
       // Primeiro, verificar se o perfil já existe
       const { data: existingProfile } = await supabase
         .from('profiles')
-        .select('id')
+        .select('id, slug, business_name')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
+
+      let finalSlug = existingProfile?.slug || null;
+
+      // Gerar slug apenas se:
+      // 1. Não tem slug ainda, OU
+      // 2. O nome do negócio mudou
+      const nomeMudou = existingProfile && existingProfile.business_name !== data.business_name;
+      const precisaGerarSlug = !finalSlug || nomeMudou;
+
+      if (precisaGerarSlug && data.business_name) {
+        const autoSlug = generateSlug(data.business_name);
+        
+        // Verificar se o slug já existe para outro usuário
+        const { data: existingSlug } = await supabase
+          .from('profiles')
+          .select('user_id, slug')
+          .eq('slug', autoSlug)
+          .maybeSingle();
+
+        // Se o slug existe e é de outro usuário, adiciona sufixo
+        finalSlug = autoSlug;
+        if (existingSlug && existingSlug.user_id !== user.id) {
+          // Buscar slug disponível adicionando sufixo
+          let counter = 1;
+          let slugExists = true;
+          while (slugExists && counter < 100) {
+            const candidateSlug = `${autoSlug}-${counter}`;
+            const { data: check } = await supabase
+              .from('profiles')
+              .select('user_id')
+              .eq('slug', candidateSlug)
+              .maybeSingle();
+            
+            if (!check || check.user_id === user.id) {
+              finalSlug = candidateSlug;
+              slugExists = false;
+            } else {
+              counter++;
+            }
+          }
+        }
+      }
 
       if (existingProfile) {
         // Atualizar perfil existente
+        const updateData: any = {
+          business_name: data.business_name,
+          full_name: data.full_name,
+          phone: data.phone,
+          address: data.address || null,
+          about: data.about || null,
+          updated_at: new Date().toISOString(),
+        };
+        
+        // Só atualiza o slug se foi gerado um novo
+        if (finalSlug && finalSlug !== existingProfile.slug) {
+          updateData.slug = finalSlug;
+        }
+        
         const { error } = await supabase
           .from('profiles')
-          .update({
-            business_name: data.business_name,
-            full_name: data.full_name,
-            phone: data.phone,
-            address: data.address || null,
-            about: data.about || null,
-            updated_at: new Date().toISOString(),
-          })
+          .update(updateData)
           .eq('user_id', user.id);
 
         if (error) {
@@ -132,6 +185,7 @@ const Configuracoes = () => {
             phone: data.phone,
             address: data.address || null,
             about: data.about || null,
+            slug: finalSlug || generateSlug(data.business_name || 'salon'),
           });
 
         if (error) {
@@ -167,10 +221,26 @@ const Configuracoes = () => {
       const link = `${window.location.origin}/agendar/${profile.slug}`;
       console.log('Link público de agendamento montado:', link);
       setPublicLink(link);
+      setPresentationLink(`${window.location.origin}/v/${profile.slug}`);
     }
     // Não limpa o publicLink quando profile está undefined temporariamente
     // Isso mantém o card visível durante o recarregamento
   }, [profile?.slug]);
+
+  const { data: presentation } = useQuery({
+    queryKey: ['salon-presentation-admin', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from('salon_presentation')
+        .select('is_active, title')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
 
   const handleCopyPublicLink = async () => {
     if (!publicLink) {
@@ -378,6 +448,66 @@ const Configuracoes = () => {
                 )}
               </Button>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Tela de Apresentação (Vitrine) */}
+      {(presentationLink || profile?.slug) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              Tela de Apresentação (Vitrine)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">
+                  Crie uma página estilo Linktree antes do agendamento.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Status: {presentation?.is_active ? 'Ativa' : 'Inativa'}
+                </p>
+              </div>
+              <Button variant="outline" onClick={() => navigate('/configuracoes/apresentacao')}>
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Abrir editor
+              </Button>
+            </div>
+
+            {presentation?.is_active && (
+              <div className="space-y-2">
+                <Label>Link da vitrine</Label>
+                <div className="flex gap-2">
+                  <Input value={presentationLink} readOnly className="flex-1" />
+                  <Button
+                    type="button"
+                    variant={copiedLink ? "default" : "outline"}
+                    onClick={async () => {
+                      if (!presentationLink) return;
+                      await navigator.clipboard.writeText(presentationLink);
+                      setCopiedLink(true);
+                      setTimeout(() => setCopiedLink(false), 2000);
+                      toast({ title: 'Link copiado!', description: 'Vitrine copiada para a área de transferência.' });
+                    }}
+                  >
+                    {copiedLink ? (
+                      <>
+                        <Check className="h-4 w-4 mr-2" />
+                        Copiado
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copiar
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

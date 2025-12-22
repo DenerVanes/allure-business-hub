@@ -26,6 +26,8 @@ import TermosUso from "./pages/TermosUso";
 import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
 import AgendamentoPublico from "./pages/AgendamentoPublico";
 import NotFound from "./pages/NotFound";
+import SalonPresentation from "./pages/SalonPresentation";
+import PresentationSettings from "./pages/PresentationSettings";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +53,7 @@ const App = () => (
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/termos-de-uso" element={<TermosUso />} />
               <Route path="/politica-de-privacidade" element={<PoliticaPrivacidade />} />
+              <Route path="/v/:slug" element={<SalonPresentation />} />
               <Route path="/agendar/:slug" element={<AgendamentoPublico />} />
               <Route path="/" element={<AppLayout />}>
                 <Route index element={<Index />} />
@@ -61,6 +64,7 @@ const App = () => (
                 <Route path="clientes" element={<Clientes />} />
                 <Route path="colaboradores" element={<Colaboradores />} />
                 <Route path="configuracoes" element={<Configuracoes />} />
+                <Route path="configuracoes/apresentacao" element={<PresentationSettings />} />
                 <Route path="gestao-clientes" element={<GestaoClientes />} />
                 <Route path="admin/planos" element={<GerenciarPlanos />} />
                 <Route path="funil-leads" element={<FunilLeads />} />
